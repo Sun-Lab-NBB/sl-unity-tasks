@@ -1,0 +1,35 @@
+{
+    "cues": [
+      {
+        "name": "Gray",
+        "length": 3.0
+      },
+      {
+        "name": "A",
+        "length": 3.0
+      },
+      {
+        "name": "B",
+        "length": 3.0
+      },
+      {
+        "name": "C",
+        "length": 3.0
+      },
+      {
+        "name": "D",
+        "length": 3.0
+      }
+    ],
+    "segments": [
+      {
+        "name": "Segment_abcd",
+        "cue_sequence": ["A", "Gray", "B", "Gray", "C", "Gray", "D", "Gray"]
+      }
+    ],
+    "padding": {
+        "name": "Padding"
+    },
+    "corridor_spacing": 2.0,
+    "segments_per_corridor": 3
+}
