@@ -162,9 +162,9 @@
       "url": "https://packages.unity.com"
     },
     "gimbl": {
-      "version": "file:/home/cybermouse/Desktop/unityPackages/Gimbl-master",
+      "version": "file:gimbl",
       "depth": 0,
-      "source": "local",
+      "source": "embedded",
       "dependencies": {}
     },
     "com.unity.modules.ai": {
