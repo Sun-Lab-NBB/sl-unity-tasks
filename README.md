@@ -44,7 +44,7 @@ ___
 
 1. From the Unity Hub, select add project from disk and navigate to the local folder containing this repository. <br> <img src="imgs/AddProjectFromDisk.png" width="200">
 
-1. If the correct Unity version is not installed, then there will be a warning next to the project name in the Unity Hub. Click on the warning and install the recommended Unity version. <br> <img src="imgs/InstallRecommendedVersion.png" width="200">
+1. If the correct Unity version is not installed, then there will be a warning next to the project name in the Unity Hub. Click on the warning and install the recommended Unity version. <br> <img src="imgs/InstallRecommendedVersion.png" width="400">
 
 
 
