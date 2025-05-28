@@ -46,7 +46,13 @@ ___
 
 1. If the correct Unity version is not installed, then there will be a warning next to the project name in the Unity Hub. Click on the warning and install the recommended Unity version. <br> <img src="imgs/InstallRecommendedVersion.png" width="400">
 
+After these steps, the created Unity project should compile and run without errors.
 
+___
+
+## Usage
+
+The tasks in this Unity project
 
 Create a GIMBL Unity Project. Do this by following the instructions given in the __Quick Start__ portion of the GIMBL readme, again found here: https://github.com/winnubstj/Gimbl. Specifically, complete the __Import Gimbl into Unity__ and the __Setting up the Actor__ subsections.
 
@@ -83,10 +89,7 @@ The last part of the tutorial involves setting the path of the controller. This 
 
   <img src="imgs/chelseaTask1_before.png" width="300">  <img src="imgs/chelseaTask1_after.png" width="300">
   
-  Instead of saying "Rod", it will say whatever you named your actor.
-___
-
-## Usage
+  Instead of saying "Rod", it will say whatever you named your actor. 
 
 After connecting the actor and the task, you can run the task by pressing the play button. To configure the task for experimental use, you will need to set some additional parameters:
 
