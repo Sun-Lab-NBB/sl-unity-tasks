@@ -1,9 +1,11 @@
-# Gimbl-Tasks
-A set of tasks for VR animal experiments in Unity using the GIMBL package.
+# Unity-Tasks
+A Unity project for making infinite corridors for virtual reality mouse experiments. 
 
 ## Detailed Description
 
-This repository contains .unitypackage files which represent GIMBL tasks. A GIMBL task is a Unity prefab of a linear maze. After making a GIMBL Unity project, a GIMBL task can be imported, added to the scene, and run.
+This repository contains the files necessary to display an infinite corridor to a mouse running on a linear treadmill. Treadmill movement is inputted to the system via MQTT channels, and the visual ouput is displayed to the mouse via a configurable three screen setup. 
+
+This project is an extension of the GIMBL repository, a more flexible package for creating Unity VR tasks. On top of the GIMBL package, this project contains additional tasks and a simple method for modifying tasks and creating new tasks. A key advantage over the original GIMBL repository is that this repository can make corridors that have probabilistic transitions.
 
 The original GIMBL repository can be found here:
 https://github.com/winnubstj/Gimbl
@@ -33,6 +35,14 @@ See dependencies of https://github.com/winnubstj/Gimbl. No additional dependenci
 ___
 
 ## Installation
+
+1. Follow all steps from the [Install Instructions](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#install-instructions) section of the original GIMBL repository. Most importantly, install the MQTT broker.
+
+1. Clone this repository to a folder
+
+1. If you haven't already, install the [Unity hub](https://unity.com/download).
+
+1. From the Unity Hub, install 
 
 
 Create a GIMBL Unity Project. Do this by following the instructions given in the __Quick Start__ portion of the GIMBL readme, again found here: https://github.com/winnubstj/Gimbl. Specifically, complete the __Import Gimbl into Unity__ and the __Setting up the Actor__ subsections.
