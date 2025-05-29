@@ -23,6 +23,7 @@ ___
 - [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Task Creation](#task-creation)
 - [Developers](#developers)
 - [Authors](#authors)
 - [License](#license)
@@ -73,6 +74,75 @@ ___
 ___
 
 ## Task Creation
+
+The key feature of this repo is the task creator, a system for quickly making any infinite corridor with probabilistic transitions. 
+
+### Specification
+
+A task is specified by segments and the transition probabilities between then. Each segment is split into cues, which are portions of the wall which have different colors/textures. Any cue graph can be represented by a set of segments. For example, the cue graph below can be represented by two segments, between which there are uniform transition probabilities.
+
+<img src="imgs/cue_graph.png" width="100">
+
+Segment 1: A B C 
+
+Segment 2: A B D C
+
+There are additional parameters for a task specification, including:
+
+- Length of each cue
+- Length of gray regions
+- Cue patterns
+- Wall patterns
+- Floor patterns
+- Reward Locations
+
+### Implementation
+
+To actually create a task and realize a specification, you need to make two things: a Unity prefab for each segment and meta data json file. The simplest way to create these is by starting with already existing examples and making modifications to them as needed.
+
+#### Segment Prefabs
+
+All segment prefabs must be placed in the directory Assets/InfiniteCorridorTask/Prefabs. Double clicking on a prefab opens up Unity's prefab editor. You know you are editing the prefab and not a GameObject when you see a blue background in the scene.
+
+<img src="imgs/segment_prefab.png" width="500">
+
+Two key components of the prefab are the reward location and the reset location. The mouse recieves a reward if they lick in a reward region. This lick message must be transmitted to Unity over the MQTT protocol. However, after successfully triggering a reward, the mouse must pass through a reset location in order to get a reward at any other reward location. 
+
+Once you have created a prefab for each segment, you need to make an additional prefab for padding. This should just be a long empty corridor. The padding prefab is used during task creation to give the illusion that the corridor is infinite.
+
+
+#### Meta Data Json File
+The task meta data file, also referred to as the maze specification file ties the segment prefabs together and is requisite for creating and running tasks. The structure of such a file is shown below, followed by an example. This structure of this file should be matched exactly.
+
+<img src="imgs/maze_spec.png" width="500">
+
+### Metadata file schema
+
+- **cues** — *array\<Cue>*
+  - Master list of all cues from any segment.
+  - The order of this list determines the integer id's assigned to each cue during logging.
+  - **Cue**
+    - **name** *(string)* – Unique label for the cue (e.g., `"A"`, `"Gray"`).  
+    - **length** *(number, Unity units)* – How much wall space the cue takes up.
+
+- **segments** — *array\<Segment>*
+  - List of all segments.
+  - **Segment**
+    - **name** *(string)* – Name of the segment prefab (e.g., `"Segment_abc"`). Must match the file name in Assets/InfiniteCorridorTask/Prefabs.
+    - **cue_sequence** *(string[])* – Ordered list of cues in segment. The sum of the lengths of the cues in this list must match the total length of the segment prefab.
+    - **transition_probabilities** *(number[])* – Probabilities of choosing each possible successor segment. Probabilities must sum to 1. The length of this array must correspond to the total number of segments. This field is optional; if unspecified, will assume uniform transitions.
+
+- **padding** — *object*
+  - Segment with no cues.
+  - **name** *(string)* – the name of the padding prefab in Assets/InfiniteCorridorTask/Prefabs.
+
+- **corridor_spacing** *(number, meters or units)*  
+  Distance inserted between consecutive corridors when laying them out in the world.
+
+- **segments_per_corridor** *(integer)*  
+  How many segments are concatenated to form one complete corridor. Setting this to 3 is generally sufficient to give the illusion that the corridor is infinite.
+
+---
 
 ___
 
