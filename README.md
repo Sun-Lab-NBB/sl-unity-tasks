@@ -63,7 +63,7 @@ ___
     - Must Lick - whether or not the mouse has to actually lick to get the reward. If deselected, the mouse gets the reward by just entering the reward region.
     - Visible Marker - whether or not the mouse can see the reward location. Could be useful for testing or pretraining but should be disabled during experiment.
     - Actor - a link to the actor object representing the mouse. This enables the maze to teleport the mouse to keep the illusion of an infinite corridor.
-    - Track Length - how much track is pregenerated and logged. This is relevant for tasks with random transitions. If the mouse traverses this length, the task continues with on the fly decisions about which segment the mouse enters next.
+    - Track Length - how much track is pregenerated and logged. This is relevant for tasks with random transitions. If the mouse traverses this length, the task continues with on the fly decisions about which segment the mouse enters next. Track length is in Unity units, and 1 unity unit is 10cm.
     - Track seed - A seed for the creation of random transitions. This can be useful if you want to run many experiments with the exact same pattern of segments. If set to -1, then no seed is used and transitions are truly random. 
     - Meta_data_path - A path to the meta data file associated with the task. Since the meta_data path is global, if you are using a computer that the task wasn't created on, this path will be invalid. To fix this, you can manually change this field or recreate the task. [Task Creation](#task-creation) explains the purpose of meta data files and how to create a task.
 
@@ -144,75 +144,23 @@ Here is an example specification file:
 <img src="imgs/maze_spec.png" width="400">
 
 
-### Creation
+### CreateTask Tab
 Once you have created the task specification file, place it in Assets/InfiniteCorridorTask/Tasks. To create the task prefab, select CreateTask->New Task. This will open up a file window within which you can select the meta data json file. It will then open a second prompt allowing you to name and save the prefab. The task prefab can now be put into the scene and [run](#usage).
 
 <img src="imgs/createTask.png" width="700">
 
 ___
 
-Create a GIMBL Unity Project. Do this by following the instructions given in the __Quick Start__ portion of the GIMBL readme, again found here: https://github.com/winnubstj/Gimbl. Specifically, complete the __Import Gimbl into Unity__ and the __Setting up the Actor__ subsections.
-
-Download the .unitypackage file corresponding to the task you wish to run.
-
-Next, complete the __Setting up the task__ portion of the readme. Follow the same instructions in the readme but instead of importing InfiniteCorridorTask.unitypackage, import the downloaded .unitypackage file.
-
-You should now see the prefab object in your assets folder. Just as the tutorial specifies, drag the prefab into the hierarchy window. The prefab will be within a file called "InfiniteCorrridorTask". Make sure you don't drag the prefab directly into the scene because then the task will have some offset. 
-
-Assets tab with prefab:
-
-  <img src="imgs/assets_tab.png" width="700">
-
-Prefab:
-
-  <img src="imgs/prefab.png" width="150">
-
-Hierarchy Window before and after adding task:
-
-  <img src="imgs/hierarchy_window_before.png" width="300">  <img src="imgs/hierarchy_window_after.png" width="300">
-
-The last part of the tutorial involves setting the path of the controller. This may or may not be necessary depending on the specific task, see below.
-
-### Task Specific Instructions
-* __IvanTask_1:__ This task has a tunnel path. Thus, after dragging the prefab into the hierarchy window, you need to set the path of the controller to TunnelPath and turn on the Loop Path parameter. These steps can be done from the Edit dropdown menu of the Controller panel, found in the Actors window. See the __Setting the path__ section from the tutorial.
-
-* __ChelseaTask_1:__ This task does not have a tunnel path. Thus, leave path unspecified and the Loop Path parameter turned off. In order to connect the actor to the path, do the following:
-
-  * In the hierarchy window, click on the task prefab.
-  * Click on the Inspector tab.
-  * You should see a C# script called Task. This script should have a parameter called Actor. Set the value of this parameter to the actor object
-
-  Inspector Window before and after setting the actor object:
-
-  <img src="imgs/chelseaTask1_before.png" width="300">  <img src="imgs/chelseaTask1_after.png" width="300">
-  
-  Instead of saying "Rod", it will say whatever you named your actor. 
-
-After connecting the actor and the task, you can run the task by pressing the play button. To configure the task for experimental use, you will need to set some additional parameters:
-
-  * Change the controller from a simulated linear treadmill to a linear treadmill.
-  * Turn on the Must Lick parameter (see __Change the task parameters__ from the tutorial)
-  * Turn off the Visible Marker parameter (see __Change the task parameters__ from the tutorial)
-
-___
-
 
 ## Developers
 
-To modify a task, use a Unity project as a workspace. 
+* Be careful about modifying segment prefabs. Even after task creation, the task prefab relies on the existence of the segment prefabs. This means that if you modify the segment prefabs later, it will modify all tasks using that prefab. If you want to make small changes to many tasks, use the same segment prefab multiple times. If you want to make a modification to one task without changing other tasks that use the same prefab, make a new prefab that is a duplicate of the old and modfiy the json meta files accordingly. 
 
-* First follow the above installation instructions to install GIMBL in a Unity project and import the task you want to modify. 
+* Most changes to task structure can be implemented by just modifying the segment prefabs. However, be careful if modifying a prefab means that a specification file is no longer correct. The specification file has a lot of information needs to match the prefabs, so it is good practice to double check the specification file after modifying. After modifying it is good practice to recreate the task from the spec file. If you name it the same thing as the original, it will jsut replace the old task prefab.
 
-* However, instead of dragging the prefab into the hierarchy window, just double cick on it. This will replace the hierarchy window for the scene with a hierarchy window for the prefab. You will know you are editing the prefab itself and not just a copy of it if the game view has a blue background:
- <img src="imgs/modifying_prefab.png" width="600">
+* The [Usage](#usage) section gives explains how to put a task into a scene and run the scene. However, when running experiments, it may be cumbersome to do this many times if you need to switch between tasks. One way to solve this is to save the scene once you have a good configuration. When you want to start a new experiment, you can just open the scene and run. Note you may still need to press the Show Full Screen Views button.
 
-* Make any changes to the structure of the maze by modifying this prefab. Make any changes to the control logic of the maze by modifying the Task script.
-
-* Once you're done with the modifications, you can export the modified assets as a new Unity package:
-  * In the Project window, select all the assets related to the modified version of the package. (select the InfiniteCorridorTask folder)
-  * Right-click on the selected assets and choose Export Package.
-  * In the Export Package window, ensure that Include Dependencies is checked (this ensures that all dependent files are included).
-  * Choose a location and name for the package and save it to disk. It will be saved as a new .unitypackage
+* Be very careful when pushing and pulling code with Github. Merging branch conflicts is very difficult with Unity, and will likely force you to just pick which branch to change. Try to avoid merge conflicts and focus on making changes to assets (prefabs) while avoiding making large changes to the scene. Additonally, it is good practice to close the Unity project before pushing/pulling.
 ___
 
 ## Authors
