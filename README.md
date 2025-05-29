@@ -53,7 +53,7 @@ ___
 
 ## Usage
 
-1. When loading the Unity Project you should see the a host of GameObjects in the hierarchy window including Actors, Controllers, and Paths. Additionally, you should see tabs next to the inspector with names Settings, Actors, and Displays. If you do not see these tabs, you can reactivate them by selecting Window -> Gimbl. <br> <img src="imgs/gimbl_tabs.png" width="400">
+1. When opening the Unity Project you should see the a host of GameObjects in the hierarchy window including Actors, Controllers, and Paths. Additionally, you should see tabs next to the inspector with names Settings, Actors, and Displays. If you do not see these tabs, you can reactivate them by selecting Window -> Gimbl. <br> <img src="imgs/gimbl_tabs.png" width="400">
 
 1. Follow the [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section from the original GIMBL repository. When creating the controller, choose Linear Treadmill instead of Simulated Linear Treadmill. The Simulated Linear Treadmill is useful for testing but when actually running the experiment you want the Linear Treadmill because it responds only to MQTT messages.
 
@@ -75,7 +75,7 @@ ___
 
 ## Task Creation
 
-The key feature of this repo is the task creator, a system for quickly making any infinite corridor with probabilistic transitions. 
+The key feature of this repository is the task creator, a system for quickly making any infinite corridor with probabilistic transitions. 
 
 ### Specification
 
@@ -106,17 +106,13 @@ All segment prefabs must be placed in the directory Assets/InfiniteCorridorTask/
 
 <img src="imgs/segment_prefab.png" width="500">
 
-Two key components of the prefab are the reward location and the reset location. The mouse recieves a reward if they lick in a reward region. This lick message must be transmitted to Unity over the MQTT protocol. However, after successfully triggering a reward, the mouse must pass through a reset location in order to get a reward at any other reward location. 
+Two key components of the prefab are the reward location and the reset location. The mouse recieves a reward if they lick in a reward region. This lick message must be transmitted to Unity over the MQTT protocol. However, after successfully triggering a reward, the mouse must pass through a reset location in order to get any more reward.
 
 Once you have created a prefab for each segment, you need to make an additional prefab for padding. This should just be a long empty corridor. The padding prefab is used during task creation to give the illusion that the corridor is infinite.
 
 
 #### Meta Data Json File
-The task meta data file, also referred to as the maze specification file ties the segment prefabs together and is requisite for creating and running tasks. The structure of such a file is shown below, followed by an example. This structure of this file should be matched exactly.
-
-<img src="imgs/maze_spec.png" width="500">
-
-### Metadata file schema
+The task meta data file, also referred to as the maze specification file, ties the segment prefabs together and is requisite for creating and running tasks. The structure of such a file is shown below. This structure should be matched exactly.
 
 - **cues** — *array\<Cue>*
   - Master list of all cues from any segment.
@@ -142,7 +138,16 @@ The task meta data file, also referred to as the maze specification file ties th
 - **segments_per_corridor** *(integer)*  
   How many segments are concatenated to form one complete corridor. Setting this to 3 is generally sufficient to give the illusion that the corridor is infinite.
 
----
+
+Here is an example specification file:
+
+<img src="imgs/maze_spec.png" width="400">
+
+
+### Creation
+Once you have created the task specification file, place it in Assets/InfiniteCorridorTask/Tasks. To create the task prefab, select CreateTask->New Task. This will open up a file window within which you can select the meta data json file. It will then open a second prompt allowing you to name and save the prefab. The task prefab can now be put into the scene and [run](#usage).
+
+<img src="imgs/createTask.png" width="700">
 
 ___
 
@@ -166,7 +171,7 @@ Hierarchy Window before and after adding task:
 
   <img src="imgs/hierarchy_window_before.png" width="300">  <img src="imgs/hierarchy_window_after.png" width="300">
 
-The last part of the tutorial involves setting the path of the controller. This may or may not be necessary depending on the specific task, see below.  
+The last part of the tutorial involves setting the path of the controller. This may or may not be necessary depending on the specific task, see below.
 
 ### Task Specific Instructions
 * __IvanTask_1:__ This task has a tunnel path. Thus, after dragging the prefab into the hierarchy window, you need to set the path of the controller to TunnelPath and turn on the Loop Path parameter. These steps can be done from the Edit dropdown menu of the Controller panel, found in the Actors window. See the __Setting the path__ section from the tutorial.
