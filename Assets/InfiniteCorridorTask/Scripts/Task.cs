@@ -31,11 +31,11 @@ public class Task : MonoBehaviour
 
     // The track is infinite but need to specify how many random segments keep track of. The 
     // track length should always be an overestimate to how far the mouse is actually going to run.
-    public float trackLength = 15000; 
+    public float trackLength = 15000;
 
     // A seed for creation of random segments, a specific seed will always create the same pattern of cues.
     // If trackSeed is -1, then no see will be used.
-    public int trackSeed = -1; 
+    public int trackSeed = -1;
 
     // For keeping track of where in the random sequence the mouse is.
     private int current_segment_index;
@@ -52,7 +52,10 @@ public class Task : MonoBehaviour
         public byte[] cue_sequence;
     }
     private MQTTChannel cueSequenceTrigger;
-    private MQTTChannel<SequenceMsg> cueSequenceChannel; 
+    private MQTTChannel<SequenceMsg> cueSequenceChannel;
+
+    private MQTTChannel mustLickTrue;
+    private MQTTChannel mustLickFalse;
 
     private MQTTChannel showDisplay;
     private MQTTChannel blankDisplay;
@@ -100,11 +103,11 @@ public class Task : MonoBehaviour
 
         int[] corridor_segments = new int[depth];
         float cur_corridor_x = 0;
-        float corridor_x_shift = maze_spec.corridor_spacing;  
+        float corridor_x_shift = maze_spec.corridor_spacing;
         for (int i = 0; i < Mathf.Pow(n_segments, depth); i++)
         {
             // Generate the combination for the current index
-            for (int j = 0; j < depth; j++) 
+            for (int j = 0; j < depth; j++)
             {
                 corridor_segments[j] = i / (int)Mathf.Pow(n_segments, depth - j - 1) % n_segments;
                 // corridor_segments_reversed[depth - j - 1] = corridor_segments[j];
@@ -112,7 +115,7 @@ public class Task : MonoBehaviour
 
             corridorMap[string.Join("-", corridor_segments)] = (cur_corridor_x, segment_lengths[corridor_segments[0]]);
             cur_corridor_x += corridor_x_shift;
-        }       
+        }
 
         // Create random sequence of segments
         (segment_sequence_array, cue_sequence_array) = generateRandomMaze(trackLength, trackSeed);
@@ -123,9 +126,10 @@ public class Task : MonoBehaviour
         // Figure out what the first corridor is from the first three segments
         current_segment_index = 0;
         cur_segment = new List<int>(segment_sequence_array.Take(depth));
-                
 
-        if(actor != null){
+
+        if (actor != null)
+        {
             pos = actor.transform.position;
             pos.x = corridorMap[string.Join("-", cur_segment)].Item1;
             actor.transform.position = pos;
@@ -136,42 +140,60 @@ public class Task : MonoBehaviour
         cueSequenceTrigger.Event.AddListener(OnCueSequenceTrigger);
         cueSequenceChannel = new MQTTChannel<SequenceMsg>("CueSequence/", false);
 
+        // Create MQTT channel for toggling mustLick
+        mustLickTrue = new MQTTChannel("MustLick/True/", true);
+        mustLickTrue.Event.AddListener(setMustLickTrue);
+
+        mustLickFalse = new MQTTChannel("MustLick/False/", true);
+        mustLickFalse.Event.AddListener(setMustLickFalse);
+
+
         // Create MQTT channels for blacking out and displaying the screen
         displayObjects = FindObjectsOfType<DisplayObject>();
         showDisplay = new MQTTChannel("Display/Show/", true);
-        showDisplay.Event.AddListener(show);        
+        showDisplay.Event.AddListener(show);
         blankDisplay = new MQTTChannel("Display/Blank/", true);
         blankDisplay.Event.AddListener(blank);
+
+
+
+
+
     }
 
 
     // Update is called once per frame
     void Update()
     {
-        if(actor != null){
+        if (actor != null)
+        {
             pos = actor.transform.position;
             // Check if the mouse has traveled through the entire segment
-            if(pos.z > corridorMap[string.Join("-", cur_segment)].Item2){
+            if (pos.z > corridorMap[string.Join("-", cur_segment)].Item2)
+            {
 
                 // Teleport the mouse back to the start of the corridors
                 pos.z -= corridorMap[string.Join("-", cur_segment)].Item2;
 
                 // Switch to a different corridor according to the future segments
                 current_segment_index++;
-                if(current_segment_index <= segment_sequence_array.Length - depth){
+                if (current_segment_index <= segment_sequence_array.Length - depth)
+                {
                     cur_segment.RemoveAt(0);
                     cur_segment.Add(segment_sequence_array[current_segment_index + depth - 1]);
                 }
-                else {
+                else
+                {
                     throw new System.Exception("Mouse ran through all generated segments.");
                 }
 
                 // Teleport the mouse to the new corridor
-                pos.x = corridorMap[string. Join("-", cur_segment)].Item1;
+                pos.x = corridorMap[string.Join("-", cur_segment)].Item1;
                 actor.transform.position = pos;
             }
         }
-        else {
+        else
+        {
             Debug.LogError("Actor is null.");
         }
     }
@@ -180,14 +202,14 @@ public class Task : MonoBehaviour
 
     private int SampleFromDistribution(float[] probabilities, System.Random random)
     {
-        float r = (float)random.NextDouble(); 
+        float r = (float)random.NextDouble();
         float cumulative = 0f;
 
         for (int i = 0; i < probabilities.Length; i++)
         {
             cumulative += probabilities[i];
             if (r < cumulative)
-                return i; 
+                return i;
         }
 
         return probabilities.Length - 1;
@@ -202,7 +224,7 @@ public class Task : MonoBehaviour
     //     }
     //     return result;
     // }
-    
+
 
     /// <summary>
     /// Generates a random sequence of maze segments based on the specified length and optional seed.
@@ -214,7 +236,7 @@ public class Task : MonoBehaviour
     /// - An integer array representing the sequence of segments in the maze.
     /// - A byte array representing the cues associated with the maze sequence.
     /// </returns>
-    private (int[], byte[]) generateRandomMaze(float length, int? seed = null) 
+    private (int[], byte[]) generateRandomMaze(float length, int? seed = null)
     {
         float sequence_length = 0;
 
@@ -222,24 +244,27 @@ public class Task : MonoBehaviour
 
         List<int> segment_sequence = new List<int>();
         List<byte> cue_sequence = new List<byte>();
-        
+
 
         int choice = random.Next(n_segments);
 
-        while(sequence_length < length)
+        while (sequence_length < length)
         {
             segment_sequence.Add(choice);
 
-            foreach (string cue in maze_spec.segments[choice].cue_sequence){
+            foreach (string cue in maze_spec.segments[choice].cue_sequence)
+            {
                 cue_sequence.Add(cue_ids[cue]);
             }
 
             sequence_length += segment_lengths[choice];
 
-            if(maze_spec.segments[choice].transition_probabilities != null){
+            if (maze_spec.segments[choice].transition_probabilities != null)
+            {
                 choice = SampleFromDistribution(maze_spec.segments[choice].transition_probabilities, random);
             }
-            else {
+            else
+            {
                 choice = random.Next(n_segments);
             }
         }
@@ -251,23 +276,35 @@ public class Task : MonoBehaviour
 
     }
 
-    private void OnCueSequenceTrigger(){
+    private void OnCueSequenceTrigger()
+    {
         Debug.Log("received request for cue sequence");
         cueSequenceChannel.Send(new SequenceMsg() { cue_sequence = cue_sequence_array });
     }
 
-    private void blank(){
+    private void blank()
+    {
         foreach (DisplayObject display in displayObjects)
         {
             display.Blank();
         }
     }
 
-    private void show(){
+    private void show()
+    {
         foreach (DisplayObject display in displayObjects)
         {
             display.Show();
         }
+    }
+
+    private void setMustLickTrue()
+    {
+        mustLick = true;
+    }
+    private void setMustLickFalse()
+    {
+        mustLick = false;
     }
 
 }
