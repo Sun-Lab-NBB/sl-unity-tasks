@@ -20,7 +20,7 @@ namespace Gimbl
         private bool requestStop=false;
         private bool requestStart = false;
         private bool sendFrame;
-        public MqttClient client;
+        public MqttClient client;   
 
         private class Channel
         {
