@@ -124,7 +124,7 @@ namespace Gimbl
                         int width = (int)(monitor.width / monitor.pixelsPerPoint);
                         int height = (int)(monitor.height / monitor.pixelsPerPoint);
 
-                        window.position = new Rect(x,y,width,height);
+                        window.position = new Rect(x, y, width, height);
                         window.cameraInstanceId = camera.GetInstanceID();
 
                         // Using ShowPopup() eliminates all borders and window decorations.

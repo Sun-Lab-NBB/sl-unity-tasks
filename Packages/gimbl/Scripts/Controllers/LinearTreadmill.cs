@@ -135,9 +135,13 @@ namespace Gimbl
             {
                 // Smooth input buffer.
                 #region Smooth input.
-                newInput = movement.Sum().x;
+                newInput = movement.Sum().x; // Accumulate all input since the last frame
+                
+                // Update the size of the smooth buffer if it has changed.
                 if (GetBufferSize(settings.inputSmooth) != smoothBuffer.bufferSize)
-                    { smoothBuffer = new ValueBuffer(GetBufferSize(settings.inputSmooth), true); }
+                { smoothBuffer = new ValueBuffer(GetBufferSize(settings.inputSmooth), true); }
+
+            
                 smoothBuffer.Add(newInput,0,0);
                 moved = smoothBuffer.Average().x;
                 #endregion
