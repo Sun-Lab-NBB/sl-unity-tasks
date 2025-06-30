@@ -23,6 +23,8 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using UnityEditor.SceneManagement;
+
 
 #if PERSIST_AS_RESOURCE
 using System.IO;
@@ -93,46 +95,93 @@ namespace Gimbl
             }
         }
 
+        // Original
+        // public void OnGUIShowFullScreenViews()
+        // {
+        //     Debug.Log("Showing full screen views");
+        //     if (GUILayout.Button("Show Full-Screen Views"))
+        //     {
+        //         // Avoid showing redundant FullScreenViews by closing all of them before (re)showing all of them.
+
+        //         List<FullScreenView> views = new List<FullScreenView>(FullScreenView.views);
+        //         foreach (FullScreenView view in views)
+        //         {
+        //             view.Close();
+        //         }
+
+        //         foreach (Monitor monitor in _monitors)
+        //         {
+        //             Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
+        //             if (camera != null)
+        //             {
+        //                 FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
+
+        //                 // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
+        //                 // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
+
+        //                 float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+        //                 int x = (int)(monitor.left / pixelsPerPointX);
+        //                 float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+        //                 int y = (int)(monitor.top / pixelsPerPointY);
+
+        //                 int width = (int)(monitor.width / monitor.pixelsPerPoint);
+        //                 int height = (int)(monitor.height / monitor.pixelsPerPoint);
+
+        //                 window.position = new Rect(x, y, width, height);
+        //                 window.cameraInstanceId = camera.GetInstanceID();
+
+        //                 // Using ShowPopup() eliminates all borders and window decorations.
+
+        //                 window.ShowPopup();
+        //             }
+        //         }
+        //     }
+        // }
 
         public void OnGUIShowFullScreenViews()
         {
             if (GUILayout.Button("Show Full-Screen Views"))
             {
-                // Avoid showing redundant FullScreenViews by closing all of them before (re)showing all of them.
-
-                List<FullScreenView> views = new List<FullScreenView>(FullScreenView.views);
-                foreach (FullScreenView view in views)
-                {
-                    view.Close();
-                }
-
-                foreach (Monitor monitor in _monitors)
-                {
-                    Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
-                    if (camera != null)
-                    {
-                        FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
-
-                        // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
-                        // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
-
-                        float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-                        int x = (int)(monitor.left / pixelsPerPointX);
-                        float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-                        int y = (int)(monitor.top / pixelsPerPointY);
-
-                        int width = (int)(monitor.width / monitor.pixelsPerPoint);
-                        int height = (int)(monitor.height / monitor.pixelsPerPoint);
-
-                        window.position = new Rect(x, y, width, height);
-                        window.cameraInstanceId = camera.GetInstanceID();
-
-                        // Using ShowPopup() eliminates all borders and window decorations.
-
-                        window.ShowPopup();
-                    }
-                }
+                ShowFullScreenViews();
             }
+        }
+
+        public void ShowFullScreenViews()
+        {
+            // Avoid showing redundant FullScreenViews by closing all of them before (re)showing all of them.
+
+            List<FullScreenView> views = new List<FullScreenView>(FullScreenView.views);
+            foreach (FullScreenView view in views)
+            {
+                view.Close();
+            }
+
+            foreach (Monitor monitor in _monitors)
+            {
+                Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
+                if (camera != null)
+                {
+                    FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
+
+                    // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
+                    // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
+
+                    float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+                    int x = (int)(monitor.left / pixelsPerPointX);
+                    float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+                    int y = (int)(monitor.top / pixelsPerPointY);
+
+                    int width = (int)(monitor.width / monitor.pixelsPerPoint);
+                    int height = (int)(monitor.height / monitor.pixelsPerPoint);
+
+                    window.position = new Rect(x, y, width, height);
+                    window.cameraInstanceId = camera.GetInstanceID();
+
+                    // Using ShowPopup() eliminates all borders and window decorations.
+
+                    window.ShowPopup();
+                }
+            }            
         }
 
 #if PERSIST_AS_EDITOR_PREFS
@@ -202,7 +251,8 @@ namespace Gimbl
 
         public void LoadCameras()
         {
-            _savedFullScreenViews = (FullScreenViewsSaved)AssetDatabase.LoadAssetAtPath("Assets/VRSettings/Displays/savedFullScreenViews.asset",typeof(FullScreenViewsSaved));
+            string fsv_path = "Assets/VRSettings/Displays/" + EditorSceneManager.GetActiveScene().name + "-savedFullScreenViews.asset";           
+            _savedFullScreenViews = (FullScreenViewsSaved)AssetDatabase.LoadAssetAtPath(fsv_path, typeof(FullScreenViewsSaved));
 
             if (_savedFullScreenViews != null)
             {
@@ -233,7 +283,7 @@ namespace Gimbl
 
                 // Saving and loading work only if the filename has the extension ".asset".
 
-                AssetDatabase.CreateAsset(_savedFullScreenViews, "Assets/VRSettings/Displays/savedFullScreenViews.asset");
+                AssetDatabase.CreateAsset(_savedFullScreenViews, fsv_path);
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
             }
@@ -359,7 +409,7 @@ namespace Gimbl
         // the next time the editor is started.  It seems difficult to programmatically close all FullScreenViews
         // when the editor is quitting, so instead, prompt the user to do so.
 
-         bool OnEditorWantsToQuit()
+        bool OnEditorWantsToQuit()
         {
             this.Close();
             return true;

@@ -5,12 +5,20 @@ using UnityEditor;
 using System.Linq;
 using System;
 using Gimbl;
+using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
+using System.Reflection;
 
 public class DisplaysWindow : EditorWindow
 {
     #region Menu Variables.
     Vector2 scrollPosition = Vector2.zero;
     public delegate void CreateFunc<T>(MenuSettings<T> settings) where T : UnityEngine.Object;
+
+    // Variable relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.
+    private bool exitPlayModeSceneChangeComing = false;
+
+
     public enum DisplayType
     {
         Monitor,
@@ -52,8 +60,52 @@ public class DisplaysWindow : EditorWindow
         displayModels = data.Select(x => x.name).ToArray();
         // Get fullscreen info.
         fullScreenManager = new FullScreenViewManager();
+
+        // Relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.
+        EditorSceneManager.activeSceneChangedInEditMode += OnActiveSceneChanged; 
+        EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
     }
+
+
+    private void OnDisable()
+    {
+        // Relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.
+        EditorSceneManager.activeSceneChangedInEditMode -= OnActiveSceneChanged;
+        EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+    }
+
     #endregion
+
+    // Relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.
+    private void OnActiveSceneChanged(Scene oldScene, Scene newScene)
+    {
+        // this fires right after a new scene is loaded in the editor
+        // fullScreenManager.LoadCameras();
+        if (exitPlayModeSceneChangeComing == true)
+        {
+            exitPlayModeSceneChangeComing = false;
+        }
+        else
+        {
+            Debug.Log("Editor active scene: " + EditorSceneManager.GetActiveScene().name);
+            fullScreenManager.LoadCameras();
+        }
+    }
+
+    private void OnPlayModeStateChanged(PlayModeStateChange state)
+    {
+        Debug.Log("Play mode state changed: " + state);
+        if (state == PlayModeStateChange.ExitingEditMode)
+        {
+            fullScreenManager.ShowFullScreenViews();
+        }
+
+        // Relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.
+        if (state == PlayModeStateChange.ExitingPlayMode)
+        {
+            exitPlayModeSceneChangeComing = true;
+        }
+    }
 
 
     private void OnGUI()
@@ -95,11 +147,11 @@ public class DisplaysWindow : EditorWindow
                 serializedObject = new SerializedObject(dispSettings.selected.settings);
                 float prevHeight = dispSettings.selected.settings.heightInVR;
                 float prevBrightness = dispSettings.selected.settings.brightness;
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("isActive"), true,LayoutSettings.editFieldOp);
+                EditorGUILayout.PropertyField(serializedObject.FindProperty("isActive"), true, LayoutSettings.editFieldOp);
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("brightness"), true, LayoutSettings.editFieldOp);
                 EditorGUILayout.PropertyField(serializedObject.FindProperty("heightInVR"), true, LayoutSettings.editFieldOp);
                 serializedObject.ApplyModifiedProperties();
-                if (prevHeight != dispSettings.selected.settings.heightInVR){ dispSettings.selected.transform.localPosition = new Vector3(0, dispSettings.selected.settings.heightInVR, 0); }
+                if (prevHeight != dispSettings.selected.settings.heightInVR) { dispSettings.selected.transform.localPosition = new Vector3(0, dispSettings.selected.settings.heightInVR, 0); }
                 if (prevBrightness != dispSettings.selected.settings.brightness) { dispSettings.selected.currentBrightness = dispSettings.selected.settings.brightness; }
                 EditorGUILayout.EndVertical();
             }
