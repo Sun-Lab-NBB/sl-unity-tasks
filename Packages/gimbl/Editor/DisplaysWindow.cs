@@ -94,7 +94,6 @@ public class DisplaysWindow : EditorWindow
 
     private void OnPlayModeStateChanged(PlayModeStateChange state)
     {
-        Debug.Log("Play mode state changed: " + state);
         if (state == PlayModeStateChange.ExitingEditMode)
         {
             fullScreenManager.ShowFullScreenViews();

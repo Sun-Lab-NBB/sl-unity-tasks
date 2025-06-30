@@ -95,49 +95,6 @@ namespace Gimbl
             }
         }
 
-        // Original
-        // public void OnGUIShowFullScreenViews()
-        // {
-        //     Debug.Log("Showing full screen views");
-        //     if (GUILayout.Button("Show Full-Screen Views"))
-        //     {
-        //         // Avoid showing redundant FullScreenViews by closing all of them before (re)showing all of them.
-
-        //         List<FullScreenView> views = new List<FullScreenView>(FullScreenView.views);
-        //         foreach (FullScreenView view in views)
-        //         {
-        //             view.Close();
-        //         }
-
-        //         foreach (Monitor monitor in _monitors)
-        //         {
-        //             Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
-        //             if (camera != null)
-        //             {
-        //                 FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
-
-        //                 // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
-        //                 // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
-
-        //                 float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-        //                 int x = (int)(monitor.left / pixelsPerPointX);
-        //                 float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-        //                 int y = (int)(monitor.top / pixelsPerPointY);
-
-        //                 int width = (int)(monitor.width / monitor.pixelsPerPoint);
-        //                 int height = (int)(monitor.height / monitor.pixelsPerPoint);
-
-        //                 window.position = new Rect(x, y, width, height);
-        //                 window.cameraInstanceId = camera.GetInstanceID();
-
-        //                 // Using ShowPopup() eliminates all borders and window decorations.
-
-        //                 window.ShowPopup();
-        //             }
-        //         }
-        //     }
-        // }
-
         public void OnGUIShowFullScreenViews()
         {
             if (GUILayout.Button("Show Full-Screen Views"))
@@ -376,11 +333,15 @@ namespace Gimbl
                 }
                 if (_rendering)
                 {
-                    _camera.Render();
-                    // Disable alpha blending when drawing the texture, so black really is black.
-                    bool alphaBlend = false;
-                    GUI.DrawTexture(new Rect(0, 0, position.width, position.height), _camera.targetTexture,
-                                    ScaleMode.ScaleToFit, alphaBlend);
+
+                    if (_camera != null)
+                    {
+                        _camera.Render();
+                        // Disable alpha blending when drawing the texture, so black really is black.
+                        bool alphaBlend = false;
+                        GUI.DrawTexture(new Rect(0, 0, position.width, position.height), _camera.targetTexture,
+                                        ScaleMode.ScaleToFit, alphaBlend);
+                    }
                 }
             }
         }
