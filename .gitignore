@@ -86,3 +86,6 @@ crashlytics-build.properties
 
 
 /Assets/Logs/
+
+/Assets/VRSettings/**
+/Assets/Scenes/**
