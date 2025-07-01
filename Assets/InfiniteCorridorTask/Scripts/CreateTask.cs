@@ -10,7 +10,7 @@ public class CreateTask : MonoBehaviour
     [MenuItem("CreateTask/New Task")]
     public static void createTask(){
 
-        string meta_data_path = EditorUtility.OpenFilePanel("Select Maze Spec JSON", Application.dataPath + "/InfiniteCorridorTask/Tasks/", "json");
+        string meta_data_path = EditorUtility.OpenFilePanel("Select Maze Spec JSON", Application.dataPath + "/InfiniteCorridorTask/Tasks/", "json").Replace(Application.dataPath, "");
 
         if (string.IsNullOrEmpty(meta_data_path))
         {
@@ -18,7 +18,7 @@ public class CreateTask : MonoBehaviour
             return;
         }
 
-        string jsonString = File.ReadAllText(meta_data_path);
+        string jsonString = File.ReadAllText(Application.dataPath + meta_data_path);
         MazeSpec maze_spec = JsonUtility.FromJson<MazeSpec>(jsonString);
 
         string prefabs_path = "Assets/InfiniteCorridorTask/Prefabs/";

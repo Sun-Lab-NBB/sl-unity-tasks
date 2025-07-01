@@ -34,7 +34,7 @@ public class Task : MonoBehaviour
     public float trackLength = 15000;
 
     // A seed for creation of random segments, a specific seed will always create the same pattern of cues.
-    // If trackSeed is -1, then no see will be used.
+    // If trackSeed is -1, then no seed will be used.
     public int trackSeed = -1;
 
     // For keeping track of where in the random sequence the mouse is.
@@ -73,21 +73,38 @@ public class Task : MonoBehaviour
 
     private Dictionary<string, byte> cue_ids;
     private float[] segment_lengths;
+    private float[] cue_lengths;
+
     private Dictionary<string, (float, float)> corridorMap;
 
     private List<int> cur_segment;
     private Vector3 pos;
 
+
+    void OnValidate()
+    {
+        if (actor == null)
+        {
+            Gimbl.ActorObject[] all_actors = FindObjectsOfType<Gimbl.ActorObject>();
+            if (all_actors.Length > 0)
+            {
+                actor = all_actors[0];
+            }
+        }
+    }
+
     // Start is called before the first frame update
     void Start()
     {
-        if (string.IsNullOrEmpty(meta_data_path) || !File.Exists(meta_data_path))
+        string global_meta_data_path = Application.dataPath + meta_data_path;
+
+        if (string.IsNullOrEmpty(meta_data_path) || !File.Exists(global_meta_data_path))
         {
             Debug.LogError("No maze specification JSON file found at the specified path.");
             return;
         }
 
-        string jsonString = File.ReadAllText(meta_data_path);
+        string jsonString = File.ReadAllText(global_meta_data_path);
         maze_spec = JsonUtility.FromJson<MazeSpec>(jsonString);
 
         n_segments = maze_spec.segments.Length;
@@ -155,10 +172,6 @@ public class Task : MonoBehaviour
         blankDisplay = new MQTTChannel("Display/Blank/", true);
         blankDisplay.Event.AddListener(blank);
 
-
-
-
-
     }
 
 
@@ -196,8 +209,22 @@ public class Task : MonoBehaviour
         {
             Debug.LogError("Actor is null.");
         }
+
+
+        //Log current cue and absolute position
+        // string s = pos.z + " " + current_segment_index;
+
+        // To log absolute position
+
+        // string s = "" + segment_sequence_array[current_segment_index];
+        // Debug.Log(s);
     }
 
+
+    void OnApplicationQuit()
+    {
+        Debug.Log("Application ending after " + Time.time + " seconds");
+    }
 
 
     private int SampleFromDistribution(float[] probabilities, System.Random random)
@@ -305,6 +332,19 @@ public class Task : MonoBehaviour
     private void setMustLickFalse()
     {
         mustLick = false;
+    }
+
+    private float calculateAbsoluteDistance()
+    {
+        
+        float sum = 0;
+        for (int i = 0; i < current_segment_index; i++)
+        {
+            sum += current_segment_index;
+            maze_spec.get_segment_lengths();
+
+        }
+        return 0.0F;
     }
 
 }
