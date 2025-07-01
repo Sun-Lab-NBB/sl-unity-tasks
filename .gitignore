@@ -86,7 +86,21 @@ crashlytics-build.properties
 /[Aa]ssets/Unity.VisualScripting.Generated/VisualScripting.Core/Property Providers.meta
 
 
-/Assets/Logs/
+/Assets/Logs/Log-*
 
-/Assets/VRSettings/
-/Assets/Scenes/**
+
+# I want these folders around but not their contents
+/Assets/VRSettings/Actors/*
+!/Assets/VRSettings/Actors/.gitkeep
+
+/Assets/VRSettings/Controllers/*
+!/Assets/VRSettings/Controllers/.gitkeep
+
+/Assets/VRSettings/Displays/*
+!/Assets/VRSettings/Displays/.gitkeep
+
+/Assets/VRSettings/PathCreator/*
+!/Assets/VRSettings/PathCreator/.gitkeep
+
+/Assets/Scenes/*
+!/Assets/Scenes/.gitkeep
