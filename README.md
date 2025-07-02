@@ -53,7 +53,9 @@ ___
 
 ## Usage
 
-1. When opening the Unity Project you should see the a host of GameObjects in the hierarchy window including Actors, Controllers, and Paths. Additionally, you should see tabs next to the inspector with names Settings, Actors, and Displays. If you do not see these tabs, you can reactivate them by selecting Window -> Gimbl. <br> <img src="imgs/gimbl_tabs.png" width="400">
+1. When opening the Unity Project you should see the a host of GameObjects in the hierarchy window including Actors, Controllers, and Paths. You may also see some errors in the console. Additionally, you should see tabs next to the inspector with names Settings, Actors, and Displays. If you do not see these tabs, you can reactivate them by selecting Window -> Gimbl. <br> <img src="imgs/gimbl_tabs.png" width="400"> 
+
+1. Create a new scene by clicking File -> New Scene. Instead of using the default scene template, select ExperimentTemplate. Save this scene in Assets/Scene.
 
 1. Follow the [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section from the original GIMBL repository. When creating the controller, choose Linear Treadmill instead of Simulated Linear Treadmill. The Simulated Linear Treadmill is useful for testing but when actually running the experiment you want the Linear Treadmill because it responds only to MQTT messages.
 
@@ -160,7 +162,7 @@ ___
 
 * Most changes to task structure can be implemented by just modifying the segment prefabs. However, be careful if modifying a prefab means that a specification file is no longer correct. The specification file has a lot of information needs to match the prefabs, so it is good practice to double check the specification file after modifying. After modifying it is good practice to recreate the task from the spec file. If you name it the same thing as the original, it will jsut replace the old task prefab.
 
-* The [Usage](#usage) section gives explains how to put a task into a scene and run the scene. However, when running experiments, it may be cumbersome to do this many times if you need to switch between tasks. One way to solve this is to save the scene once you have a good configuration. When you want to start a new experiment, you can just open the scene and run. Note you may still need to press the Show Full Screen Views button.
+* The [Usage](#usage) section gives explains how to create a scene t o hold the task. When running multiple experiments from the same computer, it may be cumbersome to have multiple Unity projects or to have one Unity project where you have to switch the active task between experiments. The best practice to create a separate scene for each experiment and then just switch between scenes by double clicking on them. When you want to start a new experiment, you can just open the scene and run. Note that display configurations are scene specific, meaning that you will need to reconfigure the display every time you make a new scene or change the scene name.
 
 * Be very careful when pushing and pulling code with Github. Merging branch conflicts is very difficult with Unity, and will likely force you to just pick which branch to change. Try to avoid merge conflicts and focus on making changes to assets (prefabs) while avoiding making large changes to the scene. Additionally, it is good practice to close the Unity project before pushing/pulling.
 
