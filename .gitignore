@@ -103,4 +103,4 @@ crashlytics-build.properties
 !/Assets/VRSettings/PathCreator/.gitkeep
 
 /Assets/Scenes/*
-!/Assets/Scenes/.gitkeep
+!/Assets/Scenes/ExperimentTemplate.scenetemplate*
