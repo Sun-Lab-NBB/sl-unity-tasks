@@ -87,7 +87,6 @@ public class DisplaysWindow : EditorWindow
         }
         else
         {
-            Debug.Log("Editor active scene: " + EditorSceneManager.GetActiveScene().name);
             fullScreenManager.LoadCameras();
         }
     }
@@ -96,7 +95,7 @@ public class DisplaysWindow : EditorWindow
     {
         if (state == PlayModeStateChange.ExitingEditMode)
         {
-            fullScreenManager.ShowFullScreenViews();
+            fullScreenManager.ShowFullScreenViews(false);
         }
 
         // Relevant for detecting scene changes. This is necessary to reload camera views when changing scenes.

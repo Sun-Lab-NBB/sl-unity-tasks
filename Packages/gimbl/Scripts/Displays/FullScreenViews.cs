@@ -99,46 +99,49 @@ namespace Gimbl
         {
             if (GUILayout.Button("Show Full-Screen Views"))
             {
-                ShowFullScreenViews();
+                ShowFullScreenViews(true);
             }
         }
 
-        public void ShowFullScreenViews()
+        public void ShowFullScreenViews(bool closeOldViews)
         {
             // Avoid showing redundant FullScreenViews by closing all of them before (re)showing all of them.
 
             List<FullScreenView> views = new List<FullScreenView>(FullScreenView.views);
             foreach (FullScreenView view in views)
             {
-                view.Close();
+                if (closeOldViews)
+                {
+                    view.Close();
+                }
             }
 
             foreach (Monitor monitor in _monitors)
-            {
-                Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
-                if (camera != null)
                 {
-                    FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
+                    Camera camera = (Camera)EditorUtility.InstanceIDToObject(monitor.cameraInstanceId);
+                    if (camera != null)
+                    {
+                        FullScreenView window = EditorWindow.CreateInstance<FullScreenView>();
 
-                    // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
-                    // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
+                        // Negative coordinates must be scaled by the pixelsPerPoint for the target monitor, but
+                        // positive coordinates must be scaled by the pixelsPerPoint of the main monitor.
 
-                    float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-                    int x = (int)(monitor.left / pixelsPerPointX);
-                    float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
-                    int y = (int)(monitor.top / pixelsPerPointY);
+                        float pixelsPerPointX = (monitor.left < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+                        int x = (int)(monitor.left / pixelsPerPointX);
+                        float pixelsPerPointY = (monitor.top < 0) ? monitor.pixelsPerPoint : _monitors[0].pixelsPerPoint;
+                        int y = (int)(monitor.top / pixelsPerPointY);
 
-                    int width = (int)(monitor.width / monitor.pixelsPerPoint);
-                    int height = (int)(monitor.height / monitor.pixelsPerPoint);
+                        int width = (int)(monitor.width / monitor.pixelsPerPoint);
+                        int height = (int)(monitor.height / monitor.pixelsPerPoint);
 
-                    window.position = new Rect(x, y, width, height);
-                    window.cameraInstanceId = camera.GetInstanceID();
+                        window.position = new Rect(x, y, width, height);
+                        window.cameraInstanceId = camera.GetInstanceID();
 
-                    // Using ShowPopup() eliminates all borders and window decorations.
+                        // Using ShowPopup() eliminates all borders and window decorations.
 
-                    window.ShowPopup();
-                }
-            }            
+                        window.ShowPopup();
+                    }
+                }            
         }
 
 #if PERSIST_AS_EDITOR_PREFS
