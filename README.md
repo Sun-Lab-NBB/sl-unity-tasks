@@ -58,7 +58,6 @@ ___
 1. Create a new scene by clicking File -> New Scene. Instead of using the default scene template, select ExperimentTemplate. Save this scene in Assets/Scene. The scene creation may take a long time, if your computer freezes retry with the ExperimentTemplate Scene open. Upon creating, save your scene in Assets/Scenes.
 <br> <img src="imgs/newScene.png" width="400"> 
 
-
 1. Follow the [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section from the original GIMBL repository. When creating the controller, choose Linear Treadmill instead of Simulated Linear Treadmill. The Simulated Linear Treadmill is useful for testing but when actually running the experiment you want the Linear Treadmill because it responds only to MQTT messages.
 
 1. Navigate to Assets/InfiniteCorridorTask/Tasks. This folder contains Unity prefabs of different tasks. Drag the prefab for the task you want to run into the hierarchy window. The prefab should become visible in the scene. Make sure you don't drag the prefab directly into the scene because then its position in the scene will be off relative to the virtual mouse. If there already was a prefab for a different task in the scene, make sure to remove it so that the scene has exactly one task. <br> <img src="imgs/hierarchy_window.png" width="400">
