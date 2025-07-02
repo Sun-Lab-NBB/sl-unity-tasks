@@ -104,4 +104,4 @@ crashlytics-build.properties
 
 /Assets/Scenes/*
 !/Assets/Scenes/ExperimentTemplate.scenetemplate*
-!/Assets/Scenes/EmptyExperiment.unity*
+!/Assets/Scenes/ExperimentTemplate.unity*
