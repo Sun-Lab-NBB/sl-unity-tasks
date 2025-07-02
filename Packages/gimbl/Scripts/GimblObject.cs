@@ -54,8 +54,6 @@ namespace Gimbl
         // Start is called before the first frame update
         void Start()
         {
-            Debug.Log("On branch gutted");
-
             //Collision events.
             ColChan = new MQTTChannel<ColliderMessage>(string.Format("Gimbl/{0}/Collision", name), false);
             PosChan = new MQTTChannel<PositionMessage>(string.Format("Gimbl/{0}/Position", name), false);

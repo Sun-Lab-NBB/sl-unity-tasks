@@ -96,6 +96,8 @@ public class Task : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        Debug.Log("On branch gutted");
+
         string global_meta_data_path = Application.dataPath + meta_data_path;
 
         if (string.IsNullOrEmpty(meta_data_path) || !File.Exists(global_meta_data_path))
