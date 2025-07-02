@@ -220,13 +220,6 @@ public class Task : MonoBehaviour
         // Debug.Log(s);
     }
 
-
-    void OnApplicationQuit()
-    {
-        Debug.Log("Application ending after " + Time.time + " seconds");
-    }
-
-
     private int SampleFromDistribution(float[] probabilities, System.Random random)
     {
         float r = (float)random.NextDouble();
