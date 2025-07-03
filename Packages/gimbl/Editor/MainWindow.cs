@@ -56,20 +56,6 @@ public class MainWindow : EditorWindow
     private void OnGUI()
     {
         scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(position.height), GUILayout.Width(position.width));
-        #region Logging.
-        EditorGUILayout.BeginVertical(LayoutSettings.mainBox.style);
-        Logger = new SerializedObject(FindObjectOfType<LoggerObject>().settings);
-        outputPath = Logger.FindProperty("outputPath");
-        outputFile = Logger.FindProperty("outputFile");
-
-        EditorGUILayout.LabelField("Logging", LayoutSettings.sectionLabel);
-        if (EditorApplication.isPlaying) GUI.enabled = false;
-        // file/
-        EditorGUILayout.PropertyField(outputFile, new GUIContent("Session Name: "), false, GUILayout.Width(300));
-        EditorGUILayout.PropertyField(Logger.FindProperty("sessionId"), new GUIContent("Session Id: "), false, GUILayout.Width(300));
-        Logger.ApplyModifiedProperties();
-        EditorGUILayout.EndVertical();
-        #endregion
 
         #region MQTT
         // MQTT Settings.

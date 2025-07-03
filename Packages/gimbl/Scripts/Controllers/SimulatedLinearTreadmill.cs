@@ -19,15 +19,11 @@ namespace Gimbl
             if (settings.gamepadSettings.selectedGamepad > 0) gamepad.Acquire(settings.gamepadSettings.selectedGamepad - 1);
             // Setup MQTT Channels for button presses.
             gamepad.SetupChannels(settings.buttonTopics);
-            // Setup tracking of settings changes.
-            logSettings = new KeyLinearSettings();
-            LogLinearSettings();
         }
         public new void Update()
         {
             GetSimulatedInput();
             ProcessMovement();
-            CheckLinearSettings();
         }
         public void GetSimulatedInput()
         {

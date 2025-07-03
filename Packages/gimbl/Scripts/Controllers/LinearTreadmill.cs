@@ -23,36 +23,11 @@ namespace Gimbl
         }
         public MQTTChannel<StatusMsg> statusChannel;
 
-        public class LinearLogMsg
-        {
-            public string name;
-            public int move = new int();
-        }
-        public LinearLogMsg logMsg = new LinearLogMsg();
-
-        private LoggerObject logger;
-
-        // Logging of key changed settings.
-        public class KeyLinearSettings
-        {
-            public string name;
-            public bool isActive;
-            public LinearTreadmillSettings.LinearGain gain = new LinearTreadmillSettings.LinearGain();
-        }
-        public KeyLinearSettings logSettings;
-
-
         // Movement variables.
         private float newInput;
         private float moved;
         private Vector3 pos;
         private Quaternion newRot;
-
-        void OnEnable()
-        {
-            // Get instance of logger.
-            logger = FindObjectOfType<LoggerObject>();
-        }
 
         void Start()
         {
@@ -67,32 +42,12 @@ namespace Gimbl
                 statusChannel = new MQTTChannel<StatusMsg>(string.Format("{0}/Status", settings.deviceName), false);
                 statusChannel.Send(new StatusMsg() { status = true });
             }
-            // Setup tracking of settings changes.
-            logSettings = new KeyLinearSettings();
-            LogLinearSettings();
         }
         public void Update()
         {
             ProcessMovement();
-            CheckLinearSettings();
         }
 
-        public void LogLinearSettings()
-        {
-            logSettings.name = name;
-            logSettings.gain.forward = settings.gain.forward;
-            logSettings.gain.backward = settings.gain.backward;
-            logSettings.isActive = settings.isActive;
-            logger.logFile.Log<KeyLinearSettings>("Linear Controller Settings", logSettings);
-        }
-        public void CheckLinearSettings()
-        {
-            if (logSettings.name != name || logSettings.gain.forward != settings.gain.forward || logSettings.gain.backward != settings.gain.backward ||
-                logSettings.isActive != settings.isActive)
-            {
-                LogLinearSettings();
-            }
-        }
         public void ProcessMovement()
         {
 
@@ -117,17 +72,6 @@ namespace Gimbl
                     Actor.transform.rotation = newRot;
                 }
             }
-
-            // log. 
-            if (settings.enableLogging && settings.isActive)
-            {
-                // Log raw input controller.
-                logMsg.name = name;
-                logMsg.move = (int)(movement.Sum().x * 1000);
-                logger.logFile.Log("Linear Controller", logMsg);
-
-            }
-
             // Clear buffer.
             movement.Clear();
         }
@@ -177,7 +121,6 @@ namespace Gimbl
                     EditorGUILayout.EndHorizontal();
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("buttonTopics"), true);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("isActive"), new GUIContent("Active"), LayoutSettings.editFieldOp);
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("enableLogging"), new GUIContent("Log Input"), LayoutSettings.editFieldOp);
                 EditorGUI.indentLevel--;
                 GUI.enabled = true;
             }
@@ -188,7 +131,6 @@ namespace Gimbl
                 EditorGUI.indentLevel++;
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("isActive"), new GUIContent("Active"), LayoutSettings.editFieldOp);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("deviceName"),new GUIContent("MQTT Name"), LayoutSettings.editFieldOp);
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("enableLogging"), new GUIContent("Log Input"), true, LayoutSettings.editFieldOp);
                 EditorGUI.indentLevel--;
                 GUI.enabled = true;
             }
