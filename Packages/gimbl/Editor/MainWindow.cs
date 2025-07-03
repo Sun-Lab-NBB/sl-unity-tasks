@@ -95,8 +95,6 @@ public class MainWindow : EditorWindow
 
         GUI.enabled = true;
         EditorGUILayout.EndVertical();
-
-
         #endregion
 
 

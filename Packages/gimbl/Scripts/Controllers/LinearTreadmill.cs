@@ -24,7 +24,6 @@ namespace Gimbl
         public MQTTChannel<StatusMsg> statusChannel;
 
         // Movement variables.
-        private float newInput;
         private float moved;
         private Vector3 pos;
         private Quaternion newRot;
@@ -54,10 +53,6 @@ namespace Gimbl
             if (Actor != null && settings.isActive)
             {
                 moved = movement.Sum().x; // Accumulate all input since the last frame
-                
-                // Gain
-                if (moved > 0) { moved *= settings.gain.forward; }
-                else { moved *= settings.gain.backward; }
 
                 // Current position.
                 pos = Actor.transform.position;
