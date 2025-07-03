@@ -7,13 +7,11 @@ using Gimbl;
 
 public class MainWindow : EditorWindow
 {
-    private SerializedObject Logger;
     private SerializedProperty outputPath;
     private SerializedProperty outputFile;
     Vector2 scrollPosition = Vector2.zero;
 
     private MQTTClient _client;
-    private LoggerObject _logger;
     private static MainWindow window;
 
     private bool foldBlink = false;
@@ -148,7 +146,7 @@ public class MainWindow : EditorWindow
 
         // Check for main default objects.
         GameObject obj;
-        string[] DefaultObjects = { "Actors", "Controllers", "MQTT Client","Paths","Logger" };
+        string[] DefaultObjects = { "Actors", "Controllers", "MQTT Client" };
         foreach (string objName in DefaultObjects)
         {
             if (!GameObject.Find(objName))
@@ -160,12 +158,6 @@ public class MainWindow : EditorWindow
                 {
                     case "MQTT Client":
                         obj.AddComponent<Gimbl.MQTTClient>();
-                        break;
-                    case "Logger":
-                        _logger = obj.AddComponent<Gimbl.LoggerObject>();
-                        Gimbl.LoggerSettings asset = CreateInstance<Gimbl.LoggerSettings>();
-                        AssetDatabase.CreateAsset(asset, "Assets/VRSettings/LoggerSettings.asset");
-                        _logger.settings = asset;
                         break;
                 }
                 // Things have changed. Mark scene for save.
@@ -183,11 +175,6 @@ public class MainWindow : EditorWindow
                     break;
                 case "Controllers":
                     obj.hideFlags = HideFlags.None;
-                    break;
-                case "Logger":
-                    _logger = obj.GetComponent<Gimbl.LoggerObject>();
-                    _logger.settings = (LoggerSettings)AssetDatabase.LoadAssetAtPath("Assets/VRSettings/LoggerSettings.asset", typeof(LoggerSettings));
-                    obj.hideFlags = HideFlags.HideInHierarchy;
                     break;
                 case "Actors":
                     break;

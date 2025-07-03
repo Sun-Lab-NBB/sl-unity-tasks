@@ -32,7 +32,6 @@ namespace Gimbl
         {
             // Logger object start mqtt client to ensure its ready.
             GameObject.FindObjectOfType<Gimbl.MQTTClient>().Connect(false);
-            StartLog();
         }
         private void StartLog()
         {
@@ -58,25 +57,8 @@ namespace Gimbl
         }
         private void Start()
         {
-            //StartLog();
-            // Log start message.
-            startMsg.time = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-            startMsg.scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            startMsg.project = PlayerSettings.productName;
-            logFile.Log("Info", startMsg);
-            // Setup Listener.
-            MQTTRawChannel channel = new MQTTRawChannel("Log/");
-            channel.Event.AddListener(OnMessage);
-            // Start Times. 
-            logFile.stopwatch.Start();
         }
 
-        private void OnApplicationQuit()
-        {
-            // Close stream.
-            logFile.Close();
-
-        }
         private bool CheckFileExists(string filePth)
         {
             if (System.IO.File.Exists(filePth))
