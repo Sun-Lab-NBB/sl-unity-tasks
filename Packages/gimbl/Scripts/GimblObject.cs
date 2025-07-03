@@ -52,6 +52,7 @@ namespace Gimbl
         GimblObjectChan<FloatMsg> SetBrightChan;
         GimblObjectChan<BlinkMsg> BlinkChan;
         // Start is called before the first frame update
+
         void Start()
         {
             //Collision events.

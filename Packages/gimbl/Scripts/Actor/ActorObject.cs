@@ -73,11 +73,13 @@ namespace Gimbl
             }
         }
 
-        public void Start() {
+        public void Start()
+        {
             // Setup idle monitor.
             idleChan = new MQTTChannel<IdleMessage>("Gimbl/Idle/");
             idleStopWatch.Start();
-            prevPos = transform.position; }
+            prevPos = transform.position;
+        }
 
         public void LateUpdate()
         {
