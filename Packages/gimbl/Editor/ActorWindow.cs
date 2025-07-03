@@ -3,7 +3,6 @@ using UnityEditor;
 using System.Linq;
 using System.Collections.Generic;
 using Gimbl;
-using PathCreation;
 
 public class ActorWindow : EditorWindow
 {
@@ -39,10 +38,8 @@ public class ActorWindow : EditorWindow
     // Need to make non-generic inherited class for having serializble variables (otherwise menu changes on run)
     [System.Serializable] public class ActorMenuSettings : MenuSettings<ActorObject> { }
     [System.Serializable] public class ControllerMenuSettings : MenuSettings<ControllerOutput> { }
-    [System.Serializable] public class PathMenuSettings : MenuSettings<PathCreator> { }
     [SerializeField] private ActorMenuSettings actSettings = new ActorMenuSettings() { typeName = "Actor" };
     [SerializeField] private ControllerMenuSettings contSettings = new ControllerMenuSettings() { typeName = "Controller" };
-    [SerializeField] private PathMenuSettings pathSettings = new PathMenuSettings(){ typeName = "Path" };
 
     // Actor specific variables.
     private string[] actorModels;
@@ -162,30 +159,6 @@ public class ActorWindow : EditorWindow
         EditorGUILayout.EndVertical();
         #endregion
 
-        #region Paths
-        EditorGUILayout.BeginVertical(LayoutSettings.mainBox.style);
-        EditorGUILayout.LabelField("Paths", LayoutSettings.sectionLabel);
-
-        // Select and delete.
-        EditorGUILayout.BeginHorizontal(LayoutSettings.editWidth);
-            SelectMenu(pathSettings);
-            if (GUILayout.Button("Delete", LayoutSettings.buttonOp)) DeletePath();
-        EditorGUILayout.EndHorizontal();
-
-        // Create.
-        if (EditorApplication.isPlaying) GUI.enabled = false;
-        pathSettings.show[0] = EditorGUILayout.Foldout(pathSettings.show[0], "Create");
-        if (pathSettings.show[0])
-        {
-            EditorGUILayout.BeginVertical(LayoutSettings.subBox.style);
-            EditorGUILayout.LabelField("Create Path", EditorStyles.boldLabel);
-            pathSettings.name = EditorGUILayout.TextField("Path Name: ", pathSettings.name, LayoutSettings.editFieldOp);
-            CreateButton(pathSettings);
-            EditorGUILayout.EndVertical();
-        }
-        GUI.enabled = true;
-        EditorGUILayout.EndVertical();
-        #endregion
         GUILayout.EndScrollView();
     }
 
@@ -240,37 +213,10 @@ public class ActorWindow : EditorWindow
                     act.InitiateActor(actorModels[selectedModel], trackCam);
                     settings.selectedObj = act as T;
                 }
-                //Path.
-                if (typeof(T) == typeof(PathCreator))
-                {
-                    CreatePath(settings as MenuSettings<PathCreator>, obj);
-                }
+
                 settings.name = "";
         }
         EditorGUILayout.EndHorizontal();
-    }
-
-    // Path Manipulation Functions
-    private void DeletePath()
-    {
-        GameObject obj = pathSettings.selectedObj.gameObject;
-        bool accept = EditorUtility.DisplayDialog(string.Format("Remove Path {0}?", obj.name),
-            string.Format("Are you sure you want to delete Path {0}?", obj.name), "Delete", "Cancel");
-        if (accept)
-        {
-            // Not deleting scriptable object asset so delete it can be undone.
-            Undo.DestroyObjectImmediate(obj);
-        }
-    }
-
-    private void CreatePath(MenuSettings<PathCreator> settings,GameObject obj)
-    {
-        obj.transform.SetParent(GameObject.Find("Paths").transform);
-        PathCreator path = obj.AddComponent<PathCreator>();
-        path.bezierPath.Space = PathSpace.xz;
-        path.bezierPath.ControlPointMode = BezierPath.ControlMode.Automatic;
-        Undo.RegisterCreatedObjectUndo(obj, "Create Path");
-        settings.selectedObj = path;
     }
 
 }

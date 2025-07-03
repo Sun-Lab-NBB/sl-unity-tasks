@@ -80,8 +80,8 @@ public class MainWindow : EditorWindow
         _client.port = int.Parse(EditorGUILayout.TextField("port: ", _client.port.ToString(), GUILayout.Width(300)));
         if (GUI.changed)
         {
-            EditorPrefs.SetString("JaneliaVR_MQTT_IP", _client.ip);
-            EditorPrefs.SetInt("JaneliaVR_MQTT_Port", _client.port);
+            EditorPrefs.SetString("SunLabVRPC_MQTT_IP", _client.ip);
+            EditorPrefs.SetInt("SunLabVRPC_MQTT_Port", _client.port);
         }
         if (GUILayout.Button("Test Connection"))
         {
@@ -156,7 +156,6 @@ public class MainWindow : EditorWindow
         // Create settings folders.
         if (!AssetDatabase.IsValidFolder("Assets/Logs")) AssetDatabase.CreateFolder("Assets", "Logs");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings")) AssetDatabase.CreateFolder("Assets", "VRSettings");
-        if (!AssetDatabase.IsValidFolder("Assets/VRSettings/PathCreator")) AssetDatabase.CreateFolder("Assets/VRSettings", "PathCreator");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings/Controllers")) AssetDatabase.CreateFolder("Assets/VRSettings", "Controllers");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings/Displays")) AssetDatabase.CreateFolder("Assets/VRSettings", "Displays");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings/Actors")) AssetDatabase.CreateFolder("Assets/VRSettings", "Actors");
@@ -209,20 +208,14 @@ public class MainWindow : EditorWindow
             }
         }
         // Set client IP settings from stored.
-        _client.ip = EditorPrefs.GetString("JaneliaVR_MQTT_IP");
+        _client.ip = EditorPrefs.GetString("SunLabVRPC_MQTT_IP");
         if (_client.ip == "") _client.ip = "127.0.0.1";
-        _client.port = EditorPrefs.GetInt("JaneliaVR_MQTT_Port");
+        _client.port = EditorPrefs.GetInt("SunLabVRPC_MQTT_Port");
         if (_client.port == 0) _client.port = 1883;
         // Set default properties.
         msgSettings.sendFrameMsg = EditorPrefs.GetBool("Gimbl_sendFrameMsg",false);
         sessionSettings.externalStart = EditorPrefs.GetBool("Gimbl_externalStart", false);
         sessionSettings.externalLog = EditorPrefs.GetBool("Gimbl_externalLog", false);
-        // Check for global display settings path creator.
-        if (UnityEditor.AssetDatabase.FindAssets("t:GlobalDisplaySettings").Length == 0)
-        {
-            PathCreation.GlobalDisplaySettings asset = CreateInstance<PathCreation.GlobalDisplaySettings>();
-            AssetDatabase.CreateAsset(asset, "Assets/VRSettings/PathCreator/GlobalDisplaySettings.asset");
-        }
 
     }
 

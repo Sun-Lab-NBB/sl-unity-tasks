@@ -8,7 +8,6 @@ namespace Gimbl
     public class LinearTreadmillSettings : ScriptableObject
     {
         public string deviceName = "LinearTreadmill";
-        public bool deviceIsSpherical = false;
         public bool isActive = true;
         public bool enableLogging = false;
         public bool loopPath = false;

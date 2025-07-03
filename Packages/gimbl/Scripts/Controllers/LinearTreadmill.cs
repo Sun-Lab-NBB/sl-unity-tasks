@@ -11,28 +11,7 @@ namespace Gimbl
     {
         public LinearTreadmillSettings settings;
 
-        [SerializeField]
-        private PathCreation.PathCreator _path;
-        [SerializeField]
-        public PathCreation.PathCreator path
-        {
-            get { return _path; }
-            set
-            {
-                if (_path != value)
-                {
-                    if (EditorApplication.isPlaying && settings.isActive && settings.enableLogging)
-                    {
-                        string oldPathStr;
-                        string newPathStr;
-                        if (_path != null) oldPathStr = _path.name; else oldPathStr = "none";
-                        if (value != null) newPathStr = value.name; else newPathStr = "none";
-                    }
 
-                }
-                _path = value;
-            }
-        }
         // Messaging classes.
         public class MSG
         {
@@ -58,7 +37,6 @@ namespace Gimbl
         {
             public string name;
             public bool isActive;
-            public bool loopPath;
             public LinearTreadmillSettings.LinearGain gain = new LinearTreadmillSettings.LinearGain();
         }
         public KeyLinearSettings logSettings;
@@ -69,8 +47,6 @@ namespace Gimbl
         private float moved;
         private Vector3 pos;
         private Quaternion newRot;
-        private PathCreation.EndOfPathInstruction endofPath;
-        private Vector3 pathRot;
 
         void OnEnable()
         {
@@ -107,13 +83,12 @@ namespace Gimbl
             logSettings.gain.forward = settings.gain.forward;
             logSettings.gain.backward = settings.gain.backward;
             logSettings.isActive = settings.isActive;
-            logSettings.loopPath = settings.loopPath;
             logger.logFile.Log<KeyLinearSettings>("Linear Controller Settings", logSettings);
         }
         public void CheckLinearSettings()
         {
             if (logSettings.name != name || logSettings.gain.forward != settings.gain.forward || logSettings.gain.backward != settings.gain.backward ||
-                logSettings.isActive != settings.isActive || logSettings.loopPath != settings.loopPath)
+                logSettings.isActive != settings.isActive)
             {
                 LogLinearSettings();
             }
@@ -133,28 +108,7 @@ namespace Gimbl
                 pos = Actor.transform.position;
                 newRot = Actor.transform.rotation;
 
-                #region No Path.
-                if (path==null)
-                {
-                    pos[2] = pos[2] + (moved);
-                }
-                #endregion
-
-                #region With Path
-                else
-                {
-                    float currentDist =  (float)Math.Round((double)path.path.GetClosestDistanceAlongPath(pos),3); // more dynamic, round to 3 decimal points (<mm) so that you dont get slow movement due to float point rounding.
-                    float newDist = moved + currentDist;
-                    // set path looping.
-                    if (settings.loopPath) endofPath = PathCreation.EndOfPathInstruction.Loop;
-                    else { endofPath = PathCreation.EndOfPathInstruction.Stop; }
-                    // calculate position and heading.
-                    pos = path.path.GetPointAtDistance(newDist, endofPath);
-                    pathRot = path.path.GetRotationAtDistance(newDist, endofPath).eulerAngles;
-                    pathRot[2] = 0;
-                    newRot = Quaternion.Euler(pathRot);
-                }
-                #endregion
+                pos[2] = pos[2] + (moved);
 
                 //update position.
                 if (Actor.isActive)
@@ -234,19 +188,10 @@ namespace Gimbl
                 EditorGUI.indentLevel++;
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("isActive"), new GUIContent("Active"), LayoutSettings.editFieldOp);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("deviceName"),new GUIContent("MQTT Name"), LayoutSettings.editFieldOp);
-                    EditorGUILayout.PropertyField(serializedObject.FindProperty("deviceIsSpherical"), new GUIContent("Spherical Treadmill"), LayoutSettings.editFieldOp);
                     EditorGUILayout.PropertyField(serializedObject.FindProperty("enableLogging"), new GUIContent("Log Input"), true, LayoutSettings.editFieldOp);
                 EditorGUI.indentLevel--;
                 GUI.enabled = true;
             }
-            // Path settings.
-            EditorGUILayout.LabelField("Paths", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-                Undo.RecordObject(this, "Change Controller Path");
-                path = (PathCreation.PathCreator)EditorGUILayout.ObjectField("Selected Path", path, typeof(PathCreation.PathCreator), true, LayoutSettings.editFieldOp);
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("loopPath"), true, LayoutSettings.editFieldOp);
-            serializedObject.ApplyModifiedProperties();
-            EditorGUI.indentLevel--;
         }
     }
 

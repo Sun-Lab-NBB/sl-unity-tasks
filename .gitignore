@@ -99,8 +99,6 @@ crashlytics-build.properties
 /Assets/VRSettings/Displays/*
 !/Assets/VRSettings/Displays/.gitkeep
 
-/Assets/VRSettings/PathCreator/*
-!/Assets/VRSettings/PathCreator/.gitkeep
 
 /Assets/Scenes/*
 !/Assets/Scenes/ExperimentTemplate.scenetemplate*

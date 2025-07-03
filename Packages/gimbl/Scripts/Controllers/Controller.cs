@@ -10,8 +10,6 @@ namespace Gimbl
     {
         LinearTreadmill,
         SimulatedLinearTreadmill,
-        SphericalTreadmill,
-        SimulatedSphericalTreadmill,
     }
 
     public abstract class ControllerObject : MonoBehaviour

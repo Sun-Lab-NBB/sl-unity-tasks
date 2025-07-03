@@ -32,14 +32,6 @@ namespace Gimbl
         }
         public ActorLogMessage actLogMsg = new ActorLogMessage();
 
-        public class PathLogMsg
-        {
-            public string name = "";
-            public string pathName = "";
-            public int position = 0;
-        }
-        public PathLogMsg pathMsg = new PathLogMsg();
-
         // Linked Display Object.
         [SerializeField] private DisplayObject _display;
         public DisplayObject display
@@ -111,20 +103,6 @@ namespace Gimbl
             actLogMsg.heading[2] = (int)(gameObject.transform.rotation.z * roundFct);
             // logger.Log("Position", actLogMsg);
 
-            // Log position on path (if applicable).
-            if (controller != null)
-            {
-                if (controller.master.GetType() == typeof(LinearTreadmill) || controller.master.GetType() == typeof(SimulatedLinearTreadmill))
-                {
-                    if (((LinearTreadmill)controller.master).path != null)
-                    {
-                        pathMsg.name = name;
-                        pathMsg.pathName = ((LinearTreadmill)controller.master).path.name;
-                        pathMsg.position = (int)(((LinearTreadmill)controller.master).path.path.GetClosestDistanceAlongPath(gameObject.transform.position) * 1000);
-                        // logger.Log("Path Position", pathMsg);
-                    }
-                }
-            }
 
             // Check idle.
             if (idleStopWatch.ElapsedMilliseconds > 2000)

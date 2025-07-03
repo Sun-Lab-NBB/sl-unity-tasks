@@ -1,9 +1,6 @@
 {
     "name": "JaneliaVR",
-    "references": [
-        "PathCreatorEditor",
-        "PathCreator"
-    ],
+    "references": [],
     "optionalUnityReferences": [],
     "includePlatforms": [],
     "excludePlatforms": [],
