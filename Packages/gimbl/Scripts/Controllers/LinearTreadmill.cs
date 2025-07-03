@@ -60,7 +60,6 @@ namespace Gimbl
             public bool isActive;
             public bool loopPath;
             public LinearTreadmillSettings.LinearGain gain = new LinearTreadmillSettings.LinearGain();
-            public int inputSmooth;
         }
         public KeyLinearSettings logSettings;
 
@@ -81,21 +80,13 @@ namespace Gimbl
 
         void Start()
         {
-            // Create smooth buffer
-            smoothBuffer = new ValueBuffer(GetBufferSize(settings.inputSmooth), true);
             if (this.GetType() == typeof(LinearTreadmill))
             {
                 // Setup Listener.
-                if (!settings.deviceIsSpherical)
-                {
-                    MQTTChannel<MSG> channel = new MQTTChannel<MSG>(string.Format("{0}/Data", settings.deviceName));
-                    channel.Event.AddListener(OnMessage);
-                }
-                else
-                {
-                    MQTTChannel<SphericalTreadmill.MSG> channel = new MQTTChannel<SphericalTreadmill.MSG>(string.Format("{0}/Data", settings.deviceName));
-                    channel.Event.AddListener(OnMessageSpherical);
-                }
+
+                MQTTChannel<MSG> channel = new MQTTChannel<MSG>(string.Format("{0}/Data", settings.deviceName));
+                channel.Event.AddListener(OnMessage);
+                
                 // Start treadmill.
                 statusChannel = new MQTTChannel<StatusMsg>(string.Format("{0}/Status", settings.deviceName), false);
                 statusChannel.Send(new StatusMsg() { status = true });
@@ -115,14 +106,13 @@ namespace Gimbl
             logSettings.name = name;
             logSettings.gain.forward = settings.gain.forward;
             logSettings.gain.backward = settings.gain.backward;
-            logSettings.inputSmooth = settings.inputSmooth;
             logSettings.isActive = settings.isActive;
             logSettings.loopPath = settings.loopPath;
             logger.logFile.Log<KeyLinearSettings>("Linear Controller Settings", logSettings);
         }
         public void CheckLinearSettings()
         {
-            if (logSettings.name != name || logSettings.gain.forward != settings.gain.forward || logSettings.gain.backward != settings.gain.backward || logSettings.inputSmooth != settings.inputSmooth ||
+            if (logSettings.name != name || logSettings.gain.forward != settings.gain.forward || logSettings.gain.backward != settings.gain.backward ||
                 logSettings.isActive != settings.isActive || logSettings.loopPath != settings.loopPath)
             {
                 LogLinearSettings();
@@ -133,19 +123,8 @@ namespace Gimbl
 
             if (Actor != null && settings.isActive)
             {
-                // Smooth input buffer.
-                #region Smooth input.
-                newInput = movement.Sum().x; // Accumulate all input since the last frame
+                moved = movement.Sum().x; // Accumulate all input since the last frame
                 
-                // Update the size of the smooth buffer if it has changed.
-                if (GetBufferSize(settings.inputSmooth) != smoothBuffer.bufferSize)
-                { smoothBuffer = new ValueBuffer(GetBufferSize(settings.inputSmooth), true); }
-
-            
-                smoothBuffer.Add(newInput,0,0);
-                moved = smoothBuffer.Average().x;
-                #endregion
-
                 // Gain
                 if (moved > 0) { moved *= settings.gain.forward; }
                 else { moved *= settings.gain.backward; }
@@ -212,10 +191,6 @@ namespace Gimbl
             lock (movement) { movement.Add(msg.movement, 0, 0); }
         }
 
-        public void OnMessageSpherical(SphericalTreadmill.MSG msg)
-        {
-            lock (movement) { movement.Add(msg.pitch, 0, 0); }
-        }
 
         public override void LinkSettings(string assetPath = "")
         {
@@ -264,13 +239,6 @@ namespace Gimbl
                 EditorGUI.indentLevel--;
                 GUI.enabled = true;
             }
-            // Movement settings.
-            EditorGUILayout.LabelField("Movement Settings", EditorStyles.boldLabel);
-            EditorGUI.indentLevel++;
-                EditorGUILayout.PropertyField(serializedObject.FindProperty("gain"), true, LayoutSettings.editFieldOp);
-                EditorGUILayout.BeginHorizontal(LayoutSettings.editFieldOp); EditorGUILayout.PropertyField(serializedObject.FindProperty("inputSmooth"), new GUIContent("Input Smoothing")); EditorGUILayout.LabelField("(ms)", GUILayout.Width(70)); EditorGUILayout.EndHorizontal();
-             EditorGUI.indentLevel--;
-            serializedObject.ApplyModifiedProperties();
             // Path settings.
             EditorGUILayout.LabelField("Paths", EditorStyles.boldLabel);
             EditorGUI.indentLevel++;

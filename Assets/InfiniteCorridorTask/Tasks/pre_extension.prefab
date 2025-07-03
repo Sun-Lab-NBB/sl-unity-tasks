@@ -81,7 +81,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   mustLick: 1
-  visibleMarker: 0
+  visibleMarker: 1
   actor: {fileID: 0}
   trackLength: 15000
   trackSeed: -1

@@ -24,7 +24,7 @@ namespace Gimbl
         public Gamepad gamepad = new Gamepad();
         public string[] deviceNames = Gamepad.GetDeviceNames();
 
-        // General buffer for inputs and smoothing.
+        // General buffer for inputs
         public class ValueBuffer
         {
             public float[] x;
@@ -84,7 +84,6 @@ namespace Gimbl
                 else { return counter; }
             }
         }
-        public ValueBuffer smoothBuffer;
         public ValueBuffer movement = new ValueBuffer(100, false); // Stores ball rotations.
         public int GetBufferSize(float setting)
         {

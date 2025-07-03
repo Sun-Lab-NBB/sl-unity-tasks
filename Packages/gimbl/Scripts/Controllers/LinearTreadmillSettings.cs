@@ -13,7 +13,6 @@ namespace Gimbl
         public bool enableLogging = false;
         public bool loopPath = false;
         public LinearGain gain = new LinearGain();
-        public int inputSmooth = 1;
 
         public string[] buttonTopics;
         public GamepadSettings gamepadSettings;
