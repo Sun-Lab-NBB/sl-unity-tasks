@@ -139,8 +139,6 @@ public class Task : MonoBehaviour
         // Create random sequence of segments
         (segment_sequence_array, cue_sequence_array) = generateRandomMaze(trackLength, trackSeed);
 
-        // Debug.Log("cue_sequence_array " + string.Join(", ", cue_sequence_array));
-        // Debug.Log("segment_sequence_array " + string.Join(", ", segment_sequence_array));
 
         // Figure out what the first corridor is from the first three segments
         current_segment_index = 0;
@@ -212,14 +210,6 @@ public class Task : MonoBehaviour
             Debug.LogError("Actor is null.");
         }
 
-
-        //Log current cue and absolute position
-        // string s = pos.z + " " + current_segment_index;
-
-        // To log absolute position
-
-        // string s = "" + segment_sequence_array[current_segment_index];
-        // Debug.Log(s);
     }
 
     private int SampleFromDistribution(float[] probabilities, System.Random random)

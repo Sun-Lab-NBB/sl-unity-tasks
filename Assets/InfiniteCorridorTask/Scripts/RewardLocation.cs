@@ -13,37 +13,21 @@ public class RewardLocation : MonoBehaviour
     MQTTChannel rewardTrigger; // Signals reward dispenser.
     MQTTChannel lickTrigger; // Listens for signal from lick port.
 
-    // Logger.
-    private LoggerObject logger; // For writing messages to the log.
-
     private Task task;
-    private Gimbl.ActorObject actor; // Temporary addition for logging
 
-    // Temporary addition for logging
-    public class MSG{
-        public float z; 
-    }
-    private MSG actorMSG; // Temporary addition for logging
 
     // Start is called before the first frame update
     void Start()
     {
         task = FindObjectOfType<Task>(); // Find task object to get parameters.
-        actor = task.actor; // Temporary addition for logging
-        actorMSG = new MSG(); // Temporary addition for logging
-        actorMSG.z = actor.transform.position.z; // Temporary addition for logging
         // Setup MQTT channels.
         rewardTrigger = new MQTTChannel("Gimbl/Reward/");
         lickTrigger = new MQTTChannel("LickPort/",true);
-        lickTrigger.Event.AddListener(LickDetected);
-        // Get instance of logger.
-        logger = FindObjectOfType<LoggerObject>();
     }
 
     // Update is called once per frame
     void Update()
     {
-        actorMSG.z = actor.transform.position.z; // Temporary addition for logging      
         // check for reward delivery in no-lick condition
         if (isActive && inArea && task.mustLick == false) { Reward(); }
         // Check for reward condition in must lick condition.
@@ -61,7 +45,6 @@ public class RewardLocation : MonoBehaviour
         GetComponent<AudioSource>().Play(); // Play sound.
         GetComponent<MeshRenderer>().enabled = false; // hide marker.
         rewardTrigger.Send(); // Send reward message over MQTT 
-        // logger.logFile.Log("Reward", actorMSG); // Temporary addition for logging
         // prevent multiple rewards.
         isActive = false; 
         correctLick = false;
@@ -71,7 +54,6 @@ public class RewardLocation : MonoBehaviour
     private void LickDetected()
     {
         Debug.Log("Lick!");
-        // logger.logFile.Log("Lick", actorMSG); // Temporary addition for logging
         if (isActive && inArea) { correctLick = true; }
     }
 

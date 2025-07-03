@@ -23,15 +23,6 @@ namespace Gimbl
             public int idleTime;
         }
 
-        // For Logging.
-        public class ActorLogMessage
-        {
-            public string name;
-            public int[] position = new int[3];
-            public int[] heading = new int[3];
-        }
-        public ActorLogMessage actLogMsg = new ActorLogMessage();
-
         // Linked Display Object.
         [SerializeField] private DisplayObject _display;
         public DisplayObject display
@@ -49,7 +40,6 @@ namespace Gimbl
                 }
         }
 
-        LogFile logger;
         [SerializeField] public ActorSettings settings;
         [SerializeField] private ControllerOutput _controller;
         [SerializeField] private AudioListener listener;
@@ -84,8 +74,6 @@ namespace Gimbl
         }
 
         public void Start() {
-            logger = FindObjectOfType<LoggerObject>().logFile;
-            actLogMsg.name = name;
             // Setup idle monitor.
             idleChan = new MQTTChannel<IdleMessage>("Gimbl/Idle/");
             idleStopWatch.Start();
@@ -93,16 +81,6 @@ namespace Gimbl
 
         public void LateUpdate()
         {
-            // Log Absolute Position.
-            int roundFct = 1000;
-            actLogMsg.position[0] = (int)(gameObject.transform.position.x * roundFct);
-            actLogMsg.position[1] = (int)(gameObject.transform.position.y * roundFct);
-            actLogMsg.position[2] = (int)(gameObject.transform.position.z * roundFct);
-            actLogMsg.heading[0] = (int)(gameObject.transform.rotation.x * roundFct); 
-            actLogMsg.heading[1] = (int)(gameObject.transform.rotation.y * roundFct);
-            actLogMsg.heading[2] = (int)(gameObject.transform.rotation.z * roundFct);
-            // logger.Log("Position", actLogMsg);
-
 
             // Check idle.
             if (idleStopWatch.ElapsedMilliseconds > 2000)
@@ -119,7 +97,6 @@ namespace Gimbl
                         idleMsg.name = name;
                         idleMsg.idleTime = (int)(settings.idleTimeOut * 60000);
                         idleChan.Send(idleMsg);
-                        logger.Log("Idle!");
                     }
                 }
                 else
