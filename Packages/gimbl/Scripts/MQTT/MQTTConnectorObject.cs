@@ -11,7 +11,7 @@ namespace Gimbl
     {
         public void OnEnable()
         {
-            // Logger object start mqtt client to ensure its ready.
+            // Start mqtt client when scene starts
             GameObject.FindObjectOfType<Gimbl.MQTTClient>().Connect(false);
         }
 

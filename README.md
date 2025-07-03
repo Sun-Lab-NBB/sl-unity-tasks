@@ -165,7 +165,7 @@ ___
 
 * Be very careful when pushing and pulling code with Github. Merging branch conflicts is very difficult with Unity, and will likely force you to just pick which branch to change. Try to avoid merge conflicts and focus on making changes to assets (prefabs) while avoiding making large changes to the scene. Additionally, it is good practice to close the Unity project before pushing/pulling.
 
-* The original GIMBL package does logging from Unity. For this repository, the GIMBL package has logging removed. Log files still get created when running the task, but they are empty. 
+* The original GIMBL package does logging from Unity. For this repository, the GIMBL package has logging removed. 
 
 * For information on how to send MQTT messages to Unity, look [here](https://github.com/winnubstj/Gimbl/wiki/Example-code-of-MQTT-subscribing-and-publishing).
 ___

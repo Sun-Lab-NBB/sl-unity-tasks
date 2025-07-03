@@ -28,7 +28,7 @@ public class Utility : MonoBehaviour
             combinedBounds.Encapsulate(renderer.bounds);
         }
 
-        // Log the size of the prefab
+        // Return the size of the prefab
         Vector3 size = combinedBounds.size;
         return size.z;
     }

@@ -9,7 +9,6 @@ namespace Gimbl
     {
         public string deviceName = "LinearTreadmill";
         public bool isActive = true;
-        public bool enableLogging = false;
         public bool loopPath = false;
         public LinearGain gain = new LinearGain();
 
