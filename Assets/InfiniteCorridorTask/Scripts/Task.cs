@@ -57,6 +57,9 @@ public class Task : MonoBehaviour
     private MQTTChannel mustLickTrue;
     private MQTTChannel mustLickFalse;
 
+    private MQTTChannel visibleMarkerTrue;
+    private MQTTChannel visibleMarkerFalse;
+
     private MQTTChannel showDisplay;
     private MQTTChannel blankDisplay;
 
@@ -163,6 +166,13 @@ public class Task : MonoBehaviour
 
         mustLickFalse = new MQTTChannel("MustLick/False/", true);
         mustLickFalse.Event.AddListener(setMustLickFalse);
+
+        // Create MQTT channel for toggling visibleMarker
+        visibleMarkerTrue = new MQTTChannel("VisibleMarker/True/");
+        visibleMarkerTrue.Event.AddListener(setVisibleMarkerTrue);
+
+        visibleMarkerFalse = new MQTTChannel("VisibleMarker/False/");
+        visibleMarkerFalse.Event.AddListener(setVisibleMarkerFalse);
 
 
         // Create MQTT channels for blacking out and displaying the screen
@@ -319,9 +329,19 @@ public class Task : MonoBehaviour
         mustLick = false;
     }
 
+    private void setVisibleMarkerTrue()
+    {
+        visibleMarker = true;
+    }
+
+    private void setVisibleMarkerFalse()
+    {
+        visibleMarker = false;
+    }
+
     private float calculateAbsoluteDistance()
     {
-        
+
         float sum = 0;
         for (int i = 0; i < current_segment_index; i++)
         {
