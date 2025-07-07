@@ -136,7 +136,6 @@ public class MainWindow : EditorWindow
     private void InitializeScene()
     {
         // Create settings folders.
-        if (!AssetDatabase.IsValidFolder("Assets/Logs")) AssetDatabase.CreateFolder("Assets", "Logs");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings")) AssetDatabase.CreateFolder("Assets", "VRSettings");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings/Controllers")) AssetDatabase.CreateFolder("Assets/VRSettings", "Controllers");
         if (!AssetDatabase.IsValidFolder("Assets/VRSettings/Displays")) AssetDatabase.CreateFolder("Assets/VRSettings", "Displays");

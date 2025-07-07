@@ -39,7 +39,7 @@ namespace Gimbl
                 
                 // Start treadmill.
                 statusChannel = new MQTTChannel<StatusMsg>(string.Format("{0}/Status", settings.deviceName), false);
-                statusChannel.Send(new StatusMsg() { status = true });
+                // statusChannel.Send(new StatusMsg() { status = true });
             }
         }
         public void Update()
@@ -75,7 +75,7 @@ namespace Gimbl
         {
             if (this.GetType() == typeof(LinearTreadmill))
             {
-                statusChannel.Send(new StatusMsg() { status = false });
+                // statusChannel.Send(new StatusMsg() { status = false });
             }
         }
 

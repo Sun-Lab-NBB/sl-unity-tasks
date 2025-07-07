@@ -7,7 +7,7 @@ namespace Gimbl
     [System.Serializable]
     public class ActorSettings : ScriptableObject
     {
-        public float idleTimeOut = 5;
+
     }
 }
 

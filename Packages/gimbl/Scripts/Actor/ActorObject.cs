@@ -11,18 +11,6 @@ namespace Gimbl
     {
         public bool isActive = true; // for disabling movement.
 
-        // Idle detection
-        private System.Diagnostics.Stopwatch idleStopWatch = new System.Diagnostics.Stopwatch();
-        private Vector3 prevPos;
-        private float idleTime = 0;
-        private IdleMessage idleMsg = new IdleMessage();
-        private MQTTChannel<IdleMessage> idleChan;
-        public class IdleMessage
-        {
-            public string name;
-            public int idleTime;
-        }
-
         // Linked Display Object.
         [SerializeField] private DisplayObject _display;
         public DisplayObject display
@@ -75,38 +63,10 @@ namespace Gimbl
 
         public void Start()
         {
-            // Setup idle monitor.
-            idleChan = new MQTTChannel<IdleMessage>("Gimbl/Idle/");
-            idleStopWatch.Start();
-            prevPos = transform.position;
         }
 
         public void LateUpdate()
         {
-
-            // Check idle.
-            if (idleStopWatch.ElapsedMilliseconds > 2000)
-            {
-                idleStopWatch.Restart();
-                if (Vector3.Distance(prevPos, transform.position) < 0.5)
-                {
-                    idleTime += 2000;
-                    if (idleTime > (settings.idleTimeOut * 1000 * 60))
-                    {
-                        prevPos = transform.position;
-                        idleTime = 0;
-                        // Send signal.
-                        idleMsg.name = name;
-                        idleMsg.idleTime = (int)(settings.idleTimeOut * 60000);
-                        idleChan.Send(idleMsg);
-                    }
-                }
-                else
-                {
-                    prevPos = transform.position;
-                    idleTime = 0;
-                }
-            }
 
         }
 
@@ -214,10 +174,6 @@ namespace Gimbl
                 }
             }
             listener.enabled = newActiveListener;
-            // Display.
-            EditorGUILayout.BeginHorizontal();
-            settings.idleTimeOut = EditorGUILayout.FloatField("Idle Time-out (mins.): ", settings.idleTimeOut);
-            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.EndVertical();
         }
