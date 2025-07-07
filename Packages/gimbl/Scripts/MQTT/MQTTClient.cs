@@ -19,7 +19,6 @@ namespace Gimbl
         [HideInInspector]  public int port;
         private bool requestStop=false;
         private bool requestStart = false;
-        private bool sendFrame;
         public MqttClient client;   
 
         private class Channel
@@ -28,7 +27,6 @@ namespace Gimbl
             public MQTTChannel channel;
         }
         private List<Channel> channelList = new List<Channel>();
-        MQTTChannel frameChannel;
         MQTTChannel startChannel;
         MQTTChannel stopChannel;
         MQTTChannel forceStartChannel;
@@ -39,9 +37,7 @@ namespace Gimbl
             // Grab Settingss.
             ip = UnityEditor.EditorPrefs.GetString("JaneliaVR_MQTT_IP");
             port = UnityEditor.EditorPrefs.GetInt("JaneliaVR_MQTT_Port");
-            sendFrame = UnityEditor.EditorPrefs.GetBool("Gimbl_sendFrameMsg");
             // Subscribe to some standard output channels.
-            frameChannel = new MQTTChannel("Gimbl/Frame", false);
             startChannel = new MQTTChannel("Gimbl/Session/Start", false);
             stopChannel = new MQTTChannel("Gimbl/Session/Stop", false);
             forceStopChannel = new MQTTChannel("Gimbl/Session/ForceStop", true);
@@ -64,7 +60,6 @@ namespace Gimbl
 
         void LateUpdate()
         {
-            if (sendFrame) { frameChannel.Send(); }
             if (requestStop) { UnityEditor.EditorApplication.isPlaying = false; }
         }
 

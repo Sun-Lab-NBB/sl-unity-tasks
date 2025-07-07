@@ -13,18 +13,9 @@ public class MainWindow : EditorWindow
 
     private MQTTClient _client;
     private static MainWindow window;
-
     private bool foldBlink = false;
     private int duration;
     private int fadeTime;
-
-    [System.Serializable]
-    private class MsgMenuSettings
-    {
-        public bool isFold = false;
-        public bool sendFrameMsg = false;
-    }
-    [SerializeField] private MsgMenuSettings msgSettings = new MsgMenuSettings();
 
     [System.Serializable]
     private class SessionMenuSettings
@@ -71,15 +62,6 @@ public class MainWindow : EditorWindow
         {
             _client.Connect(true);
             _client.Disconnect();
-        }
-        //Messaging settings.
-        msgSettings.isFold = EditorGUILayout.Foldout(msgSettings.isFold, "Messaging");
-        if (msgSettings.isFold)
-        {
-            EditorGUILayout.BeginVertical(LayoutSettings.subBox.style);
-            bool newSendFrame = EditorGUILayout.Toggle("Send Frame Messages", msgSettings.sendFrameMsg, LayoutSettings.editFieldOp);
-            if (newSendFrame != msgSettings.sendFrameMsg) { msgSettings.sendFrameMsg = newSendFrame; EditorPrefs.SetBool("Gimbl_sendFrameMsg", newSendFrame); }
-            EditorGUILayout.EndVertical();
         }
         //Session settings.
         sessionSettings.isFold = EditorGUILayout.Foldout(sessionSettings.isFold, "External Control");
@@ -183,7 +165,6 @@ public class MainWindow : EditorWindow
         _client.port = EditorPrefs.GetInt("SunLabVRPC_MQTT_Port");
         if (_client.port == 0) _client.port = 1883;
         // Set default properties.
-        msgSettings.sendFrameMsg = EditorPrefs.GetBool("Gimbl_sendFrameMsg",false);
         sessionSettings.externalStart = EditorPrefs.GetBool("Gimbl_externalStart", false);
         sessionSettings.externalLog = EditorPrefs.GetBool("Gimbl_externalLog", false);
 
