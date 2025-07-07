@@ -17,11 +17,6 @@ namespace Gimbl
         {
             public float movement;
         }
-        public class StatusMsg
-        {
-            public bool status;
-        }
-        public MQTTChannel<StatusMsg> statusChannel;
 
         // Movement variables.
         private float moved;
@@ -37,9 +32,6 @@ namespace Gimbl
                 MQTTChannel<MSG> channel = new MQTTChannel<MSG>(string.Format("{0}/Data", settings.deviceName));
                 channel.Event.AddListener(OnMessage);
                 
-                // Start treadmill.
-                statusChannel = new MQTTChannel<StatusMsg>(string.Format("{0}/Status", settings.deviceName), false);
-                // statusChannel.Send(new StatusMsg() { status = true });
             }
         }
         public void Update()
@@ -69,14 +61,6 @@ namespace Gimbl
             }
             // Clear buffer.
             movement.Clear();
-        }
-
-        void OnApplicationQuit()
-        {
-            if (this.GetType() == typeof(LinearTreadmill))
-            {
-                // statusChannel.Send(new StatusMsg() { status = false });
-            }
         }
 
         public void OnMessage(MSG msg)
