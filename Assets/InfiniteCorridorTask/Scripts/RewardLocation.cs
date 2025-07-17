@@ -9,6 +9,8 @@ public class RewardLocation : MonoBehaviour
     private bool correctLick = false; // tracks if animal reported reward location correctly.
     public bool isActive = true; //track if reward location is active (only give reward once per lap). Reset by resetlocation
 
+    private GuidanceRegion GuidanceRegionScript;
+
     // MQTT Channels.
     MQTTChannel rewardTrigger; // Signals reward dispenser.
     MQTTChannel lickTrigger; // Listens for signal from lick port.
@@ -20,18 +22,48 @@ public class RewardLocation : MonoBehaviour
     void Start()
     {
         task = FindObjectOfType<Task>(); // Find task object to get parameters.
+
+        // Look for a guidance region script in children game objects. This guidance region delays the reward in 
+        // guidance mode. This gives the mouse the opportunity to get the reward from licking manually even in guidance
+        // mode.
+        GuidanceRegionScript = GetComponentInChildren<GuidanceRegion>();
+
         // Setup MQTT channels.
-        rewardTrigger = new MQTTChannel("Gimbl/Reward/");
-        lickTrigger = new MQTTChannel("LickPort/",true);
+            rewardTrigger = new MQTTChannel("Gimbl/Reward/");
+        lickTrigger = new MQTTChannel("LickPort/", true);
+        lickTrigger.Event.AddListener(LickDetected);
     }
 
     // Update is called once per frame
     void Update()
     {
-        // check for reward delivery in no-lick condition
-        if (isActive && inArea && task.mustLick == false) { Reward(); }
-        // Check for reward condition in must lick condition.
-        if (isActive && inArea && task.mustLick == true && correctLick == true) { Reward(); }
+        if (task.mustLick) //Guidance mode disabled, mouse must lick for reward
+        {
+            // Mouse must lick in the reward region to receive reward
+            if (isActive && inArea && correctLick)
+            {
+                Reward();
+            }
+        }
+        else if (GuidanceRegionScript != null) //Guidance mode with special guidance region where the reward is delivered
+        {
+            if (isActive && inArea && correctLick) // The mouse can lick recieve a reward by licking anywhere in the reward region, just like when guidance is disabled
+            {
+                Reward();
+            }
+            else if (isActive && GuidanceRegionScript.inArea) // If the mouse gets to the guidance region and hasn't licked, give it a reward anyway
+            {
+                Reward();
+            }
+        }
+        else // Guidance mode but no special guidance region
+        {
+            if (isActive && inArea) // mouse gets reward as soon as it enters the reward region
+            {
+                Reward();
+            }
+        }
+
     }
     // Gets called when actor enters collider
     public void OnTriggerEnter(Collider collider) {  inArea = true; }

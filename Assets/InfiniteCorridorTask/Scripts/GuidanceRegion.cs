@@ -2,21 +2,23 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class NewRewardLocation : MonoBehaviour
+public class GuidanceRegion : MonoBehaviour
 {
 
-    
+    [HideInInspector]
+    public bool inArea = false;
+
     void Start()
     {
-        Debug.Log("Hello World");
+
     }
     void OnTriggerEnter(Collider other)
     {
-        Debug.Log("trigger enter");
+        inArea = true;
     }
 
     void OnTriggerExit(Collider other)
     {
-        Debug.Log("trigger exit");
+        inArea = false;
     }
 }

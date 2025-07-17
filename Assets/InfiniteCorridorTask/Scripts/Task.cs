@@ -25,7 +25,7 @@ public class Task : MonoBehaviour
     //          ex. Corridor 121 has the following segments: 1 2 1
 
     public bool mustLick = false;
-    public bool visibleMarker = true;
+    public bool visibleMarker = false;
 
     public Gimbl.ActorObject actor = null;
 
@@ -99,8 +99,6 @@ public class Task : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Debug.Log("On branch gutted");
-
         string global_meta_data_path = Application.dataPath + meta_data_path;
 
         if (string.IsNullOrEmpty(meta_data_path) || !File.Exists(global_meta_data_path))

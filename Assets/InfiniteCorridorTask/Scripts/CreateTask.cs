@@ -94,11 +94,11 @@ public class CreateTask : MonoBehaviour
                 GameObject instance = PrefabUtility.InstantiatePrefab(segment_prefabs[segment]) as GameObject;
                 // Only the first segment in each corridor should have a reward location and reset location since the later segments are just for visual illusion
                 if(j > 0){
-                    Transform reward_location = instance.transform.Find("RewardLocation");
+                    RewardLocation reward_location = instance.GetComponentInChildren<RewardLocation>();
                     if (reward_location != null){
                         GameObject.DestroyImmediate(reward_location.gameObject);
                     }
-                    Transform reset_location = instance.transform.Find("ResetLocation");
+                    ResetLocation reset_location = instance.GetComponentInChildren<ResetLocation>();
                     if (reset_location != null){
                         GameObject.DestroyImmediate(reset_location.gameObject);
                     }
