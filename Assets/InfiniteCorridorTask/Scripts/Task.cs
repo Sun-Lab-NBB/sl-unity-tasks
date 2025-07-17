@@ -10,6 +10,8 @@ using Gimbl;
 using UnityEditor.Search;
 using UnityEngine.Rendering;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
+
 public class Task : MonoBehaviour
 {
 
@@ -53,6 +55,14 @@ public class Task : MonoBehaviour
     }
     private MQTTChannel cueSequenceTrigger;
     private MQTTChannel<SequenceMsg> cueSequenceChannel;
+
+    private string sceneName;
+    public class SceneNameMsg
+    {
+        public string name;
+    }
+    private MQTTChannel sceneNameTrigger;
+    private MQTTChannel<SceneNameMsg> sceneNameChannel; 
 
     private MQTTChannel mustLickTrue;
     private MQTTChannel mustLickFalse;
@@ -158,6 +168,12 @@ public class Task : MonoBehaviour
         cueSequenceTrigger.Event.AddListener(OnCueSequenceTrigger);
         cueSequenceChannel = new MQTTChannel<SequenceMsg>("CueSequence/", false);
 
+        // Create MQTT channels for sending the name of the active scene
+        sceneName = SceneManager.GetActiveScene().name;
+        sceneNameTrigger = new MQTTChannel("SceneNameTrigger/", true);
+        sceneNameTrigger.Event.AddListener(OnSceneNameTrigger);
+        sceneNameChannel = new MQTTChannel<SceneNameMsg>("SceneName/", false);
+
         // Create MQTT channel for toggling mustLick
         mustLickTrue = new MQTTChannel("MustLick/True/", true);
         mustLickTrue.Event.AddListener(setMustLickTrue);
@@ -235,17 +251,6 @@ public class Task : MonoBehaviour
         return probabilities.Length - 1;
     }
 
-    // private int StringToIndex(string input)
-    // {
-    //     int result = 0;
-    //     foreach (char c in input.ToUpper())
-    //     {
-    //         result = result * 26 + (c - 'A' + 1);
-    //     }
-    //     return result;
-    // }
-
-
     /// <summary>
     /// Generates a random sequence of maze segments based on the specified length and optional seed.
     /// </summary>
@@ -300,6 +305,11 @@ public class Task : MonoBehaviour
     {
         Debug.Log("received request for cue sequence");
         cueSequenceChannel.Send(new SequenceMsg() { cue_sequence = cue_sequence_array });
+    }
+
+    private void OnSceneNameTrigger()
+    {
+        sceneNameChannel.Send(new SceneNameMsg() { name = sceneName });
     }
 
     private void blank()
