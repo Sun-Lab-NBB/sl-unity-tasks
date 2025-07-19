@@ -184,6 +184,15 @@ ___
 
 * The original GIMBL package does logging from Unity. For this repository, the GIMBL package has logging removed. 
 
+* The simulated linear treadmill feature has the option for [button topics](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#try-out-the-task). Button topics are displayed in the edit controller window, but the ability to add a new button topic is currently unavailable. If you need to test licking manually, you can add the correct button topic directly to the asset file for the specific controller. Simply navigate to Assets/VRSettings/Controllers and find the .asset file associated with the controller. Open this file and replace 
+
+      buttonTopics: []
+
+    with
+
+      buttonTopics:
+      - LickPort/
+
 * For information on how to send MQTT messages to Unity, look [here](https://github.com/winnubstj/Gimbl/wiki/Example-code-of-MQTT-subscribing-and-publishing).
 ___
 
