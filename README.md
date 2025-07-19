@@ -1,21 +1,37 @@
-# Unity-Tasks
-A Unity project for making infinite corridors for virtual reality mouse experiments. 
+# sl-unity-tasks
+
+A C# Unity project used to make Virtual Reality (VR) tasks used to facilitate experiments in the Sun (NeuroAI) lab. 
+
+---
 
 ## Detailed Description
 
-This repository contains the files necessary to display an infinite corridor to a mouse running on a linear treadmill. Treadmill movement is inputted to the system via MQTT channels, and the visual ouput is displayed to the mouse via a configurable three screen setup. 
+This project provides assets and bindings for building Virtual Reality (VR) tasks used by some data acquisition systems
+in the Sun lab to conduct experiments. Primarily, the project is designed to construct an **infinite linear corridor**
+environment and display it to the animal during runtime using a set of three Virtual Reality monitors (screens).
 
-This project is an extension of the GIMBL repository, a more flexible package for creating Unity VR tasks. On top of the GIMBL package, this project contains additional tasks and a simple method for modifying tasks and creating new tasks. A key advantage over the original GIMBL repository is that this repository can make corridors that have probabilistic transitions.
+This project is specialized to work with the main [sl-experiment](https://github.com/Sun-Lab-NBB/sl-experiment) library 
+used by all Sun lab data acquisition systems. It uses [MQTT](https://mqtt.org/) to bidirectionally communicate with the 
+sl-experiment runtimes and relies on sl-experiment to provide it with the data on animal's behavior during the VR task 
+execution.
 
-The original GIMBL repository can be found here:
-https://github.com/winnubstj/Gimbl
+The project is an extension of the original [GIMBL](https://github.com/winnubstj/Gimbl) repository, heavily refactored 
+to improve the flexibility of creating novel Unity VR tasks. On top of the GIMBL package, this project exposes 
+additional assets and prefabricated tasks and an interface for modifying existing and creating new tasks. In addition 
+to these changes, this project also deprecates most of the original GIMBL functionality no longer used in the Sun lab
+(due to being replaced with sl-experiment), such as logging and unused MQTT topics. It also removes the technical debt 
+left from initial GIMBL development.
+
 ___
 
 ## Features
 
-- Supports Windows, Linux, and OSx.
-- Compatible with GIMBL
+- Runs on Windows, Linux, and OSx.
+- Compatible with tasks designed in the original GIMBL repository.
+- Supports tasks with multiple virtual environment motifs (sub-corridors) and probabilistic transitions between these
+  sub-motifs.
 - GPL 3 License.
+
 ___
 
 ## Table of Contents
@@ -28,6 +44,7 @@ ___
 - [Authors](#authors)
 - [License](#license)
 - [Acknowledgements](#Acknowledgments)
+
 ___
 
 ## Dependencies
