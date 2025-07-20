@@ -1,6 +1,7 @@
 # sl-unity-tasks
 
-A C# Unity project used to make Virtual Reality (VR) tasks used to facilitate experiments in the Sun (NeuroAI) lab. 
+A C# Unity project that provides assets to create and execute Virtual Reality (VR) tasks used to facilitate 
+experiments in the Sun (NeuroAI) lab. 
 
 ---
 
@@ -16,18 +17,17 @@ sl-experiment runtimes and relies on sl-experiment to provide it with the data o
 execution.
 
 The project is an extension of the original [GIMBL](https://github.com/winnubstj/Gimbl) repository, heavily refactored 
-to improve the flexibility of creating novel Unity VR tasks. On top of the GIMBL package, this project exposes 
-additional assets and prefabricated tasks and an interface for modifying existing and creating new tasks. In addition 
+to improve the flexibility of creating novel Unity VR tasks. In addition to the refactored GIMBL package, this project
+exposes an interface for modifying existing and creating new tasks using prefabricated assets ('prefabs'). In addition 
 to these changes, this project also deprecates most of the original GIMBL functionality no longer used in the Sun lab
-(due to being replaced with sl-experiment), such as logging and unused MQTT topics. It also removes the technical debt 
-left from initial GIMBL development.
+(due to being replaced with sl-experiment), such as logging and unused MQTT topics. It also eliminates the technical 
+debt left from the initial GIMBL development (unused assets, inefficient implementations, etc.).
 
 ___
 
 ## Features
 
 - Runs on Windows, Linux, and OSx.
-- Compatible with tasks designed in the original GIMBL repository.
 - Supports tasks with multiple virtual environment motifs (sub-corridors) and probabilistic transitions between these
   sub-motifs.
 - GPL 3 License.
@@ -49,47 +49,84 @@ ___
 
 ## Dependencies
 
-See dependencies of https://github.com/winnubstj/Gimbl. No additional dependencies are required.
+### Internal dependencies
+
+These dependencies are automatically installed with the project either as .dll files or as asset collections:
+- [2MQTT package](https://github.com/eclipse/paho.mqtt.m2mqtt) version **4.3.0**.
+- [Path-Creator package](https://github.com/SebLague/Path-Creator) latest available version.
+- [SharpDX package](https://github.com/sharpdx/SharpDX/tree/master) version **4.2.0**.
+
+### External dependencies
+
+The user must install these dependencies before working with this Unity project:
+- [MQTT broker](https://mosquitto.org/) version **2.0.21**. This project was tested with the broker running locally, 
+  using the **default** IP (27.0.0.1) and Port (1883) configuration.
+- [Unity Game Engine](https://unity.com/products/unity-engine) version **6000.1.12f1**.
+- [Blender](https://www.blender.org/download/) version **4.5.0 LTS**.
+
 ___
 
 ## Installation
 
-1. Follow all steps from the [Install Instructions](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#install-instructions) section of the original GIMBL repository. Most importantly, install the MQTT broker.
+### Source
 
-1. If you haven't already, install the [Unity hub](https://unity.com/download).
+1. Install the [Unity hub](https://unity.com/download) and use it to install the required Unity Game Engine version.
+2. Download this repository to your local machine using your preferred method, such as Git-cloning. Use one
+   of the stable releases from [GitHub](https://github.com/Sun-Lab-NBB/sl-unity-tasks/releases).
+3. From the Unity Hub, select `add project from disk` and navigate to the local folder containing the downloaded 
+   repository: <br> <img src="imgs/AddProjectFromDisk.png" width="200">
 
-1. Clone this repository.
-
-1. From the Unity Hub, select add project from disk and navigate to the local folder containing this repository. <br> <img src="imgs/AddProjectFromDisk.png" width="200">
-
-1. If the correct Unity version is not installed, then there will be a warning next to the project name in the Unity Hub. Click on the warning and install the recommended Unity version. <br> <img src="imgs/InstallRecommendedVersion.png" width="400">
-
-After these steps, the created Unity project should compile and run without errors.
+**Hint.** If the correct Unity version is not installed when the project is imported, the Unity Hub displays a warning 
+next to the project name. Click on the warning and install the recommended Unity version:
+<br> <img src="imgs/InstallRecommendedVersion.png" width="400">
 
 ___
 
 ## Usage
 
-1. When opening the Unity Project you should see the a host of GameObjects in the hierarchy window including Actors, Controllers, and Paths. You may also see some errors in the console. Additionally, you should see tabs next to the inspector with names Settings, Actors, and Displays. If you do not see these tabs, you can reactivate them by selecting Window -> Gimbl. <br> <img src="imgs/gimbl_tabs.png" width="400"> 
-
-1. Create a new scene by clicking File -> New Scene. Instead of using the default scene template, select ExperimentTemplate. Save this scene in Assets/Scene. The scene creation may take a long time, if your computer freezes retry with the ExperimentTemplate Scene open. Upon creating, save your scene in Assets/Scenes.
-<br> <img src="imgs/newScene.png" width="400"> 
-
-1. Follow the [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section from the original GIMBL repository. When creating the controller, choose Linear Treadmill instead of Simulated Linear Treadmill. The Simulated Linear Treadmill is useful for testing but when actually running the experiment you want the Linear Treadmill because it responds only to MQTT messages.
-
-1. Navigate to Assets/InfiniteCorridorTask/Tasks. This folder contains Unity prefabs of different tasks. Drag the prefab for the task you want to run into the hierarchy window. The prefab should become visible in the scene. Make sure you don't drag the prefab directly into the scene because then its position in the scene will be off relative to the virtual mouse. If there already was a prefab for a different task in the scene, make sure to remove it so that the scene has exactly one task. <br> <img src="imgs/hierarchy_window.png" width="400">
-
-1. Select the task GameObject in the Hierarchy window and then view the Inspector window. You will see that the GameObject has a Task script, and there are a host of configurable parameters. You must set the actor to an actor object. You may also modify other parameters.
-    - Must Lick - whether or not the mouse has to actually lick to get the reward. If deselected, the mouse gets the reward by just entering the reward region.
-    - Visible Marker - whether or not the mouse can see the reward location. Could be useful for testing or pretraining but should be disabled during experiment.
-    - Actor - a link to the actor object representing the mouse. This enables the maze to teleport the mouse to keep the illusion of an infinite corridor.
-    - Track Length - how much track is pregenerated and logged. This is relevant for tasks with random transitions. If the mouse traverses this length, the task continues with on the fly decisions about which segment the mouse enters next. Track length is in Unity units, and 1 unity unit is 10cm.
-    - Track seed - A seed for the creation of random transitions. This can be useful if you want to run many experiments with the exact same pattern of segments. If set to -1, then no seed is used and transitions are truly random. 
-    - Meta_data_path - A path to the meta data file associated with the task. Since the meta_data path is global, if you are using a computer that the task wasn't created on, this path will be invalid. To fix this, you can manually change this field or recreate the task. [Task Creation](#task-creation) explains the purpose of meta data files and how to create a task.
-
-1. Verify that the the VR screens are actually displaying the corridor. If it is not, go back to the display window and click on Show Full-Screen Views. If the display is off, you may need to reconfigure the cameras to the proper monitors or press Refresh Monitor Positions. 
-
-1. Press the play button to run the experiment. Verify that There are no errors displayed in the console window. If there are errors, start debugging by looking at the first error printed, which is likely the true error, while the other errors are just a result of running a broken game loop.
+1. Open the Unity Project, which should reveal a set of GameObjects in the **hierarchy** window, including *Actors*, 
+   *Controllers*, and *Paths*. Additionally, the GIMBL package adds the following tabs next to the **Inspector** tab: 
+   *Settings*, *Actors*, and *Displays*. If you do not see these tabs, you can reactivate them by selecting 
+   Window → Gimbl. **Note!** In some cases you may also see console warnings related to missing assets. 
+   <br> <img src="imgs/gimbl_tabs.png" width="400">
+2. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
+   **ExperimentTemplate** as the template. **Note!** The scene creation may take a long time, depending on the resources
+   available to the local machine (PC). When the scene is created, save it in *Assets/Scenes*.
+   <br> <img src="imgs/newScene.png" width="400">
+3. Follow the instructions from the original GIMBL repository printed in the 
+   [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section. When 
+   creating the controller, **choose the 'Linear Treadmill' instead of the 'Simulated Linear Treadmill'**. The Simulated
+   Linear Treadmill is useful for testing but does not respond to MQTT input channels. All experiments require the VR 
+   task to be built with the **Linear Treadmill** controller.
+4. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
+   different tasks. Drag the prefab for the task you want to run into the hierarchy window. The prefab should become 
+   visible in the scene. **Warning!** Do not drag the prefab directly into the scene, as this will misalign the prefab 
+   and the virtual animal actor. If the scene already contains a prefab for a different task, remove it before adding 
+   the new prefab so that the scene has exactly one task. <br> <img src="imgs/hierarchy_window.png" width="400">
+5. Select the task GameObject in the Hierarchy window and then view the Inspector window. You will see that the 
+   GameObject has a Task script, and there are a host of configurable parameters. You must set the actor to an actor 
+   object. You may also modify other parameters.
+    - Must Lick: whether the mouse has to actually lick to get the reward. If deselected, the mouse gets the reward by 
+      just entering the reward region.
+    - Visible Marker: whether the mouse can see the reward location. Could be useful for testing or pretraining but 
+      should be disabled during experiment.
+    - Actor: a link to the actor object representing the mouse. This enables the maze to teleport the mouse to keep 
+      the illusion of an infinite corridor.
+    - Track Length: how much track is pregenerated and logged. This is relevant for tasks with random transitions. 
+      If the mouse traverses this length, the task continues with on the fly decisions about which segment the mouse 
+      enters next. Track length is in Unity units, and 1 unity unit is 10cm.
+    - Track seed: A seed for the creation of random transitions. This can be useful if you want to run many experiments 
+      with the exact same pattern of segments. If set to -1, then no seed is used and transitions are truly random. 
+    - Meta_data_path: A path to the meta data file associated with the task. Since the meta_data path is global, if you 
+      are using a computer that the task wasn't created on, this path will be invalid. To fix this, you can manually 
+      change this field or recreate the task. [Task Creation](#task-creation) explains the purpose of meta data files and how to 
+      create a task. 
+6. Verify that the VR screens are actually displaying the corridor. If it is not, go back to the display window and 
+   click on Show Full-Screen Views. If the display is off, you may need to reconfigure the cameras to the proper 
+   monitors or press Refresh Monitor Positions.
+7. Press the play button to run the experiment. Verify that There are no errors displayed in the console window. If 
+   there are errors, start debugging by looking at the first error printed, which is likely the true error, while the 
+   other errors are just a result of running a broken game loop.
 
 ___
 
