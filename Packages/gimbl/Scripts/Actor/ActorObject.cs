@@ -47,7 +47,7 @@ namespace Gimbl
                     {
                         value.master.Actor = this;
                         // make sure other actors are no longer coupled.
-                        foreach (ActorObject act in FindObjectsOfType<ActorObject>())
+                        foreach (ActorObject act in FindObjectsByType<ActorObject>(FindObjectsSortMode.None))
                         {
                             if (act.controller == value && act != this)
                             {
@@ -168,7 +168,7 @@ namespace Gimbl
             // If turned on disable other listener.
             if (newActiveListener)
             {
-                foreach(AudioListener list in FindObjectsOfType<AudioListener>())
+                foreach(AudioListener list in FindObjectsByType<AudioListener>(FindObjectsSortMode.None))
                 {
                     list.enabled = false;
                 }

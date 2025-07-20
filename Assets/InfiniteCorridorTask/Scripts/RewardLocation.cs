@@ -21,7 +21,7 @@ public class RewardLocation : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        task = FindObjectOfType<Task>(); // Find task object to get parameters.
+        task = FindAnyObjectByType<Task>(); // Find task object to get parameters.
 
         // Look for a guidance region script in children game objects. This guidance region delays the reward in 
         // guidance mode. This gives the mouse the opportunity to get the reward from licking manually even in guidance

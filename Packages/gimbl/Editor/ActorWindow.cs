@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEditor;
 using System.Linq;
 using System.Collections.Generic;
@@ -176,7 +176,7 @@ public class ActorWindow : EditorWindow
                 catch (System.InvalidCastException) { obj = null; } // catches changed instanceID on restart.
             }
             // Otherwise find first on list.
-            if (obj==null){ obj = FindObjectOfType<T>();}
+            if (obj==null){ obj = FindAnyObjectByType<T>();}
                 if (obj != null) { settings.selectedObj = obj; }
         }
         settings.selectedObj = (T)EditorGUILayout.ObjectField(settings.selectedObj, typeof(T), true);
@@ -185,7 +185,7 @@ public class ActorWindow : EditorWindow
     private void CreateButton<T>(MenuSettings<T> settings) where T:UnityEngine.Object
     {
         EditorGUILayout.BeginHorizontal();
-            T[] objs = FindObjectsOfType<T>();
+            T[] objs = FindObjectsByType<T>(FindObjectsSortMode.None);
             string[] names = objs.Select(x => x.name).ToArray();
             string msg = "";
             if (ArrayUtility.Contains(names, settings.name)) { msg = "Duplicate name"; GUI.enabled = false; }

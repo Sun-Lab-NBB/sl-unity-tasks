@@ -12,7 +12,7 @@ namespace Gimbl
         public void OnEnable()
         {
             // Start mqtt client when scene starts
-            GameObject.FindObjectOfType<Gimbl.MQTTClient>().Connect(false);
+            GameObject.FindAnyObjectByType<Gimbl.MQTTClient>().Connect(false);
         }
 
     }
