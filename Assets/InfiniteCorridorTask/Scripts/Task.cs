@@ -98,7 +98,7 @@ public class Task : MonoBehaviour
     {
         if (actor == null)
         {
-            Gimbl.ActorObject[] all_actors = FindObjectsOfType<Gimbl.ActorObject>();
+            Gimbl.ActorObject[] all_actors = FindObjectsByType<Gimbl.ActorObject>(FindObjectsSortMode.None);
             if (all_actors.Length > 0)
             {
                 actor = all_actors[0];
@@ -190,7 +190,7 @@ public class Task : MonoBehaviour
 
 
         // Create MQTT channels for blacking out and displaying the screen
-        displayObjects = FindObjectsOfType<DisplayObject>();
+        displayObjects = FindObjectsByType<DisplayObject>(FindObjectsSortMode.None);
         showDisplay = new MQTTChannel("Display/Show/", true);
         showDisplay.Event.AddListener(show);
         blankDisplay = new MQTTChannel("Display/Blank/", true);

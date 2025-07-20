@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.unity.collab-proxy": {
-      "version": "2.5.2",
+      "version": "2.8.2",
       "depth": 0,
       "source": "registry",
       "dependencies": {},
@@ -50,6 +50,14 @@
         "com.unity.test-framework": "1.1.9"
       },
       "url": "https://packages.unity.com"
+    },
+    "com.unity.multiplayer.center": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
+      "dependencies": {
+        "com.unity.modules.uielements": "1.0.0"
+      }
     },
     "com.unity.performance.profile-analyzer": {
       "version": "1.2.3",
@@ -101,16 +109,8 @@
       },
       "url": "https://packages.unity.com"
     },
-    "com.unity.textmeshpro": {
-      "version": "5.0.0",
-      "depth": 0,
-      "source": "builtin",
-      "dependencies": {
-        "com.unity.ugui": "2.0.0"
-      }
-    },
     "com.unity.timeline": {
-      "version": "1.7.6",
+      "version": "1.8.7",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -122,7 +122,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.toolchain.linux-x86_64": {
-      "version": "2.0.9",
+      "version": "2.0.10",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -141,7 +141,7 @@
       }
     },
     "com.unity.visualscripting": {
-      "version": "1.9.4",
+      "version": "1.9.7",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -154,6 +154,12 @@
       "version": "file:gimbl",
       "depth": 0,
       "source": "embedded",
+      "dependencies": {}
+    },
+    "com.unity.modules.accessibility": {
+      "version": "1.0.0",
+      "depth": 0,
+      "source": "builtin",
       "dependencies": {}
     },
     "com.unity.modules.ai": {

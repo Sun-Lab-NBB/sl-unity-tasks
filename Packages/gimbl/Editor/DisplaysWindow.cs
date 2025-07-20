@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -197,7 +197,7 @@ public class DisplaysWindow : EditorWindow
     private void CreateButton<T>(MenuSettings<T> settings, CreateFunc<T> func) where T : UnityEngine.Object
     {
         EditorGUILayout.BeginHorizontal();
-        T[]      objs  = FindObjectsByType<T>(FindObjectsSortMode.None);
+        T[] objs = FindObjectsByType<T>(FindObjectsSortMode.None);
         string[] names = objs.Select(x => x.name).ToArray();
         string   msg   = "";
         if (ArrayUtility.Contains(names, settings.name)) { msg = "Duplicate name"; GUI.enabled = false; }

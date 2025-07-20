@@ -17,7 +17,7 @@ public class LogExample : MonoBehaviour
     void Start()
     {
         // Get instance of logger.
-        logger = FindObjectOfType<LoggerObject>();
+        logger = FindAnyObjectByType<LoggerObject>();
         // send simple message.
         logger.logFile.Log("Im a test message");
         //More complex message.

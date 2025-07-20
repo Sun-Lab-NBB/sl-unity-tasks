@@ -11,8 +11,8 @@ public class ResetLocation : MonoBehaviour
     void Start()
     {
         // Find all instances of RewardLocation in the scene
-        rewardLocations = FindObjectsOfType<RewardLocation>();
-        task = FindObjectOfType<Task>();
+        rewardLocations = FindObjectsByType<RewardLocation>(FindObjectsSortMode.None);
+        task = FindAnyObjectByType<Task>();
     }
 
     // Called when actor enters reset location.

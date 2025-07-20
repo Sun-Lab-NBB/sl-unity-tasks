@@ -17,8 +17,6 @@ namespace Gimbl
     {
         [HideInInspector]  public string ip;
         [HideInInspector]  public int port;
-        private bool requestStop=false;
-        private bool requestStart = false;
         public MqttClient client;   
 
         private class Channel
@@ -29,8 +27,6 @@ namespace Gimbl
         private List<Channel> channelList = new List<Channel>();
         MQTTChannel startChannel;
         MQTTChannel stopChannel;
-        MQTTChannel forceStartChannel;
-        MQTTChannel forceStopChannel;
 
         void Start()
         {
@@ -40,15 +36,6 @@ namespace Gimbl
             // Subscribe to some standard output channels.
             startChannel = new MQTTChannel("Gimbl/Session/Start", false);
             stopChannel = new MQTTChannel("Gimbl/Session/Stop", false);
-            forceStopChannel = new MQTTChannel("Gimbl/Session/ForceStop", true);
-            forceStopChannel.Event.AddListener(ForceStop);
-            forceStartChannel = new MQTTChannel("Gimbl/Session/ForceStart", true);
-            forceStartChannel.Event.AddListener(ForceStart);
-            // wait for start signal.
-            if (UnityEditor.EditorPrefs.GetBool("Gimbl_externalStart"))
-            {
-                while (requestStart == false && requestStop == false) { }
-            }
             StartSession(); 
         }
 
@@ -57,27 +44,10 @@ namespace Gimbl
             await Task.Delay(1000);
             startChannel.Send();
         }
-
-        void LateUpdate()
-        {
-            if (requestStop) { UnityEditor.EditorApplication.isPlaying = false; }
-        }
-
-        void ForceStop()
-        {
-            // Send stop
-            stopChannel.Send();
-            System.Threading.Thread.Sleep(1000);
-            requestStop = true;
-        }
-        void ForceStart()
-        {
-            requestStart = true;
-        }
         void OnApplicationQuit()
         {
             // Send stop
-            if (requestStop == false) { stopChannel.Send(); }
+            stopChannel.Send();
             // Unsubscribe from all topics.
             if (channelList.Count>0) client.Unsubscribe(channelList.Select(x => x.topic).ToArray());
             // Clear channel list.
