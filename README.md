@@ -39,8 +39,8 @@ ___
 - [Dependencies](#dependencies)
 - [Installation](#installation)
 - [Usage](#usage)
-- [Task Creation](#task-creation)
-- [Developers](#developers)
+- [Creating New Tasks](#creating-new-tasks)
+- [Developer Notes](#developer-notes)
 - [Authors](#authors)
 - [License](#license)
 - [Acknowledgements](#Acknowledgments)
@@ -49,14 +49,14 @@ ___
 
 ## Dependencies
 
-### Internal dependencies
+### Internal Dependencies
 
 These dependencies are automatically installed with the project either as .dll files or as asset collections:
 - [2MQTT package](https://github.com/eclipse/paho.mqtt.m2mqtt) version **4.3.0**.
 - [Path-Creator package](https://github.com/SebLague/Path-Creator) latest available version.
 - [SharpDX package](https://github.com/sharpdx/SharpDX/tree/master) version **4.2.0**.
 
-### External dependencies
+### External Dependencies
 
 The user must install these dependencies before working with this Unity project:
 - [MQTT broker](https://mosquitto.org/) version **2.0.21**. This project was tested with the broker running locally, 
@@ -73,155 +73,221 @@ ___
 1. Install the [Unity hub](https://unity.com/download) and use it to install the required Unity Game Engine version.
 2. Download this repository to your local machine using your preferred method, such as Git-cloning. Use one
    of the stable releases from [GitHub](https://github.com/Sun-Lab-NBB/sl-unity-tasks/releases).
-3. From the Unity Hub, select `add project from disk` and navigate to the local folder containing the downloaded 
-   repository: <br> <img src="imgs/AddProjectFromDisk.png" width="200">
+3. From the Unity Hub, select `add project from disk` and navigate to the local folder containing the downloaded
+   repository: <br> <img src="imgs/AddProjectFromDisk.png" width="300"/>
 
 **Hint.** If the correct Unity version is not installed when the project is imported, the Unity Hub displays a warning 
 next to the project name. Click on the warning and install the recommended Unity version:
-<br> <img src="imgs/InstallRecommendedVersion.png" width="400">
+<br> <img src="imgs/InstallRecommendedVersion.png" width="600"/>
 
 ___
 
 ## Usage
 
-1. Open the Unity Project, which should reveal a set of GameObjects in the **hierarchy** window, including *Actors*, 
-   *Controllers*, and *Paths*. Additionally, the GIMBL package adds the following tabs next to the **Inspector** tab: 
-   *Settings*, *Actors*, and *Displays*. If you do not see these tabs, you can reactivate them by selecting 
-   Window → Gimbl. **Note!** In some cases you may also see console warnings related to missing assets. 
-   <br> <img src="imgs/gimbl_tabs.png" width="400">
-2. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
-   **ExperimentTemplate** as the template. **Note!** The scene creation may take a long time, depending on the resources
-   available to the local machine (PC). When the scene is created, save it in *Assets/Scenes*.
-   <br> <img src="imgs/newScene.png" width="400">
-3. Follow the instructions from the original GIMBL repository printed in the 
-   [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section. When 
-   creating the controller, **choose the 'Linear Treadmill' instead of the 'Simulated Linear Treadmill'**. The Simulated
-   Linear Treadmill is useful for testing but does not respond to MQTT input channels. All experiments require the VR 
-   task to be built with the **Linear Treadmill** controller.
-4. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
-   different tasks. Drag the prefab for the task you want to run into the hierarchy window. The prefab should become 
-   visible in the scene. **Warning!** Do not drag the prefab directly into the scene, as this will misalign the prefab 
-   and the virtual animal actor. If the scene already contains a prefab for a different task, remove it before adding 
-   the new prefab so that the scene has exactly one task. <br> <img src="imgs/hierarchy_window.png" width="400">
-5. Select the task GameObject in the Hierarchy window and then view the Inspector window. You will see that the 
-   GameObject has a Task script, and there are a host of configurable parameters. You must set the actor to an actor 
-   object. You may also modify other parameters.
-    - Must Lick: whether the mouse has to actually lick to get the reward. If deselected, the mouse gets the reward by 
-      just entering the reward region.
-    - Visible Marker: whether the mouse can see the reward location. Could be useful for testing or pretraining but 
-      should be disabled during experiment.
-    - Actor: a link to the actor object representing the mouse. This enables the maze to teleport the mouse to keep 
-      the illusion of an infinite corridor.
-    - Track Length: how much track is pregenerated and logged. This is relevant for tasks with random transitions. 
-      If the mouse traverses this length, the task continues with on the fly decisions about which segment the mouse 
-      enters next. Track length is in Unity units, and 1 unity unit is 10cm.
-    - Track seed: A seed for the creation of random transitions. This can be useful if you want to run many experiments 
-      with the exact same pattern of segments. If set to -1, then no seed is used and transitions are truly random. 
-    - Meta_data_path: A path to the meta data file associated with the task. Since the meta_data path is global, if you 
-      are using a computer that the task wasn't created on, this path will be invalid. To fix this, you can manually 
-      change this field or recreate the task. [Task Creation](#task-creation) explains the purpose of meta data files and how to 
-      create a task. 
-6. Verify that the VR screens are actually displaying the corridor. If it is not, go back to the display window and 
-   click on Show Full-Screen Views. If the display is off, you may need to reconfigure the cameras to the proper 
-   monitors or press Refresh Monitor Positions.
-7. Press the play button to run the experiment. Verify that There are no errors displayed in the console window. If 
-   there are errors, start debugging by looking at the first error printed, which is likely the true error, while the 
-   other errors are just a result of running a broken game loop.
+This section discusses how to use existing tasks to conduct experiment and create new tasks using the project. 
+**Note!** This library is specifically written to work with 
+[sl-experiment](https://github.com/Sun-Lab-NBB/sl-experiment) library and will likely not work in other 
+contexts.
 
-___
+### Creating New Tasks
 
-## Task Creation
+The key feature of this project is the **task creator**: a system for quickly making any infinite corridor task with or 
+without probabilistic transitions between corridor segments (trial motifs). 
 
-The key feature of this repository is the task creator, a system for quickly making any infinite corridor with probabilistic transitions. 
+#### Task Definition
 
-### Specification
+Each **task** can be conceptualized as a set of infinite corridor **segments** and the **transition probabilities** 
+between then. Each segment is split into **cues*, which are portions of the corridor walls that have different 
+colors/textures. Since each task segment typically contains a reward zone that conditionally delivers water to the 
+animal, traversing each segment typically constitutes a single **experiment trial**. Therefore, the sequence of wall 
+cues that makes each segment is frequently referred to as the **trial motifs** in this project and the sl-experiment 
+documentation.
 
-A task is specified by segments and the transition probabilities between then. Each segment is split into cues, which are portions of the wall which have different colors/textures. Any cue graph can be represented by a set of segments. For example, the cue graph below can be represented by two segments, between which there are uniform transition probabilities.
+Overall, any task graph depicting transitions between infinite corridor cues can be represented by a set of segments. 
+For example, the cue graph below can be represented by two segments with uniform transition probabilities between 
+each-other:
 
-<img src="imgs/cue_graph.png" width="100">
+<img src="imgs/cue_graph.png" width="233" alt="graph picture">
 
-Segment 1: A B C 
+1. **Segment 1**: A, B, C
+2. **Segment 2**: 2: A, B, D, C
 
-Segment 2: A B D C
+During experiment, both segments are typically reused many times to create a long sequence of segments to be experienced
+by the animal during runtime.
 
-There are additional parameters for a task specification, including:
+In addition to the general task structure, there are additional parameters to be considered for each task, including:
+- The length of each cue region.
+- The length of non-cue ('gray') wall regions between the cue regions.
+- The graphical texture (pattern) of each wall cue.
+- The graphical texture of non-cue wall regions (usually gray color, hence the name **gray regions**).
+- The graphical texture of the corridor floor.
+- The reward zone locations and the conditions for the animal to receive the rewards.
 
-- Length of each cue
-- Length of gray regions
-- Cue patterns
-- Wall patterns
-- Floor patterns
-- Reward Locations
+#### Implementation
 
-### Implementation
-
-To actually create a task and realize a specification, you need to make two things: a Unity prefab for each segment and meta data json file. The simplest way to create these is by starting with already existing examples and making modifications to them as needed.
+To create a task according to the desired specification, two assets need to be generated: a Unity prefab for each 
+segment and the metadata .json file. The easiest way to create these assets is to start with an already existing 
+task and modify it to match the desired parameters.
 
 #### Segment Prefabs
 
-All segment prefabs must be placed in the directory Assets/InfiniteCorridorTask/Prefabs. Double clicking on a prefab opens up Unity's prefab editor. You know you are editing the prefab and not a GameObject when you see a blue background in the scene.
+All segment prefabs must be placed in the directory **Assets/InfiniteCorridorTask/Prefabs**. Double-clicking on a prefab 
+opens up Unity's prefab editor. **Hint!** To verify that the file being edited is a prefab and not a GameObject, ensure
+that the scene has a **blue** background.
 
-<img src="imgs/segment_prefab.png" width="500">
+<img src="imgs/segment_prefab.png" width="600">
 
-Two key components of the prefab are the reward location and the reset location. The mouse recieves a reward if they lick in a reward region. This lick message must be transmitted to Unity over the MQTT protocol. However, after successfully triggering a reward, the mouse must pass through a reset location in order to get any more reward.
+Each prefab includes two key elements: the **reward location** and the **reset location**. For most tasks, the animal 
+has to lick in the reward location to receive the reward. After successfully triggering a reward delivery, the mouse 
+must pass through the reset location to get another reward.
 
-Once you have created a prefab for each segment, you need to make an additional prefab for padding. This should just be a long empty corridor. The padding prefab is used during task creation to give the illusion that the corridor is infinite.
+Once each prefab segment is created, an additional prefab must be made for padding. This padding prefab should be a long
+empty corridor, and it is used during task runtime to give the animal an illusion that the corridor is infinite.
 
+#### Metadata JSON File
+The **task metadata file**, also referred to as the **maze specification file**, ties the segment prefabs together and 
+is requisite for creating and running tasks. The structure of this file is shown below and should be matched exactly for 
+all custom metadata files for the project to work as intended:
 
-#### Meta Data Json File
-The task meta data file, also referred to as the maze specification file, ties the segment prefabs together and is requisite for creating and running tasks. The structure of such a file is shown below. This structure should be matched exactly.
-
-- **cues** — *array\<Cue>*
-  - Master list of all cues from any segment.
-  - The order of this list determines the integer id's assigned to each cue during logging.
+- **cues** *(array\<Cue>)*: The list of all cues from any segment. The order of this list determines the integer id's 
+  assigned to each cue during cue sequence logging.
   - **Cue**
-    - **name** *(string)* – Unique label for the cue (e.g., `"A"`, `"Gray"`).  
-    - **length** *(number, Unity units)* – How much wall space the cue takes up.
+    - **name** *(string)*: The unique human-readable label for the cue (e.g., `"A"`, `"Gray"`).  
+    - **length** *(number, Unity units)*: The wall space, in unity units, taken up by the cue (the length of the cue).
 
-- **segments** — *array\<Segment>*
-  - List of all segments.
+- **segments** *(array\<Segment>)*: The list of all segments.
   - **Segment**
-    - **name** *(string)* – Name of the segment prefab (e.g., `"Segment_abc"`). Must match the file name in Assets/InfiniteCorridorTask/Prefabs.
-    - **cue_sequence** *(string[])* – Ordered list of cues in segment. The sum of the lengths of the cues in this list must match the total length of the segment prefab.
-    - **transition_probabilities** *(number[])* – Probabilities of choosing each possible successor segment. Probabilities must sum to 1. The length of this array must correspond to the total number of segments. This field is optional; if unspecified, will assume uniform transitions.
+    - **name** *(string)*: The human-readable name of the segment prefab (e.g., `"Segment_abc"`). Must match the 
+      prefab file name in **Assets/InfiniteCorridorTask/Prefabs**.
+    - **cue_sequence** *(string[])*: The ordered list of cues in the segment. The sum of cue lengths in this list must 
+      match the total length of the segment prefab, in Unity units.
+    - **transition_probabilities** *(number[])*: The ordered list of probabilities of choosing each possible successor 
+      segment. All probabilities in the list must sum to 1. The length of this list must correspond to the total number 
+      of segments. This field is optional; if unspecified, the task parser will assume uniform transitions.
 
-- **padding** — *object*
-  - Segment with no cues.
-  - **name** *(string)* – the name of the padding prefab in Assets/InfiniteCorridorTask/Prefabs.
+- **padding** *(object)*: The Segment object with no wall cues.
+  - **name** *(string)*: The name of the padding prefab in** Assets/InfiniteCorridorTask/Prefabs**.
 
-- **corridor_spacing** *(number, meters or units)*  
-  Distance inserted between consecutive corridors when laying them out in the world.
+- **corridor_spacing** *(number, meters or units)*: The distance inserted between consecutive corridors (groups of 
+  segments) when laying them out in the world.
 
-- **segments_per_corridor** *(integer)*  
-  How many segments are concatenated to form one complete corridor. Setting this to 3 is generally sufficient to give the illusion that the corridor is infinite.
+- **segments_per_corridor** *(integer)*: Specifies how many segments are concatenated to form one complete corridor. 
+  Setting this to 3 is generally enough to give the illusion that the corridor is infinite.
 
-
-Here is an example specification file:
-
+**Note!** Below is an example of a well-written metadata file for one of the existing tasks:
 <img src="imgs/maze_spec.png" width="400">
 
 
-### CreateTask Tab
-Once you have created the task specification file, place it in Assets/InfiniteCorridorTask/Tasks. To create the task prefab, select CreateTask->New Task. This will open up a file window within which you can select the meta data json file. It will then open a second prompt allowing you to name and save the prefab. The task prefab can now be put into the scene and [run](#usage).
+#### CreateTask Tab
+Once the task specification file is created, it must be placed in the **Assets/InfiniteCorridorTask/Tasks** directory. 
+To then create the task prefab, use the **CreateTask → New Task** command. This will open up a file window to select the
+metadata .json file. Once the file is selected, a secondary prompt will open to name and save the prefab. Once created,
+the prefab can be loaded and executed as any pre-created task that comes with the project (see below).
 
 <img src="imgs/createTask.png" width="700">
 
+### Loading Existing Tasks
+
+Each distribution of the project contains all tasks currently used in the Sun lab. To open and use an existing task, 
+follow these steps:
+1. Open the Unity Project, which should reveal a set of **GameObjects** in the **'Hierarchy'** window. This set includes 
+   *Actors*, *Controllers*, and *Paths* objects. Additionally, the GIMBL package adds the following tabs next to the 
+   **'Inspector'** tab: *Settings*, *Actors*, and *Displays*. If these tabs are not visible, reactivate them by 
+   selecting Window → Gimbl. **Note!** In some cases opening the project may reveal console warnings related to missing 
+   assets, which should be addressed before running the task. 
+   <br> <img src="imgs/gimbl_tabs.png" width="600">
+2. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
+   **ExperimentTemplate** as the template. **Note!** The scene creation may take a long time, depending on the resources
+   available to the local machine (PC). When the scene is created, save it in *Assets/Scenes*.
+   <br> <img src="imgs/newScene.png" width="600">
+3. Follow the instructions from the original GIMBL repository printed in the 
+   [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section. When 
+   creating the controller, **choose the 'Linear Treadmill' instead of the 'Simulated Linear Treadmill'**. The Simulated
+   Linear Treadmill is useful for testing but does not respond to messages sent over MQTT. All experiments require the 
+   VR task to be built with the **Linear Treadmill** controller.
+4. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
+   all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
+   the hierarchy window and wait for it to be loaded into the scene. **Warning!** Do not drag the prefab 
+   directly into the scene, as this can misalign the prefab and the virtual animal actor. If the scene already contains 
+   a prefab for a different task, remove it before adding the new prefab so that the scene has exactly one task. 
+   <br> <img src="imgs/hierarchy_window.png" width="800">
+5. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
+   window reveals the **Task** script, associated with the currently selected *GameObject*. **Note!** Set the **Actor** 
+   configuration parameter of the *Task* script to the available **Actor Object** option. Additionally, the GameObject 
+   contains the following user-addressable *Task* parameters:
+    - **Must Lick**: Determines whether the animal has to lick within the reward zone to get the reward. If disabled, 
+      the animal gets the reward by entering the reward region and colliding with the invisible reward boundary wall.
+      **Note!** During sl-experiment runtimes, this parameter is automatically overridden by the sl-experiment GUI and
+      runtime logic, so setting the parameter in Unity will likely be ignored at runtime.
+    - **Visible Marker**: Determines whether to reveal the typically hidden reward zone collision boundary to the 
+      animal. **Note!** During sl-experiment runtimes, this parameter is automatically overridden by the sl-experiment 
+      GUI and runtime logic, so setting the parameter in Unity will likely be ignored at runtime.
+    - **Actor**: The link to the actor object representing the animal in the Virtual Reality world. Primarily, this 
+      object is used by the *Task* script to teleport the animal back to the starting position at the end of each trial 
+      to keep the illusion of an infinite corridor.
+    - **Track Length**: The length of the track's wall cue sequence, in Unity units, to pre-create before runtime. 
+      This is most relevant for tasks with multiple wall cue motifs and random transitions between these motifs.
+      Pre-creating the cue sequence before runtime allows sl-experiment to accurately track transitions between trials
+      and support trial-specific logic while treating the experiment runtime as a monolithic sequence of trials. 
+      **Note!** If the animal traverses the entire pregenerated track, the Unity task starts making on the fly decisions
+      about which trial motif the animal enters at the end of each trial. Likely, this will cause sl-experiment to abort
+      with an error, as it is not notified of these additional trials. Therefore, **it is advised to pre-generate a 
+      long cue sequence at each runtime, guaranteeing the animal is not able to fully traverse it at runtime**.
+    - **Track seed**: The seed to use for resolving random transitions between trial motifs. This is helpful when 
+      running many experiments with the exact same pattern of trial motif (segment) transitions. If set to -1, then no 
+      seed is used and transitions are randomized at each task runtime. 
+    - **Meta_data_path**: The path to the metadata file associated with the task. **Note!** Since the metadata file 
+      path is absolute, if a task is loaded on a computer different from the one used to create the task, this path will
+      be invalid. To fix this, manually change this field to use the correct path (relative to local root) or recreate 
+      the task. See the ['creating new tasks'](#creating-new-tasks) section for more details about this file.
+6. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
+   If necessary, view the **Displays** tab next to the *Inspector* tab, select `Show Full-Screen Views`. If the 
+   display mapping is not correct, re-assign the actor cameras to the appropriate monitors or press 
+   `Refresh Monitor Positions`. **Warning!** Since rebooting the system frequently changes the Monitor output ports, 
+   it is strongly advised to **always** check the monitors before running experiment tasks.
+7. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
+   starting (playing) the task. **Hint!** If there are errors, start debugging by looking at the **first** error 
+   printed, which is likely the true error. Other errors are likely a result of running a broken game loop after the 
+   first error.
+
 ___
 
+## Developer Notes
 
-## Developers
+These notes are primarily directory to project developers and task creators.
 
-* Be careful about modifying segment prefabs. Even after task creation, the task prefab relies on the existence of the segment prefabs. This means that if you modify the segment prefabs later, it will modify all tasks using that prefab. If you want to make small changes to many tasks, use the same segment prefab multiple times. If you want to make a modification to one task without changing other tasks that use the same prefab, make a new prefab that is a duplicate of the old and modfiy the json meta files accordingly. 
-
-* Most changes to task structure can be implemented by just modifying the segment prefabs. However, be careful if modifying a prefab means that a specification file is no longer correct. The specification file has a lot of information needs to match the prefabs, so it is good practice to double check the specification file after modifying. After modifying it is good practice to recreate the task from the spec file. If you name it the same thing as the original, it will jsut replace the old task prefab.
-
-* The [Usage](#usage) section gives explains how to create a scene to hold the task. When running multiple experiments from the same computer, it may be cumbersome to have multiple Unity projects or to have one Unity project where you have to switch the active task between experiments. The best practice to create a separate scene for each experiment and then just switch between scenes by double clicking on them. When you want to start a new experiment, you can just open the scene and run. Note that display configurations are scene specific, meaning that you will need to reconfigure the display every time you make a new scene or change the scene name.
-
-* Be very careful when pushing and pulling code with Github. Merging branch conflicts is very difficult with Unity, and will likely force you to just pick which branch to change. Try to avoid merge conflicts and focus on making changes to assets (prefabs) while avoiding making large changes to the scene. Additionally, it is good practice to close the Unity project before pushing/pulling.
-
-* The original GIMBL package does logging from Unity. For this repository, the GIMBL package has logging removed. 
-
-* The simulated linear treadmill feature has the option for [button topics](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#try-out-the-task). Button topics are displayed in the edit controller window, but the ability to add a new button topic is currently unavailable. If you need to test licking manually, you can add the correct button topic directly to the asset file for the specific controller. Simply navigate to Assets/VRSettings/Controllers and find the .asset file associated with the controller. Open this file and replace 
+* Be careful about modifying segment prefabs. Even after task creation, the task prefab relies on the existence of the 
+  segment prefabs to run as expected. This means that if segment prefabs are modified later, it will also modify all 
+  tasks using that prefab. To make small changes to many tasks, use the same segment prefab multiple times to 
+  automatically synchronize the changes across all modified tasks. To modify one task without changing other tasks 
+  that use the same prefab, make a new prefab that is a duplicate of the old one and modify the .json metadata files 
+  accordingly.
+* Most changes to the task structure can be implemented by modifying the segment prefabs. However, modifying a prefab 
+  may invalidate all specification files using that prefab. The specification file contains a lot of information that 
+  needs to match the exact state of each prefab, so it is a good practice to ensure the validity of all specification 
+  files after modifying the prefab. Also, it is good practice to recreate the task from the specification file following
+  prefab modification. If the newly created task uses the same name as the old task, it will replace the old task 
+  prefab.
+* The [Loading Existing Tasks](#loading-existing-tasks) section explains how to create a scene to hold the desired task.
+  When running multiple experiments (using different tasks) from the same computer, it may be cumbersome to have 
+  multiple Unity projects or to have one Unity project and switch the active task between experiments (within the same 
+  scene). The best practice is to create a separate scene for each experiment as part of the same Unity project and
+  switch between scenes by double-clicking on them. When starting a new experiment, open the desired scene and run the 
+  task. **Note!** The display configurations are scene-specific, so displays must be reconfigured separately for each 
+  scene.
+* Be cautious when pushing and pulling code with GitHub. Merging branch conflicts is challenging with Unity and will 
+  likely require changing one of the conflicting branches completely. Try to avoid merge conflicts and focus on making
+  changes to assets (prefabs) while avoiding making large changes to the scene. Additionally, it is a good practice to 
+  close the Unity project before pushing/pulling.
+* The original GIMBL package was designed to log all non-brian-activity experiment data. Since this project is 
+  explicitly designed to work with sl-experiment that now does all logging, **all Unity logging has been removed from
+  this project**.
+* The simulated linear treadmill feature has the option for 
+  [button topics](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#try-out-the-task). Button topics are displayed 
+  in the **edit controller** window, but the ability to add a new button topic is currently unavailable. To test 
+  reaction to lick events manually, add the correct button topic directly to the asset file for the specific controller. 
+  To do so, navigate to **Assets/VRSettings/Controllers** and find the **.asset** file associated with the controller. 
+  Open this file and replace
 
       buttonTopics: []
 
@@ -229,8 +295,8 @@ ___
 
       buttonTopics:
       - LickPort/
-
-* For information on how to send MQTT messages to Unity, look [here](https://github.com/winnubstj/Gimbl/wiki/Example-code-of-MQTT-subscribing-and-publishing).
+* For information on how to send MQTT messages to Unity, see 
+  [here](https://github.com/winnubstj/Gimbl/wiki/Example-code-of-MQTT-subscribing-and-publishing).
 ___
 
 ## Authors
@@ -245,7 +311,10 @@ ___
 This project is licensed under the GPL3 License: see the [LICENSE](LICENSE) file for details.
 ___
 
+
 ## Acknowledgments
 
 - All Sun Lab [members](https://neuroai.github.io/sunlab/people) for providing the inspiration and comments during the
   development of this library.
+- The creators of the original [GIMBL](https://github.com/winnubstj/Gimbl) package and all dependencies used by that
+  package.
