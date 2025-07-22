@@ -110,7 +110,7 @@ each other:
 <img src="imgs/cue_graph.png" width="233" alt="graph picture">
 
 1. **Segment 1**: A, B, C
-2. **Segment 2**: 2: A, B, D, C
+2. **Segment 2**: A, B, D, C
 
 During experiment, both segments are typically reused many times to create a long sequence of segments to be experienced
 by the animal during runtime.
@@ -236,10 +236,11 @@ follow these steps:
     - **Track seed**: The seed to use for resolving random transitions between trial motifs. This is helpful when 
       running many experiments with the exact same pattern of trial motif (segment) transitions. If set to -1, then no 
       seed is used and transitions are randomized at each task runtime. 
-    - **Meta_data_path**: The path to the metadata file associated with the task. **Note!** Since the metadata file 
-      path is absolute, if a task is loaded on a computer different from the one used to create the task, this path will
-      be invalid. To fix this, manually change this field to use the correct path (relative to local root) or recreate 
-      the task. See the ['creating new tasks'](#creating-new-tasks) section for more details about this file.
+    - **Meta_data_path**: The file path to the metadata json file associated with the task. **Note!** If you move the 
+    metadata json file to a new location in the project, this path will be invalid and the game will break. To fix this, 
+    manually change this field to use the correct path (relative to local root) or recreate the task. See the 
+    ['creating new tasks'](#creating-new-tasks) section for more details about this file.
+    
 6. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
    If necessary, view the **Displays** tab next to the *Inspector* tab, select `Show Full-Screen Views`. If the 
    display mapping is not correct, re-assign the actor cameras to the appropriate monitors or press 
