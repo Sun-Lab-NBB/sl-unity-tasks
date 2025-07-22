@@ -103,9 +103,9 @@ animal, traversing each segment typically constitutes a single **experiment tria
 cues that makes each segment is frequently referred to as the **trial motifs** in this project and the sl-experiment 
 documentation.
 
-Overall, any task graph depicting transitions between infinite corridor cues can be represented by a set of segments. 
-For example, the cue graph below can be represented by two segments with uniform transition probabilities between 
-each-other:
+Overall, a set of segments can represent any task graph depicting transitions between infinite corridor cues. For 
+example, the cue graph below can be represented by two segments with uniform transition probabilities between 
+each other:
 
 <img src="imgs/cue_graph.png" width="233" alt="graph picture">
 
