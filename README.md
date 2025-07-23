@@ -188,30 +188,18 @@ the prefab can be loaded and executed as any pre-created task that comes with th
 
 ### Loading Existing Tasks
 
-Each distribution of the project contains all tasks currently used in the Sun lab. To open and use an existing task, 
-follow these steps:
-1. Open the Unity Project, which should reveal a set of **GameObjects** in the **'Hierarchy'** window. This set includes 
-   *Actors*, *Controllers*, and *Paths* objects. Additionally, the GIMBL package adds the following tabs next to the 
-   **'Inspector'** tab: *Settings*, *Actors*, and *Displays*. If these tabs are not visible, reactivate them by 
-   selecting Window → Gimbl. **Note!** In some cases opening the project may reveal console warnings related to missing 
-   assets, which should be addressed before running the task. 
-   <br> <img src="imgs/gimbl_tabs.png" width="600">
-2. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
-   **ExperimentTemplate** as the template. **Note!** The scene creation may take a long time, depending on the resources
-   available to the local machine (PC). When the scene is created, save it in *Assets/Scenes*.
+Each distribution of the project contains all tasks currently used in the Sun lab. To use an existing task, open the
+ Unity project and follow these steps:
+1. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
+   **ExperimentTemplate** as the template. Save it in *Assets/Scenes*.
    <br> <img src="imgs/newScene.png" width="600">
-3. Follow the instructions from the original GIMBL repository printed in the 
-   [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) section. When 
-   creating the controller, **choose the 'Linear Treadmill' instead of the 'Simulated Linear Treadmill'**. The Simulated
-   Linear Treadmill is useful for testing but does not respond to messages sent over MQTT. All experiments require the 
-   VR task to be built with the **Linear Treadmill** controller.
-4. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
+1. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
    all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
    the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences -> Scene View ->
    3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window wil 
    automatically position the task correctly. 
    <br> <img src="imgs/hierarchy_window.png" width="800">
-5. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
+1. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
    window reveals the **Transform** component and the **Task** script. There are two things you must verify:
     - That the transform's position is (0, 0, 0). If it isn't, set it to (0, 0, 0).
     - That the **Actor** parameter is set. If it is None, use the dropdown menu to set it to the **Actor Object** in the scene.
@@ -240,12 +228,12 @@ follow these steps:
     manually change this field to use the correct path (relative to local root) or recreate the task. See the 
     ['creating new tasks'](#creating-new-tasks) section for more details about this file.
     
-6. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
+1. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
    If necessary, view the **Displays** tab next to the *Inspector* tab, select `Show Full-Screen Views`. If the 
    display mapping is not correct, re-assign the actor cameras to the appropriate monitors or press 
    `Refresh Monitor Positions`. **Warning!** Since rebooting the system frequently changes the Monitor output ports, 
    it is strongly advised to **always** check the monitors before running experiment tasks.
-7. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
+1. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
    starting (playing) the task. **Hint!** If there are errors, start debugging by looking at the **first** error 
    printed, which is likely the true error. Other errors are likely a result of running a broken game loop after the 
    first error.
