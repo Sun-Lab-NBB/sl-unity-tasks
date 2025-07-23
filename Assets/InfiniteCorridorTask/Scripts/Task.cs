@@ -26,10 +26,9 @@ public class Task : MonoBehaviour
     //       This task has all 8 corridors, which includes all of the possible length three orderings of segment 1 and 2
     //          ex. Corridor 121 has the following segments: 1 2 1
 
+    public Gimbl.ActorObject actor = null;
     public bool mustLick = false;
     public bool visibleMarker = false;
-
-    public Gimbl.ActorObject actor = null;
 
     // The track is infinite but need to specify how many random segments keep track of. The 
     // track length should always be an overestimate to how far the mouse is actually going to run.
@@ -93,7 +92,6 @@ public class Task : MonoBehaviour
     private List<int> cur_segment;
     private Vector3 pos;
 
-
     void OnValidate()
     {
         if (actor == null)
@@ -109,6 +107,13 @@ public class Task : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+
+        if (transform.position != Vector3.zero)
+        {
+            Debug.LogWarning($"Task is positioned at {transform.position}. Automatically Setting Task position to (0,0,0) for this runtime but it is recommended to permanently set the task position to (0,0,0) in Editor Mode.");
+            transform.position = Vector3.zero;
+        }
+
         string global_meta_data_path = Application.dataPath + meta_data_path;
 
         if (string.IsNullOrEmpty(meta_data_path) || !File.Exists(global_meta_data_path))

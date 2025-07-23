@@ -207,14 +207,16 @@ follow these steps:
    VR task to be built with the **Linear Treadmill** controller.
 4. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
    all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
-   the hierarchy window and wait for it to be loaded into the scene. **Warning!** Do not drag the prefab 
-   directly into the scene, as this can misalign the prefab and the virtual animal actor. If the scene already contains 
-   a prefab for a different task, remove it before adding the new prefab so that the scene has exactly one task. 
+   the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences -> Scene View ->
+   3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window wil 
+   automatically position the task correctly. 
    <br> <img src="imgs/hierarchy_window.png" width="800">
 5. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
-   window reveals the **Task** script, associated with the currently selected *GameObject*. **Note!** Set the **Actor** 
-   configuration parameter of the *Task* script to the available **Actor Object** option. Additionally, the GameObject 
-   contains the following user-addressable *Task* parameters:
+   window reveals the **Transform** component and the **Task** script. There are two things you must verify:
+    - That the transform's position is (0, 0, 0). If it isn't, set it to (0, 0, 0).
+    - That the **Actor** parameter is set. If it is None, use the dropdown menu to set it to the **Actor Object** in the scene.
+
+    The *Task* script contains additional parameters which should not need to be modified:
     - **Must Lick**: Determines whether the animal has to lick within the reward zone to get the reward. If disabled, 
       the animal gets the reward by entering the reward region and colliding with the invisible reward boundary wall.
       **Note!** During sl-experiment runtimes, this parameter is automatically overridden by the sl-experiment GUI and
@@ -222,9 +224,6 @@ follow these steps:
     - **Visible Marker**: Determines whether to reveal the typically hidden reward zone collision boundary to the 
       animal. **Note!** During sl-experiment runtimes, this parameter is automatically overridden by the sl-experiment 
       GUI and runtime logic, so setting the parameter in Unity will likely be ignored at runtime.
-    - **Actor**: The link to the actor object representing the animal in the Virtual Reality world. Primarily, this 
-      object is used by the *Task* script to teleport the animal back to the starting position at the end of each trial 
-      to keep the illusion of an infinite corridor.
     - **Track Length**: The length of the track's wall cue sequence, in Unity units, to pre-create before runtime. 
       This is most relevant for tasks with multiple wall cue motifs and random transitions between these motifs.
       Pre-creating the cue sequence before runtime allows sl-experiment to accurately track transitions between trials
