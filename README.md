@@ -190,14 +190,11 @@ the prefab can be loaded and executed as any pre-created task that comes with th
 
 Each distribution of the project contains all tasks currently used in the Sun lab. To use an existing task, open the
  Unity project and follow these steps:
-1. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
-   **ExperimentTemplate** as the template. Save it in *Assets/Scenes*.
+1. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select **ExperimentTemplate** as the template. **Note!** The Unity project opens the first time with an empty scene. If prompted, choose not to save this empty scene.
    <br> <img src="imgs/newScene.png" width="600">
 1. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
    all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
-   the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences -> Scene View ->
-   3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window wil 
-   automatically position the task correctly. 
+   the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences > Scene View > 3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window will automatically position the task correctly. 
    <br> <img src="imgs/hierarchy_window.png" width="800">
 1. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
    window reveals the **Transform** component and the **Task** script. There are two things you must verify:
@@ -227,7 +224,7 @@ Each distribution of the project contains all tasks currently used in the Sun la
     metadata json file to a new location in the project, this path will be invalid and the game will break. To fix this, 
     manually change this field to use the correct path (relative to local root) or recreate the task. See the 
     ['creating new tasks'](#creating-new-tasks) section for more details about this file.
-    
+1. Select File > Save As to save the scene in *Assets/Scenes*.
 1. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
    If necessary, view the **Displays** tab next to the *Inspector* tab, select `Show Full-Screen Views`. If the 
    display mapping is not correct, re-assign the actor cameras to the appropriate monitors or press 
