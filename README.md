@@ -196,7 +196,7 @@ Each distribution of the project contains all tasks currently used in the Sun la
    all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
    the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences > Scene View > 3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window will automatically position the task correctly. 
    <br> <img src="imgs/hierarchy_window.png" width="800">
-1. Select the task's **GameObject** in the **'Hierarchy'** window and view the **'Inspector'** window. The *Inspector* 
+1. Select the task's **GameObject** in the **Hierarchy** window and view the **Inspector** window. The **Inspector** 
    window reveals the **Transform** component and the **Task** script. There are two things you must verify:
     - That the transform's position is (0, 0, 0). If it isn't, set it to (0, 0, 0).
     - That the **Actor** parameter is set. If it is None, use the dropdown menu to set it to the **Actor Object** in the scene.
@@ -225,15 +225,14 @@ Each distribution of the project contains all tasks currently used in the Sun la
     manually change this field to use the correct path (relative to local root) or recreate the task. See the 
     ['creating new tasks'](#creating-new-tasks) section for more details about this file.
 1. Select File > Save As to save the scene in *Assets/Scenes*.
-1. **Important!** Verify that the VR screens are displaying the corridor and that the VR screen mapping is correct.
-   If necessary, view the **Displays** tab next to the *Inspector* tab, select `Show Full-Screen Views`. If the 
-   display mapping is not correct, re-assign the actor cameras to the appropriate monitors or press 
-   `Refresh Monitor Positions`. **Warning!** Since rebooting the system frequently changes the Monitor output ports, 
-   it is strongly advised to **always** check the monitors before running experiment tasks.
+1. Click on the **DisplaysWindow** tab located to the right of the Inspector tab. If you don't see this tab, you can reopen it by clicking on Window > Gimbl. Press `Refresh Monitor Positions`. After doing this, you should see a list of the monitors connected to the computer. Assign **Camera: LeftMonitor**, **Camera: RightMonitor**, and **Camera: CenterMonitor** to the corresponding monitors used for display to the mouse. To check that you have assigned the monitors correctly, press `Show Full-Screen Views`. For more information about configuring displays, look at the [original GIMBL repository](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor).
+ **Warning!** Since rebooting the system frequently changes the Monitor output ports, it is strongly advised to **always** check the monitors before running experiment tasks.
+   <br> <img src="imgs/display_tab.png" width="300">
+
 1. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
    starting (playing) the task. **Hint!** If there are errors, start debugging by looking at the **first** error 
    printed, which is likely the true error. Other errors are likely a result of running a broken game loop after the 
-   first error.
+   first error. **Note!** The template environment is designed for experiments, where motion and licks should be sent over the MQTT protocol. If you want to test your maze manually, you need to to replace the linear controller with a simulated linear controller, see [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) for instructions on how to do this. 
 
 ___
 
