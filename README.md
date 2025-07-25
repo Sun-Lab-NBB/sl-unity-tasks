@@ -178,7 +178,7 @@ all custom metadata files for the project to work as intended:
 <img src="imgs/maze_spec.png" width="400">
 
 
-#### CreateTask Tab
+#### 'CreateTask' Tab
 Once the task specification file is created, it must be placed in the **Assets/InfiniteCorridorTask/Tasks** directory. 
 To then create the task prefab, use the **CreateTask → New Task** command. This will open up a file window to select the
 metadata .json file. Once the file is selected, a secondary prompt will open to name and save the prefab. Once created,
@@ -191,22 +191,22 @@ the prefab can be loaded and executed as any pre-created task that comes with th
 Each distribution of the project contains all tasks currently used in the Sun lab. To use an existing task, open the
  Unity project and follow these steps:
 1. Create a new scene by clicking File → New Scene. Instead of using the default scene template, select 
-   **ExperimentTemplate** as the template. **Note!** The Unity project opens the first time with an empty scene. 
-   If prompted, choose not to save this empty scene.
+   **ExperimentTemplate** as the template. **Note!** The first time this Unity project opens, it uses an empty scene. 
+   If prompted, do ***not*** save this empty scene.
    <br> <img src="imgs/newScene.png" width="600">
-1. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
+2. Navigate to **Assets/InfiniteCorridorTask/Tasks**. This folder contains prefabricated Unity assets (prefabs) for 
    all tasks actively or formerly used to conduct experiments in the Sun lab. Drag the prefab for the desired task into 
-   the hierarchy window and wait for it to be loaded into the scene. **Note!**  If you have Preferences > Scene View > 
-   3D Placement Mode set to "World Origin", then dragging the prefab into the hierarchy window will automatically 
-   position the task correctly. 
+   the hierarchy window and wait for it to be loaded into the scene. **Note!**  If 
+   Preferences > Scene View > 3D Placement Mode is set to "World Origin," then dragging the prefab into the hierarchy 
+   window will automatically position the task correctly. 
    <br> <img src="imgs/hierarchy_window.png" width="800">
-1. Select the task's **GameObject** in the **Hierarchy** window and view the **Inspector** window. The **Inspector** 
-   window reveals the **Transform** component and the **Task** script. There are two things you must verify:
-    - That the transform's position is (0, 0, 0). If it isn't, set it to (0, 0, 0).
-    - That the **Actor** parameter is set. If it is None, use the dropdown menu to set it to the **Actor Object** in the
-      scene.
-
-    The *Task* script contains additional parameters which should not need to be modified:
+3. Select the task's **GameObject** in the **Hierarchy** window and view the **Inspector** window. The **Inspector** 
+   window reveals the **Transform** component and the **Task** script. There are two things that must be verified at 
+   this point:
+    1. That the transform's position is set to (0, 0, 0).
+    2. That the **Actor** parameter is set. If it is None, use the dropdown menu to set it to the **Actor Object** in 
+       the scene. 
+4. The *Task* script contains additional parameters which should not need to be modified:
     - **Must Lick**: Determines whether the animal has to lick within the reward zone to get the reward. If disabled, 
       the animal gets the reward by entering the reward region and colliding with the invisible reward boundary wall.
       **Note!** During sl-experiment runtimes, this parameter is automatically overridden by the sl-experiment GUI and
@@ -225,28 +225,28 @@ Each distribution of the project contains all tasks currently used in the Sun la
     - **Track seed**: The seed to use for resolving random transitions between trial motifs. This is helpful when 
       running many experiments with the exact same pattern of trial motif (segment) transitions. If set to -1, then no 
       seed is used and transitions are randomized at each task runtime. 
-    - **Meta_data_path**: The file path to the metadata json file associated with the task. **Note!** If you move the 
-    metadata json file to a new location in the project, this path will be invalid and the game will break. To fix this, 
-    manually change this field to use the correct path (relative to local root) or recreate the task. See the 
-    ['creating new tasks'](#creating-new-tasks) section for more details about this file.
-1. Select File > Save As to save the scene in *Assets/Scenes*.
-1. Click on the **DisplaysWindow** tab located to the right of the Inspector tab. If you don't see this tab, you can 
-reopen it by clicking on Window > Gimbl. Press `Refresh Monitor Positions`. After doing this, you should see a list of 
-the monitors connected to the computer. Assign **Camera: LeftMonitor**, **Camera: RightMonitor**, and 
-**Camera: CenterMonitor** to the corresponding monitors used for display to the mouse. To check that you have assigned 
-the monitors correctly, press `Show Full-Screen Views`. For more information about configuring displays, look at the 
-[original GIMBL repository](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor).
- **Warning!** Since rebooting the system frequently changes the Monitor output ports, it is strongly advised to 
- **always** check the monitors before running experiment tasks.
+    - **Meta_data_path**: The file path to the metadata JSON file associated with the task. **Note!** If the 
+      metadata JSON file specified by this parameter is no longer found at the target path, the game becomes 
+      non-functional. To fix this, change this parameter to specify the correct path (relative to the local root) or 
+      recreate the task. See the ['creating new tasks'](#creating-new-tasks) section for more details about this file.
+5. Select File > Save As to save the scene in *Assets/Scenes*.
+6. Click on the **DisplaysWindow** tab located to the right of the Inspector tab. If the tab is not present, reopen it 
+   by clicking on Window > Gimbl. Press `Refresh Monitor Positions`. Doing this reveals a list of the monitors connected
+   to the computer. Assign **Camera: LeftMonitor**, **Camera: RightMonitor**, and **Camera: CenterMonitor** to the 
+   corresponding monitors used for display to the mouse. To check that the monitors were assigned correctly, press 
+   `Show Full-Screen Views`. For more information about configuring displays, check the 
+   [original GIMBL repository](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor).
+   **Warning!** Since rebooting the system frequently changes the Monitor output ports, it is strongly advised to 
+   **always** check the monitors before running experiment tasks.
    <br> <img src="imgs/display_tab.png" width="300">
-
-1. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
+7. Press the play button to run the VR task. Verify that there are no errors displayed in the console window after 
    starting (playing) the task. **Hint!** If there are errors, start debugging by looking at the **first** error 
    printed, which is likely the true error. Other errors are likely a result of running a broken game loop after the 
    first error. **Note!** The template environment is designed for experiments, where motion and licks should be sent 
-   over the MQTT protocol. If you want to test your maze manually, you need to to replace the linear controller with a 
-   simulated linear controller, see [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) 
-   for instructions on how to do this. 
+   over the MQTT protocol. To test the task manually, replace the *linear controller* with a 
+   *simulated linear controller*. See 
+   [Setting Up the Actor](https://github.com/winnubstj/Gimbl?tab=readme-ov-file#setting-up-the-actor) for instructions 
+   on how to do this. 
 
 ___
 
@@ -295,6 +295,7 @@ These notes are primarily directory to project developers and task creators.
       - LickPort/
 * For information on how to send MQTT messages to Unity, see 
   [here](https://github.com/winnubstj/Gimbl/wiki/Example-code-of-MQTT-subscribing-and-publishing).
+
 ___
 
 ## Authors
@@ -307,6 +308,7 @@ ___
 ## License
 
 This project is licensed under the GPL3 License: see the [LICENSE](LICENSE) file for details.
+
 ___
 
 
