@@ -732,15 +732,10 @@ namespace SL.Tasks
                 string lengthLabel = FormatCueLengthLabel(cue.lengthCm);
                 string cueAssetStem = $"Cue_{cue.name}_{lengthLabel}cm";
                 string cuePrefabPath = Path.Combine(CuesFolder, $"{cueAssetStem}.prefab");
+                string materialPath = Path.Combine(MaterialsFolder, $"{cueAssetStem}.mat");
 
-                if (AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null)
-                {
-                    continue;
-                }
-
-                float lengthUnity = cue.LengthUnity(cmPerUnit);
-
-                // Loads the shared texture once for both material variants.
+                // Loads the shared texture once for both material variants. The load happens before the cached-asset
+                // checks below so a template that changes a cue's texture is caught rather than served stale assets.
                 Texture2D cueTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(
                     Path.Combine(TexturesFolder, cue.texture)
                 );
@@ -750,14 +745,36 @@ namespace SL.Tasks
                     return false;
                 }
 
+                // Cue assets are keyed by name and length alone, so the cached prefab and material survive a texture
+                // change and would render the previous texture. Both assets are shared with every other template that
+                // declares this cue identity, so rebuilding them here would silently alter those tasks too. Aborting
+                // names the offending cue and leaves the resolution to the template author.
+                Material cueMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+                if (cueMaterial != null && cueMaterial.GetTexture("_MainTex") != cueTexture)
+                {
+                    string message =
+                        $"BuildCuePrefabs: Cue '{cue.name}' at {cue.lengthCm} cm declares texture '{cue.texture}', "
+                        + $"but the cached material '{cueAssetStem}.mat' was built from a different texture. Cue "
+                        + $"assets are shared across every template that declares this cue identity. Delete "
+                        + $"'{cueAssetStem}.prefab' and '{cueAssetStem}.mat' to rebuild them for every template, or "
+                        + $"give this cue a distinct name or length so it occupies its own asset slot.";
+                    Debug.LogError(message);
+                    return false;
+                }
+
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null)
+                {
+                    continue;
+                }
+
+                float lengthUnity = cue.LengthUnity(cmPerUnit);
+
                 // Matches the assembly used by the project's originally hand-authored cue prefabs:
                 // Legacy Shaders/Diffuse renders both walls with consistent per-pixel diffuse lighting
                 // even when the Right wall uses a negative geometry scale to mirror the texture. The
                 // modern Standard shader breaks under negative scales (the lit normal does not invert
                 // with mesh winding), and Unlit shaders drop lighting entirely. Legacy/Diffuse retains
                 // the lit corridor feel while keeping the texture-mirror trick a single-material affair.
-                string materialPath = Path.Combine(MaterialsFolder, $"{cueAssetStem}.mat");
-                Material cueMaterial = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
                 if (cueMaterial == null)
                 {
                     cueMaterial = new Material(cueShader);
