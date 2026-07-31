@@ -474,7 +474,7 @@ namespace SL.Tasks
             }
 
             int depth = template.vrEnvironment.segmentsPerCorridor;
-            float paddingZShift = depth * Mathf.Min(segmentLengths) - 1;
+            float cueOffsetUnity = template.vrEnvironment.CueOffsetUnity;
 
             string taskName = Path.GetFileNameWithoutExtension(savePath);
             GameObject taskGameObject = new GameObject(taskName);
@@ -536,9 +536,13 @@ namespace SL.Tasks
                     zShift += segmentLengths[segment];
                 }
 
+                // Anchors the padding to this corridor's own accumulated length so that corridors mixing
+                // trials of different lengths butt their padding against the true corridor end. Segment
+                // prefabs place their origin at -cueOffsetUnity, so a corridor spanning zShift ends at
+                // zShift - cueOffsetUnity.
                 GameObject paddingInstance = PrefabUtility.InstantiatePrefab(padding) as GameObject;
                 paddingInstance.transform.SetParent(corridor.transform, worldPositionStays: false);
-                paddingInstance.transform.localPosition += new Vector3(0, 0, paddingZShift);
+                paddingInstance.transform.localPosition += new Vector3(0, 0, zShift - cueOffsetUnity);
 
                 currentCorridorX += corridorXShift;
             }
