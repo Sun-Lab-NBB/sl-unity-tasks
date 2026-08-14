@@ -5,6 +5,7 @@
 /// When the animal enters this zone in guidance mode (!requireWait), sends a TriggerDelay message
 /// to sollertia-experiment instructing it to lock the brake for the remaining occupancy duration.
 /// </summary>
+using System;
 using Gimbl;
 using UnityEngine;
 
@@ -96,10 +97,12 @@ namespace SL.Tasks
         /// <summary>Sends the TriggerDelay message with remaining occupancy duration to activate the brake.</summary>
         private void TriggerBrakeActivation()
         {
-            // Clamps the remaining duration to zero so an overrun never produces a negative delay.
+            // Clamps the remaining duration to zero so an overrun never produces a negative delay. The subtraction
+            // runs at long width so the millisecond count reaches the uint wire field without passing through a
+            // 32-bit float, whose 24-bit mantissa holds integers exactly only below 16,777,216 milliseconds.
             long elapsedMilliseconds = _parentOccupancyZone.GetElapsedMilliseconds();
             uint remainingMilliseconds = (uint)
-                Mathf.Max(0f, _parentOccupancyZone.occupancyDurationMs - elapsedMilliseconds);
+                Math.Max(0L, (long)_parentOccupancyZone.occupancyDurationMs - elapsedMilliseconds);
 
             Debug.Log($"OccupancyGuidanceZone: Triggering brake for {remainingMilliseconds}ms.");
 

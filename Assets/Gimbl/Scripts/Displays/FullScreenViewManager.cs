@@ -57,15 +57,7 @@ namespace Gimbl
                 )
             )
             {
-                List<Monitor> refreshedMonitors = Monitor.EnumerateMonitors();
-                for (int i = 0; i < refreshedMonitors.Count; i++)
-                {
-                    if (i < monitors.Count)
-                    {
-                        refreshedMonitors[i].cameraEntityId = monitors[i].cameraEntityId;
-                    }
-                }
-                monitors = refreshedMonitors;
+                RefreshMonitorPositions();
             }
         }
 
@@ -103,6 +95,27 @@ namespace Gimbl
             {
                 ShowFullScreenViews(closeOldViews: true);
             }
+        }
+
+        /// <summary>Re-detects the system monitors, carrying each existing camera assignment across by index.</summary>
+        /// <remarks>
+        /// Shared by the Camera Mapping refresh button and the bridge's <c>refresh_monitors</c> tool so the manual
+        /// and the agentic path re-detect identically. Assignments carry by position, so removing a monitor from the
+        /// middle of the arrangement shifts every later assignment up by one slot. The refreshed list stays in memory
+        /// exactly as the button leaves it, and reaches the per-scene companion asset on the next
+        /// <see cref="SaveCameras"/> call.
+        /// </remarks>
+        public void RefreshMonitorPositions()
+        {
+            List<Monitor> refreshedMonitors = Monitor.EnumerateMonitors();
+            for (int i = 0; i < refreshedMonitors.Count; i++)
+            {
+                if (i < monitors.Count)
+                {
+                    refreshedMonitors[i].cameraEntityId = monitors[i].cameraEntityId;
+                }
+            }
+            monitors = refreshedMonitors;
         }
 
         /// <summary>Creates full-screen views for all monitors with assigned cameras.</summary>
