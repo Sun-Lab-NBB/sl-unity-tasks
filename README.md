@@ -86,8 +86,8 @@ External requirements that must be installed before working with this Unity proj
 
 Two managed dependencies ship as committed DLLs under `Assets/Plugins/` and require no separate installation:
 
-- [MQTTnet](https://github.com/dotnet/MQTTnet), the MQTT 5.0 client used by `MQTTClient.cs`.
-- [YamlDotNet](https://github.com/aaubry/YamlDotNet), the YAML deserializer used by `ConfigLoader.cs`.
+- [MQTTnet](https://github.com/dotnet/MQTTnet) **4.3.7.1207**, the MQTT 5.0 client used by `MQTTClient.cs`.
+- [YamlDotNet](https://github.com/aaubry/YamlDotNet) **18.1.0**, the YAML deserializer used by `ConfigLoader.cs`.
 
 ___
 
