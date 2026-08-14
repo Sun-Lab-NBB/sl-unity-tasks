@@ -91,9 +91,25 @@ namespace SL.Tasks
         private static readonly ConcurrentQueue<HttpListenerContext> _pendingContexts =
             new ConcurrentQueue<HttpListenerContext>();
 
-        /// <summary>Starts the HTTP listener and registers the editor update callback.</summary>
+        /// <summary>
+        /// The <see cref="FullScreenViewManager"/> built for the active scene when the Parameters window is closed,
+        /// reused across requests and cleared on every active-scene change.
+        /// </summary>
+        /// <remarks>
+        /// Constructing a manager runs <see cref="Monitor.EnumerateMonitors"/>, which spawns an OS process on Linux
+        /// and macOS and opens one short-lived popup window per detected monitor. Caching keeps that work to once per
+        /// scene rather than once per Task Parameters request. Monitors re-detected mid-session are picked up through
+        /// the <c>refresh_monitors</c> tool or the Camera Mapping refresh button, which share
+        /// <see cref="FullScreenViewManager.RefreshMonitorPositions"/>.
+        /// </remarks>
+        private static FullScreenViewManager _cachedFullScreenManager;
+
+        /// <summary>Starts the HTTP listener and registers the editor update and scene-change callbacks.</summary>
         static McpBridge()
         {
+            EditorSceneManager.activeSceneChangedInEditMode += (Scene oldScene, Scene newScene) =>
+                _cachedFullScreenManager = null;
+
             try
             {
                 // Registers all three loopback hostnames because HttpListener performs exact
@@ -220,6 +236,7 @@ namespace SL.Tasks
                 "get_play_state" => GetPlayState(),
                 "read_task_parameters" => ReadTaskParameters(),
                 "write_task_parameters" => WriteTaskParameters(args),
+                "refresh_monitors" => RefreshMonitors(),
                 _ => Error($"Unknown tool: {tool}"),
             };
         }
@@ -1310,6 +1327,22 @@ namespace SL.Tasks
             return Ok(BuildSnapshot(components));
         }
 
+        /// <summary>Re-detects the system monitors and returns the post-refresh snapshot.</summary>
+        /// <remarks>
+        /// The agentic counterpart of the Camera Mapping window's Refresh Monitor Positions button, sharing
+        /// <see cref="FullScreenViewManager.RefreshMonitorPositions"/> so both paths re-detect identically. Existing
+        /// camera assignments carry across by monitor index, and the refreshed list is not persisted to the
+        /// per-scene companion asset until a camera assignment is written. Call this after changing the physical
+        /// monitor arrangement, because the bridge otherwise reuses one monitor enumeration per scene.
+        /// </remarks>
+        /// <returns>A JSON response in the same snapshot shape <see cref="ReadTaskParameters"/> returns.</returns>
+        private static string RefreshMonitors()
+        {
+            SceneComponents components = AcquireSceneComponents();
+            components.FullScreenManager.RefreshMonitorPositions();
+            return Ok(BuildSnapshot(components));
+        }
+
         /// <summary>
         /// Aggregates the per-scene component references read by both <see cref="ReadTaskParameters"/> and
         /// <see cref="WriteTaskParameters"/>. Built once per request via <see cref="AcquireSceneComponents"/>
@@ -1784,13 +1817,14 @@ namespace SL.Tasks
             return false;
         }
 
-        /// <summary>Reuses the open Parameters window's FullScreenViewManager, else builds a fresh one.</summary>
+        /// <summary>Reuses the open Parameters window's FullScreenViewManager, else the cached per-scene one.</summary>
         /// <remarks>
         /// Sharing the instance keeps the open Parameters tab in sync with API writes without an explicit
-        /// reload round-trip. Falling back to a fresh manager (with cameras loaded from the saved asset)
-        /// lets the bridge serve scenes where the window is currently closed. Uses
-        /// <see cref="Resources.FindObjectsOfTypeAll{T}()"/> to locate an existing window instance without
-        /// creating a new one as a side effect.
+        /// reload round-trip. Falling back to <see cref="_cachedFullScreenManager"/> (with cameras loaded from the
+        /// saved asset) lets the bridge serve scenes where the window is currently closed, at one construction per
+        /// scene rather than one per request. Uses <see cref="Resources.FindObjectsOfTypeAll{T}()"/> to locate an
+        /// existing window instance without creating a new one as a side effect. The constructor already calls
+        /// <see cref="FullScreenViewManager.LoadCameras"/>, so no second load runs here.
         /// </remarks>
         /// <returns>A FullScreenViewManager whose monitor list reflects the current scene state.</returns>
         private static FullScreenViewManager AcquireFullScreenManager()
@@ -1800,9 +1834,7 @@ namespace SL.Tasks
             {
                 return window.fullScreenManager;
             }
-            FullScreenViewManager manager = new FullScreenViewManager();
-            manager.LoadCameras();
-            return manager;
+            return _cachedFullScreenManager ??= new FullScreenViewManager();
         }
 
         /// <summary>Determines whether the given asset path is permitted for deletion.</summary>

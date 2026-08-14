@@ -378,7 +378,7 @@ operations to AI agents via JSON request/response. The backing MCP server (`slsa
 [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)) relays each agent tool call to this
 bridge over HTTP.
 
-The bridge dispatches **14 tools**:
+The bridge dispatches **15 tools**:
 
 | Tool                    | Description                                                                       |
 |-------------------------|-----------------------------------------------------------------------------------|
@@ -396,6 +396,7 @@ The bridge dispatches **14 tools**:
 | `get_play_state`        | Returns `playing`, `compiling`, or `edit` plus the active scene name              |
 | `read_task_parameters`  | Snapshots Actor, MQTT, Display, Camera Mapping, and Task fields                   |
 | `write_task_parameters` | Applies a subset of Task Parameters fields and returns a new snapshot             |
+| `refresh_monitors`      | Re-detects the system monitors, preserving camera assignments, and re-snapshots   |
 
 All responses are JSON objects carrying a `success` boolean plus a payload or error string. `delete_asset` is bounded
 by an allow-prefix list (`Assets/InfiniteCorridorTask/Tasks/`, `Prefabs/`, `Cues/`, `Materials/`) and rejects scene
