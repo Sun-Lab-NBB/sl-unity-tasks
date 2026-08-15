@@ -61,7 +61,9 @@ ___
   - [Editor MCP Bridge](#editor-mcp-bridge)
 - [Developers](#developers)
   - [Project Layout Conventions](#project-layout-conventions)
+  - [Assembly Definitions](#assembly-definitions)
   - [Formatting and Style](#formatting-and-style)
+  - [Testing](#testing)
   - [Extending the Library](#extending-the-library)
   - [AI-Assisted Development](#ai-assisted-development)
 - [Versioning](#versioning)
@@ -140,6 +142,7 @@ McpBridge's protected-paths list. Generated assets live under separate folders a
 | `Assets/Textures/`                            | Wall texture source art (`woodplank.psd`, used by `Wall.mat`)              |
 | `Assets/VRSettings/`                          | Display settings plus per-scene `savedFullScreenViews` companions          |
 | `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                 |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their shared support helpers  |
 
 ### Task Runtime Structure
 
@@ -447,12 +450,56 @@ the cue requires deleting the affected `Cue_<name>_<length>cm.prefab` and `Cue_<
 regenerating. `BuildCuePrefabs` aborts when a cached cue material was built from a different texture, and the
 cross-template cue-texture preflight catches the same conflict when two templates disagree.
 
+### Assembly Definitions
+
+Every script in the project compiles into a named assembly rather than into Unity's predefined `Assembly-CSharp`,
+because a test assembly is unable to reference a predefined one. A new script folder therefore joins an existing
+assembly by sitting inside its subtree, or declares its own `.asmdef` and is referenced from the assemblies that
+consume it.
+
+| Assembly                               | Folder                                        | References                            |
+|----------------------------------------|-----------------------------------------------|---------------------------------------|
+| `Sollertia.Gimbl`                      | `Assets/Gimbl/Scripts/`                       | `Unity.InputSystem`                   |
+| `Sollertia.Gimbl.Editor`               | `Assets/Gimbl/Editor/`                        | Gimbl, InfiniteCorridorTask           |
+| `Sollertia.InfiniteCorridorTask`       | `Assets/InfiniteCorridorTask/Scripts/`        | Gimbl                                 |
+| `Sollertia.InfiniteCorridorTask.Editor`| `Assets/InfiniteCorridorTask/Scripts/Editor/` | Gimbl, Gimbl.Editor, corridor runtime |
+| `Sollertia.UI`                         | `Assets/UI-lick-reward/`                      | Gimbl, InfiniteCorridorTask           |
+| `Sollertia.Tests.Support`              | `Assets/Tests/Support/`                       | every runtime assembly                |
+| `Sollertia.Tests.EditMode`             | `Assets/Tests/EditMode/`                      | every assembly above                  |
+| `Sollertia.Tests.PlayMode`             | `Assets/Tests/PlayMode/`                      | runtime assemblies and Support        |
+
+The two editor assemblies are `Editor` platform only. `MQTTnet.dll` and `YamlDotNet.dll` are auto-referenced plugins
+for the production assemblies and are listed explicitly by the three test assemblies, which override their references
+to pick up `nunit.framework.dll`.
+
 ### Formatting and Style
 
 This project uses [CSharpier](https://csharpier.com/) for code formatting and an `.editorconfig` for naming, brace,
 and spacing conventions. Run `csharpier format .` before committing, or `csharpier check .` to verify without writing.
 See the `/csharp-style` skill in the ataraxis marketplace's **automation** plugin for the complete C# convention
 reference.
+
+### Testing
+
+The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds the tests that drive the runtime state
+machines directly through their private lifecycle callbacks, which keeps them deterministic and free of frame timing.
+`Assets/Tests/PlayMode/` holds the tests that need real frames, real physics trigger callbacks, and real elapsed time.
+`Assets/Tests/Support/` holds the helpers both share: a reflection accessor for private Unity callbacks, a staged
+template-and-texture workspace, a task template YAML builder, an in-process MQTT harness, and a trigger zone rig.
+
+The MQTT harness needs no broker. `MQTTClient.Publish` routes to in-process subscribers whenever the client is
+disconnected, so a test observes exactly what the production publish path produced and drives the real listeners the
+code under test registered.
+
+Run the suite from `Window → General → Test Runner`, or headlessly:
+
+```bash
+Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults editmode-results.xml
+Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -testResults playmode-results.xml
+```
+
+***Note,*** Unity holds a per-project lock, so a headless run requires the Editor to be closed on that project. Copy
+the project directory and run against the copy to keep an Editor session open.
 
 ### Extending the Library
 

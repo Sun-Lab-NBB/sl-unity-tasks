@@ -198,6 +198,7 @@ by `sollertia-experiment`.
 | `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes           |
 | `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions    |
 | `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                          |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers  |
 
 ### Architecture
 
@@ -250,6 +251,10 @@ tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's 
   by `.editorconfig`.
 - Allman brace style, `_camelCase` private fields, PascalCase public properties and methods, camelCase Inspector
   fields, and XML documentation on every public and private member. See `/csharp-style` for the full checklist.
+- Every script compiles into a named assembly declared by an `.asmdef`, because a test assembly is unable to reference
+  Unity's predefined `Assembly-CSharp`. A new script folder sits inside an existing assembly's subtree or declares its
+  own `.asmdef` and is referenced from the assemblies that consume it. The README's "Assembly Definitions" section is
+  the catalog.
 
 ### Project-specific conventions
 
@@ -298,7 +303,15 @@ allow-list for each enum field) and `visibility` (whether each conditionally-ren
 that violate either are rejected with a descriptive error. Editor-time writes to `task.require_interaction` and
 `task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run toggles.
 
-**Before committing**: run `csharpier format .`, invoke `/audit-project` to run the four audits over the changed
-files, and invoke `/commit` to stage and write the message. The Editor menu `CreateTask → New Task` and a single
-`create_task_tool(template_name=…)` call share `CreateTask.CreateFromTemplate` and `CreateTask.CreateSceneFromTemplate`,
-so the agentic and manual paths produce byte-equivalent assets.
+**Adding or running tests**: `Assets/Tests/EditMode/` drives the private Unity lifecycle callbacks through the
+`PrivateAccess` helper, so it stays deterministic without frames or physics, and a test belongs there unless it needs
+real frames, real trigger callbacks, or real elapsed time, which is what `Assets/Tests/PlayMode/` covers.
+`Assets/Tests/Support/` holds the staged template workspace, the task template YAML builder, the in-process MQTT
+harness, and the trigger zone rig that both assemblies draw on. Run the suite from `Window → General → Test Runner`, or
+headlessly with `Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults out.xml`,
+which requires the Editor closed on that project because Unity holds a per-project lock.
+
+**Before committing**: run `csharpier format .`, run both test platforms, invoke `/audit-project` to run the four
+audits over the changed files, and invoke `/commit` to stage and write the message. The Editor menu
+`CreateTask → New Task` and a single `create_task_tool(template_name=…)` call share `CreateTask.CreateFromTemplate` and
+`CreateTask.CreateSceneFromTemplate`, so the agentic and manual paths produce byte-equivalent assets.

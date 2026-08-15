@@ -1,0 +1,31 @@
+{
+    "name": "Sollertia.Tests.EditMode",
+    "rootNamespace": "SL.Tests.EditMode",
+    "references": [
+        "Sollertia.Gimbl",
+        "Sollertia.Gimbl.Editor",
+        "Sollertia.InfiniteCorridorTask",
+        "Sollertia.InfiniteCorridorTask.Editor",
+        "Sollertia.UI",
+        "Sollertia.Tests.Support",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "MQTTnet.dll",
+        "YamlDotNet.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

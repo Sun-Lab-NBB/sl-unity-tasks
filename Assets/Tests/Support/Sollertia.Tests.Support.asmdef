@@ -1,0 +1,25 @@
+{
+    "name": "Sollertia.Tests.Support",
+    "rootNamespace": "SL.Tests",
+    "references": [
+        "Sollertia.Gimbl",
+        "Sollertia.InfiniteCorridorTask",
+        "Sollertia.UI",
+        "UnityEngine.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "MQTTnet.dll",
+        "YamlDotNet.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
