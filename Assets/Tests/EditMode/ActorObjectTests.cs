@@ -247,7 +247,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, actor.transform.GetChild(0).gameObject.layer);
         }
 
-        /// <summary>Verifies that a second SetModel call replaces the model child instead of adding one.</summary>
+        /// <summary>Verifies that a second SetModel call replaces the model child.</summary>
         [Test]
         public void SetModel_CalledTwice_ReplacesThePreviousModelChild()
         {
@@ -412,8 +412,7 @@ namespace SL.Tests.EditMode
             Assert.AreNotEqual(0, trackingCamera.targetDisplay);
         }
 
-        /// <summary>Verifies that the tracking camera warns and shares display seven when all eight are used.
-        /// </summary>
+        /// <summary>Verifies that the tracking camera warns and shares display seven when all eight are used.</summary>
         [Test]
         public void InitiateActor_TrackCameraEnabledAndEveryDisplayUsed_WarnsAndFallsBackToDisplaySeven()
         {

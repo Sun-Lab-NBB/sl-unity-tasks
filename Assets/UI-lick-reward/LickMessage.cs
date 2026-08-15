@@ -5,10 +5,7 @@ using UnityEngine;
 
 namespace SL.UI
 {
-    /// <summary>
-    /// Component attached to the lick UI indicator prefab; schedules the indicator's destruction after a
-    /// configurable delay.
-    /// </summary>
+    /// <summary>Schedules the indicator's destruction after a configurable delay.</summary>
     public class LickMessage : MonoBehaviour
     {
         /// <summary>The time in seconds before this indicator is destroyed.</summary>

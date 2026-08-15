@@ -38,9 +38,6 @@ namespace SL.Tests
         /// Creates the baseline document: two 30 cm cues sharing one texture, default corridor geometry, and two
         /// collision trials whose cue sequences differ.
         /// </summary>
-        /// <remarks>
-        /// A test reaches one validation branch by mutating exactly one field of the returned baseline.
-        /// </remarks>
         /// <returns>A builder whose rendered document passes ConfigLoader validation unchanged.</returns>
         public static TemplateYaml Minimal()
         {

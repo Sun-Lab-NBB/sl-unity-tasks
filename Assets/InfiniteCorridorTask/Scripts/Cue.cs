@@ -8,7 +8,6 @@ namespace SL.Config
     /// <summary>
     /// Defines a single visual cue used in the VR environment.
     /// Each cue has a unique name (used in segment definitions) and a unique uint8 code (for MQTT communication).
-    /// Each cue is generated as a shared, length-suffixed prefab under Cues/ and instantiated into segment prefabs.
     /// </summary>
     [Serializable]
     public class Cue
@@ -25,8 +24,8 @@ namespace SL.Config
         public float lengthCm;
 
         /// <summary>
-        /// The texture filename (e.g., "Cue 001 - 2x1 repeat.png") located in
-        /// Assets/InfiniteCorridorTask/Textures/. Applied 1:1 to the cue wall panels.
+        /// The texture filename (e.g., "Cue 001 - 2x1 repeat.png") located in Assets/InfiniteCorridorTask/Textures/.
+        /// Applied 1:1 to the cue wall panels.
         /// </summary>
         public string texture;
 

@@ -406,9 +406,9 @@ namespace SL.Tests.EditMode
                 Activator.CreateInstance(
                     typeof(Monitor),
                     BindingFlags.Instance | BindingFlags.NonPublic,
-                    null,
-                    new object[] { left, top, width, height },
-                    null
+                    binder: null,
+                    args: new object[] { left, top, width, height },
+                    culture: null
                 );
         }
 
@@ -440,10 +440,10 @@ namespace SL.Tests.EditMode
         {
             if (!File.Exists(EchoExecutablePath))
             {
-                Assert.Ignore(
+                string message =
                     $"The subprocess enumeration path needs '{EchoExecutablePath}' to emit canned output, but this "
-                        + "host does not provide it."
-                );
+                    + "host does not provide it.";
+                Assert.Ignore(message);
             }
         }
     }

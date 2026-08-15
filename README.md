@@ -86,7 +86,7 @@ External requirements that must be installed before working with this Unity proj
   the X11 server utilities, resolved from the `PATH`. Windows enumerates monitors through the operating system and
   needs no helper. Without the helper, Camera Mapping lists no monitors and full-screen views cannot be assigned.
 - [Blender](https://www.blender.org/download/) **4.5.0 LTS** is required only for authoring or modifying 3D assets
-  (corridor models). It is not required to build or run existing tasks.
+  (corridor models).
 - [.NET SDK](https://dotnet.microsoft.com/download) **8.0 or later** and [CSharpier](https://csharpier.com/) **1.x**
   only when contributing source changes (see [Formatting and Style](#formatting-and-style)).
 

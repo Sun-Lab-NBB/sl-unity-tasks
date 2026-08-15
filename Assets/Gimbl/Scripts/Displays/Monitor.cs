@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the Monitor class for detecting and storing system monitor information.
 ///
-/// Enumerates physical monitors across Windows, Linux, and macOS platforms and stores
-/// their position, dimensions, and camera assignment for multi-monitor VR displays.
+/// Enumerates physical monitors across Windows, Linux, and macOS platforms and stores their position, dimensions,
+/// and camera assignment for multi-monitor VR displays.
 /// </summary>
 #if UNITY_EDITOR
 using System;
@@ -18,9 +18,7 @@ using Debug = UnityEngine.Debug;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Stores monitor display information and camera assignment.
-    /// </summary>
+    /// <summary>Stores monitor display information and camera assignment.</summary>
     [Serializable]
     public class Monitor
     {
@@ -108,7 +106,7 @@ namespace Gimbl
                 EnumDisplayMonitors(
                     IntPtr.Zero,
                     IntPtr.Zero,
-                    delegate(IntPtr hMonitor, IntPtr hdc, ref RectApi monitorRect, IntPtr dwData)
+                    delegate(IntPtr monitorHandle, IntPtr deviceContext, ref RectApi monitorRect, IntPtr callbackData)
                     {
                         result.Add(
                             new Monitor(monitorRect.left, monitorRect.top, monitorRect.Width, monitorRect.Height)
@@ -197,10 +195,10 @@ namespace Gimbl
             if (!process.WaitForExit(SubprocessTimeoutMilliseconds))
             {
                 process.Kill();
-                Debug.LogWarning(
+                string timeoutMessage =
                     $"Monitor enumeration: '{command}' timed out after {SubprocessTimeoutMilliseconds}ms; "
-                        + "monitor list may be incomplete."
-                );
+                    + "monitor list may be incomplete.";
+                Debug.LogWarning(timeoutMessage);
             }
 
             string output;
@@ -208,10 +206,10 @@ namespace Gimbl
             {
                 if (!outputTask.Wait(SubprocessTimeoutMilliseconds))
                 {
-                    Debug.LogWarning(
+                    string readTimeoutMessage =
                         $"Monitor enumeration: reading the output of '{command}' timed out after "
-                            + $"{SubprocessTimeoutMilliseconds}ms."
-                    );
+                        + $"{SubprocessTimeoutMilliseconds}ms.";
+                    Debug.LogWarning(readTimeoutMessage);
                     return;
                 }
                 output = outputTask.Result;
@@ -237,16 +235,34 @@ namespace Gimbl
             }
         }
 
-        /// <summary>The delegate for Windows monitor enumeration callback.</summary>
-        private delegate bool MonitorEnumProc(IntPtr hMonitor, IntPtr hdc, ref RectApi pRect, IntPtr dwData);
-
-        /// <summary>Windows API function to enumerate display monitors.</summary>
+        /// <summary>Enumerates the attached display monitors through the Windows user32 API.</summary>
+        /// <param name="deviceContext">The device context whose visible region bounds the enumeration.</param>
+        /// <param name="clipRectangle">The clipping rectangle that bounds the enumeration.</param>
+        /// <param name="callback">The delegate invoked once per enumerated monitor.</param>
+        /// <param name="callbackData">The application-defined value forwarded to each callback invocation.</param>
+        /// <returns>True when every monitor was enumerated, false when the enumeration failed to start.</returns>
         [DllImport("user32")]
-        private static extern bool EnumDisplayMonitors(IntPtr hdc, IntPtr lpRect, MonitorEnumProc callback, int dwData);
+        private static extern bool EnumDisplayMonitors(
+            IntPtr deviceContext,
+            IntPtr clipRectangle,
+            MonitorEnumProc callback,
+            int callbackData
+        );
 
-        /// <summary>
-        /// Windows API rectangle structure for monitor bounds.
-        /// </summary>
+        /// <summary>Defines the callback signature the Windows monitor enumeration invokes per display.</summary>
+        /// <param name="monitorHandle">The handle of the monitor being enumerated.</param>
+        /// <param name="deviceContext">The device context of the enumerated monitor.</param>
+        /// <param name="monitorRectangle">The bounds of the monitor in virtual-screen pixel coordinates.</param>
+        /// <param name="callbackData">The application-defined value forwarded from the enumeration call.</param>
+        /// <returns>True to continue the enumeration, false to stop it after this monitor.</returns>
+        private delegate bool MonitorEnumProc(
+            IntPtr monitorHandle,
+            IntPtr deviceContext,
+            ref RectApi monitorRectangle,
+            IntPtr callbackData
+        );
+
+        /// <summary>Defines the Windows API rectangle layout that carries monitor bounds.</summary>
         [StructLayout(LayoutKind.Sequential)]
         private struct RectApi
         {
@@ -269,9 +285,7 @@ namespace Gimbl
             public int Height => bottom - top;
         }
 
-        /// <summary>
-        /// Temporary editor window for detecting pixels per point on each monitor.
-        /// </summary>
+        /// <summary>Provides the transient popup window that samples the pixels per point of one monitor.</summary>
         private class MonitorTester : EditorWindow
         {
             /// <summary>The monitor to test.</summary>

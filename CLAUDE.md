@@ -85,10 +85,10 @@ that registers the backing `slsa mcp` server. The ataraxis marketplace ships the
 
 The `assets` plugin ships further session, project, and data-management skills that this repository does not use. You
 MUST invoke `/library-extension` when adding a new `TriggerType` member or otherwise extending the shared-assets
-template vocabulary, because no import-time parity check covers `TriggerType`, so an unwired member surfaces only
-when a config that uses it reaches the acquisition system. A new member does NOT require a `from_task_template`
-branch in every acquisition system, because a system may leave a mode unmapped and a config using it then raises a
-clear "not mapped to a runtime trial class" error.
+template vocabulary. No import-time parity check covers `TriggerType`, so an unwired member surfaces only when a config
+that uses it reaches the acquisition system. A new member does NOT require a `from_task_template` branch in every
+acquisition system, because a system may leave a mode unmapped and a config using it then raises a clear "not mapped to
+a runtime trial class" error.
 
 ## MCP server
 
@@ -252,9 +252,9 @@ tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's 
 
 ### Workflow guidance
 
-**Authoring a new task template**: invoke `/task-templates` for the schema and naming convention, place the YAML under
-`Assets/InfiniteCorridorTask/Configurations/` with the `Project / Purpose / Layout / Related` header comments, then
-invoke `/task-prefabs` and run `create_task_tool` to materialize the cues, segments, task prefab, and scene together.
+**Authoring a new task template**: invoke `/task-templates` for the schema and naming convention, then place the YAML
+under `Assets/InfiniteCorridorTask/Configurations/` with the `Project / Purpose / Layout / Related` header comments.
+Invoke `/task-prefabs` and run `create_task_tool` to materialize the cues, segments, task prefab, and scene together.
 The tool refuses to overwrite an existing scene, so pair `delete_task_tool` with `create_task_tool` to regenerate.
 Finish with `inspect_prefab_tool` to spot-check the hierarchy against the template's cue and trial counts.
 

@@ -479,119 +479,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that GetTrialLengthUnity returns the summed segment length for each declared trial.
-        /// </summary>
-        [Test]
-        public void GetTrialLengthUnity_EachDeclaredTrial_ReturnsSummedSegmentLength()
-        {
-            Assert.AreEqual(7.5f, _template.GetTrialLengthUnity("AB"));
-            Assert.AreEqual(7.0f, _template.GetTrialLengthUnity("BC"));
-            Assert.AreEqual(5.5f, _template.GetTrialLengthUnity("CA"));
-        }
-
-        /// <summary>Verifies that GetTrialLengthUnity applies a non-integral centimeters-per-unit factor.</summary>
-        [Test]
-        public void GetTrialLengthUnity_NonIntegralScaleFactor_ConvertsWithThatFactor()
-        {
-            _template.vrEnvironment.cmPerUnityUnit = 2.5f;
-
-            Assert.AreEqual(30.0f, _template.GetTrialLengthUnity("AB"));
-            Assert.AreEqual(28.0f, _template.GetTrialLengthUnity("BC"));
-        }
-
-        /// <summary>Verifies that GetTrialLengthUnity returns zero for a trial with an empty cue sequence.</summary>
-        [Test]
-        public void GetTrialLengthUnity_EmptyCueSequence_ReturnsZero()
-        {
-            _template.trialStructures["AB"] = NewTrial();
-
-            Assert.AreEqual(0.0f, _template.GetTrialLengthUnity("AB"));
-        }
-
-        /// <summary>Verifies that GetTrialLengthUnity throws when the requested trial name is not declared.</summary>
-        [Test]
-        public void GetTrialLengthUnity_UnknownTrialName_ThrowsKeyNotFound()
-        {
-            Assert.Throws<KeyNotFoundException>(() => _template.GetTrialLengthUnity("ZZ"));
-        }
-
-        /// <summary>
-        /// Verifies that the unknown-trial report names the requested trial, the template, and the declared trials.
-        /// </summary>
-        [Test]
-        public void GetTrialLengthUnity_UnknownTrialName_ReportsTheTrialAndTemplateNames()
-        {
-            KeyNotFoundException exception = Assert.Throws<KeyNotFoundException>(() =>
-                _template.GetTrialLengthUnity("ZZ")
-            );
-
-            StringAssert.Contains("'ZZ'", exception.Message);
-            StringAssert.Contains("ReferenceTemplate", exception.Message);
-            StringAssert.Contains("AB, BC, CA", exception.Message);
-        }
-
-        /// <summary>
-        /// Verifies that GetTrialLengthUnity rejects a null trial name rather than returning a length.
-        /// </summary>
-        [Test]
-        public void GetTrialLengthUnity_NullTrialName_ThrowsArgumentNull()
-        {
-            Assert.Throws<ArgumentNullException>(() => _template.GetTrialLengthUnity(null));
-        }
-
-        /// <summary>Verifies that a cue name absent from the cues list makes the trial length lookup throw.</summary>
-        [Test]
-        public void GetTrialLengthUnity_UnknownCueName_ThrowsKeyNotFound()
-        {
-            _template.trialStructures["AB"] = NewTrial("A", "Missing");
-
-            Assert.Throws<KeyNotFoundException>(() => _template.GetTrialLengthUnity("AB"));
-        }
-
-        /// <summary>Verifies that GetTrialLengthUnity reuses the identical cached lookup on a second call.</summary>
-        [Test]
-        public void GetTrialLengthUnity_CalledTwice_ReusesTheSameCachedLookup()
-        {
-            _template.GetTrialLengthUnity("AB");
-            Dictionary<string, float> first = PrivateAccess.GetField<Dictionary<string, float>>(
-                _template,
-                "_trialLengthsUnityCache"
-            );
-
-            _template.GetTrialLengthUnity("BC");
-            Dictionary<string, float> second = PrivateAccess.GetField<Dictionary<string, float>>(
-                _template,
-                "_trialLengthsUnityCache"
-            );
-
-            Assert.AreSame(first, second);
-            Assert.AreEqual(3, second.Count);
-        }
-
-        /// <summary>Verifies that a cue length changed after the first call leaves the trial length stale.</summary>
-        [Test]
-        public void GetTrialLengthUnity_CueLengthChangedAfterFirstCall_ReturnsStaleLength()
-        {
-            Assert.AreEqual(7.5f, _template.GetTrialLengthUnity("AB"));
-
-            _template.cues[0].lengthCm = 300.0f;
-
-            Assert.AreEqual(7.5f, _template.GetTrialLengthUnity("AB"));
-        }
-
-        /// <summary>Verifies that a trial added after the first call is absent from the cached lookup.</summary>
-        [Test]
-        public void GetTrialLengthUnity_TrialAddedAfterFirstCall_ThrowsForTheNewTrial()
-        {
-            Assert.AreEqual(7.5f, _template.GetTrialLengthUnity("AB"));
-
-            _template.trialStructures["AC"] = NewTrial("A", "C");
-
-            Assert.Throws<KeyNotFoundException>(() => _template.GetTrialLengthUnity("AC"));
-        }
-
-        /// <summary>
-        /// Verifies that a first GetTrialNames call populates only its own cache, leaving the other five unset.
+        /// Verifies that a first GetTrialNames call populates only its own cache, leaving the other four unset.
         /// </summary>
         [Test]
         public void Getters_FirstCallOnOneGetter_LeavesTheUnrelatedCachesUnpopulated()
@@ -602,7 +490,6 @@ namespace SL.Tests.EditMode
             Assert.IsNull(PrivateAccess.GetField<Dictionary<string, Cue>>(_template, "_cueByNameCache"));
             Assert.IsNull(PrivateAccess.GetField<float[]>(_template, "_cueLengthsUnityCache"));
             Assert.IsNull(PrivateAccess.GetField<float[]>(_template, "_segmentLengthsUnityCache"));
-            Assert.IsNull(PrivateAccess.GetField<Dictionary<string, float>>(_template, "_trialLengthsUnityCache"));
             Assert.AreSame(names, PrivateAccess.GetField<string[]>(_template, "_trialNamesCache"));
         }
 

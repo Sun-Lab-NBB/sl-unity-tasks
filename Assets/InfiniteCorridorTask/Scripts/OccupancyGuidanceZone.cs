@@ -11,7 +11,8 @@ namespace SL.Tasks
 {
     /// <summary>
     /// Handles occupancy guidance mode as a secondary trigger zone for OccupancyZone.
-    /// When guidance mode is active and the animal enters, sends brake activation message with remaining duration.
+    /// When guidance mode is active and the animal enters, sends a brake activation message with the remaining
+    /// duration.
     /// </summary>
     public class OccupancyGuidanceZone : MonoBehaviour, IResettable
     {
@@ -74,8 +75,7 @@ namespace SL.Tasks
             if (_task == null || _parentOccupancyZone == null)
                 return;
 
-            // Only triggers in guidance mode (!requireWait), if not already triggered this lap, and if the
-            // occupancy requirement is not yet met (so the brake can guide the animal to complete it).
+            // The brake is what guides the animal to finish an occupancy requirement it has not yet met.
             if (!_task.requireWait && !_hasTriggered && !_parentOccupancyZone.occupancyMet)
             {
                 TriggerBrakeActivation();
@@ -83,7 +83,6 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the guidance zone state for a new lap.</summary>
-        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             _hasTriggered = false;

@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Stores configuration settings for a VR display.
-    /// </summary>
+    /// <summary>Stores configuration settings for a VR display.</summary>
     [System.Serializable]
     public class DisplaySettings : ScriptableObject
     {

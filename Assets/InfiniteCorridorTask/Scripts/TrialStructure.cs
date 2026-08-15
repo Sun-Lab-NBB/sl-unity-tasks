@@ -25,7 +25,7 @@ namespace SL.Config
 
         /// <summary>
         /// The position of the stimulus boundary. The collision, occupancy_disarm, and occupancy_arm modes
-        /// fire on collision with it; interaction and occupancy_trigger modes do not use boundary collision.
+        /// fire on collision with it. The interaction and occupancy_trigger modes resolve without boundary collision.
         /// </summary>
         public float stimulusLocationCm;
 
@@ -36,16 +36,14 @@ namespace SL.Config
         public bool showStimulusCollisionBoundary = false;
 
         /// <summary>
-        /// The trigger mode for the stimulus zone. "interaction" and "collision" use the StimulusTriggerZone
-        /// prefab; "collision" strips the GuidanceRegion child (the child carrying the GuidanceZone script) and
-        /// fires on a thin boundary wall. "occupancy_disarm", "occupancy_arm", and "occupancy_trigger" use the
-        /// OccupancyTriggerZone prefab whose OccupancyZone child carries a nested OccupancyGuidanceZone child.
+        /// The trigger mode for the stimulus zone, one of "interaction", "collision", "occupancy_disarm",
+        /// "occupancy_arm", or "occupancy_trigger".
         /// </summary>
         public string triggerType;
 
         /// <summary>
-        /// The duration in milliseconds the animal must occupy the zone for occupancy trigger modes. Applied
-        /// to the OccupancyZone at task creation time and ignored for non-occupancy trigger modes.
+        /// The duration in milliseconds the animal must occupy the zone for occupancy trigger modes, ignored for
+        /// non-occupancy trigger modes.
         /// </summary>
         /// <remarks>
         /// Null is the value a non-occupancy trial carries, because null is how a template communicates that the

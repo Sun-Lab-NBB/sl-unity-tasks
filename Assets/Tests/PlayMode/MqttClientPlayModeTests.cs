@@ -338,7 +338,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual("guidance", received[0].cause);
         }
 
-        /// <summary>Verifies that the connector reports the missing singleton instead of connecting.</summary>
+        /// <summary>Verifies that the connector reports the missing singleton.</summary>
         [Test]
         public void OnEnable_WithoutTheClientSingleton_LogsTheMissingInstanceError()
         {
@@ -711,9 +711,9 @@ namespace SL.Tests.PlayMode
         {
             _harness = CreateSuspendedHarness();
 
-            GameObject canvasObject = new GameObject("Canvas", typeof(Canvas));
+            GameObject canvasObject = new GameObject("Canvas");
             _hosts.Add(canvasObject);
-            _canvas = canvasObject.GetComponent<Canvas>();
+            _canvas = canvasObject.AddComponent<Canvas>();
 
             // The indicator sources stay inactive so their own Start never schedules the timed self-destruction,
             // and every clone the spawner instantiates inherits that state and stays on the canvas to be counted.

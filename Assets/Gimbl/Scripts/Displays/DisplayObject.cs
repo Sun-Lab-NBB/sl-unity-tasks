@@ -1,8 +1,7 @@
 /// <summary>
 /// Provides the DisplayObject class for VR display management.
 ///
-/// Manages display attachment to actors and camera culling mask configuration
-/// for proper VR rendering.
+/// Manages display attachment to actors and camera culling mask configuration for proper VR rendering.
 /// </summary>
 using UnityEngine;
 #if UNITY_EDITOR
@@ -11,9 +10,7 @@ using UnityEditor;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Manages a VR display with brightness control and actor attachment.
-    /// </summary>
+    /// <summary>Manages a VR display with brightness control and actor attachment.</summary>
     public class DisplayObject : MonoBehaviour
     {
         /// <summary>The configuration settings for this display.</summary>
@@ -23,8 +20,8 @@ namespace Gimbl
         public float currentBrightness = 100f;
 
         /// <summary>
-        /// Parents this display to an actor, offsets it to the configured VR eye height
-        /// (<c>settings.heightInVR</c>, defaulting to 0 when settings is null), and configures camera culling.
+        /// Parents this display to an actor, offsets it to the configured VR eye height (<c>settings.heightInVR</c>,
+        /// defaulting to 0 when settings is null), and configures camera culling.
         /// </summary>
         /// <param name="actor">The actor to attach this display to.</param>
         public void ParentToActor(ActorObject actor)
@@ -97,8 +94,8 @@ namespace Gimbl
             foreach (MeshRenderer mesh in displayGameObject.GetComponentsInChildren<MeshRenderer>())
             {
                 mesh.GetComponent<MeshCollider>().enabled = false;
-                // Mesh prefab names follow *Monitor; rename the camera to "<role> View" so the
-                // dropdown in Camera Mapping surfaces the role (Left View, Right View, Center View).
+                // Mesh prefab names follow *Monitor. Renaming the camera to "<role> View" makes the Camera Mapping
+                // dropdown surface the role (Left View, Right View, Center View).
                 string cameraName = mesh.name.Replace("Monitor", " View");
                 GameObject cameraObject = new GameObject(cameraName);
                 cameraObject.transform.SetParent(mesh.transform.parent);

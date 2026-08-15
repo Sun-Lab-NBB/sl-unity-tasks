@@ -172,10 +172,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Verifies that creating a display from an absent model prefab reports the failure.</summary>
-        /// <remarks>
-        /// The successful branch of Create instantiates a Resources model prefab and writes a settings asset into the
-        /// project, so the missing-model guard is the branch this fixture exercises.
-        /// </remarks>
         [Test]
         public void Create_AbsentModelPrefab_LogsErrorAndReturnsNull()
         {

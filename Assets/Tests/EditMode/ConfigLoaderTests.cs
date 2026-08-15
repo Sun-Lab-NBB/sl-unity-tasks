@@ -347,7 +347,7 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("letters, digits, and underscores", exception.Message);
         }
 
-        /// <summary>Verifies that a spaced cue name is rejected as a name rather than a duplicate sequence.</summary>
+        /// <summary>Verifies that a spaced cue name is rejected as an invalid name.</summary>
         [Test]
         public void LoadTemplate_SpacedCueNamesCollidingInSequenceSignature_ThrowsInvalidData()
         {
@@ -1277,7 +1277,7 @@ namespace SL.Tests.EditMode
             Assert.IsFalse(loaded.trialStructures["AB"].showStimulusCollisionBoundary);
         }
 
-        /// <summary>Verifies that an unmatched top-level YAML key is ignored rather than fatal.</summary>
+        /// <summary>Verifies that an unmatched top-level YAML key is ignored.</summary>
         [Test]
         public void LoadTemplate_UnmatchedTopLevelKey_IsIgnored()
         {
@@ -1291,7 +1291,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(2, loaded.cues.Count);
         }
 
-        /// <summary>Verifies that an unmatched key inside a cue entry is ignored rather than fatal.</summary>
+        /// <summary>Verifies that an unmatched key inside a cue entry is ignored.</summary>
         [Test]
         public void LoadTemplate_UnmatchedCueKey_IsIgnored()
         {
@@ -1305,7 +1305,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1, loaded.cues[0].code);
         }
 
-        /// <summary>Verifies that an unmatched key inside a trial entry is ignored rather than fatal.</summary>
+        /// <summary>Verifies that an unmatched key inside a trial entry is ignored.</summary>
         [Test]
         public void LoadTemplate_UnmatchedTrialKey_IsIgnored()
         {

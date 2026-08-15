@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the MQTTClient class for managing connectivity with the MQTT broker.
 ///
-/// Handles connection establishment, topic subscription, and message routing for
-/// bidirectional communication between Unity and external systems like sollertia-experiment.
+/// Handles connection establishment, topic subscription, and message routing for bidirectional communication
+/// between Unity and external systems like sollertia-experiment.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -16,13 +16,10 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Manages the MQTT broker connection and routes messages to subscribed channels.
-    /// </summary>
+    /// <summary>Manages the MQTT broker connection and routes messages to subscribed channels.</summary>
     /// <remarks>
-    /// This MonoBehaviour should be attached to a GameObject named "MQTT Client" in the scene.
-    /// Connection settings (IP and port) are loaded from Unity EditorPrefs.
-    /// Access via the static Instance property instead of GameObject.Find().
+    /// Expects a host GameObject named "MQTT Client". Connection settings (IP and port) are loaded from Unity
+    /// EditorPrefs. Access via the static Instance property.
     /// </remarks>
     public class MQTTClient : MonoBehaviour
     {
@@ -44,26 +41,22 @@ namespace Gimbl
         /// <summary>The IP address of the MQTT broker.</summary>
         /// <remarks>
         /// The initializer matches the loopback fallback applied by <see cref="Awake"/> and by
-        /// <see cref="Gimbl.MainWindow.EnsureMqttDefaults"/> so a freshly-instantiated client (via
-        /// <c>AddComponent</c> at editor time, before either hook has run) reports the same value
-        /// the eventual fallback would assign.
+        /// <see cref="Gimbl.MainWindow.EnsureMqttDefaults"/> so a freshly-instantiated client (via <c>AddComponent</c>
+        /// at editor time, before either hook has run) reports the same value the eventual fallback would assign.
         /// </remarks>
         [HideInInspector]
         public string ipAddress = "127.0.0.1";
 
         /// <summary>The port number of the MQTT broker.</summary>
         /// <remarks>
-        /// The initializer matches the standard MQTT port fallback applied by <see cref="Awake"/>
-        /// and by <see cref="Gimbl.MainWindow.EnsureMqttDefaults"/>.
+        /// The initializer matches the standard MQTT port fallback applied by <see cref="Awake"/> and by
+        /// <see cref="Gimbl.MainWindow.EnsureMqttDefaults"/>.
         /// </remarks>
         [HideInInspector]
         public int port = 1883;
 
         /// <summary>The underlying MQTTnet client instance.</summary>
         public IMqttClient client;
-
-        /// <summary>The singleton instance of the MQTTClient.</summary>
-        public static MQTTClient Instance { get; private set; }
 
         /// <summary>The list of all subscribed channels for message routing.</summary>
         private List<Channel> _channelList = new List<Channel>();
@@ -79,6 +72,9 @@ namespace Gimbl
 
         /// <summary>The stored handler for received MQTT application messages.</summary>
         private Func<MqttApplicationMessageReceivedEventArgs, Task> _messageReceivedHandler;
+
+        /// <summary>The singleton instance of the MQTTClient.</summary>
+        public static MQTTClient Instance { get; private set; }
 
         /// <summary>Registers this instance as the singleton and loads connection settings on awake.</summary>
         /// <remarks>
@@ -122,7 +118,7 @@ namespace Gimbl
         {
             _startChannel = new MQTTChannel(MQTTTopics.SessionStart, isListener: false);
             _stopChannel = new MQTTChannel(MQTTTopics.SessionStop, isListener: false);
-            // Discards the returned Task because the broadcast is genuinely fire-and-forget; any failure
+            // Discards the returned Task because the broadcast is genuinely fire-and-forget. Any failure
             // is logged inside StartSessionAsync and there is no caller to observe completion.
             _ = StartSessionAsync();
         }
@@ -168,7 +164,7 @@ namespace Gimbl
         /// <remarks>
         /// Duplicates the cleanup performed by <see cref="OnApplicationQuit"/> because the two lifecycle
         /// callbacks do not always both fire. A scene transition that destroys this component without
-        /// quitting the application reaches only <c>OnDestroy</c>; a process exit that bypasses scene
+        /// quitting the application reaches only <c>OnDestroy</c>. A process exit that bypasses scene
         /// teardown reaches only <c>OnApplicationQuit</c>. The duplicated routing reset, handler unhook,
         /// and disposal ensure the underlying <see cref="IMqttClient"/> and every routed channel are
         /// released in either path.
@@ -292,9 +288,9 @@ namespace Gimbl
         /// <remarks>
         /// The channel is added to <see cref="_channelList"/> unconditionally so that <see cref="Publish"/>'s
         /// no-broker fallback can route messages locally during keyboard-only test runs. The broker-side
-        /// <c>SubscribeAsync</c> only fires when the client is currently connected; a channel created while
+        /// <c>SubscribeAsync</c> only fires when the client is currently connected. A channel created while
         /// the broker is offline will receive in-process loopback messages but will <b>not</b> auto-subscribe
-        /// once the broker comes online — callers that need broker-delivered messages after a late connect
+        /// once the broker comes online. Callers that need broker-delivered messages after a late connect
         /// must re-create the channel or trigger a new subscribe pass.
         /// </remarks>
         /// <param name="channel">The MQTTChannel to receive messages.</param>

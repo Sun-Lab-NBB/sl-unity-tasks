@@ -8,9 +8,7 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Stores camera-to-monitor assignments for persistence across sessions.
-    /// </summary>
+    /// <summary>Stores camera-to-monitor assignments for persistence across sessions.</summary>
     [Serializable]
     public class FullScreenViewsSaved : ScriptableObject
     {

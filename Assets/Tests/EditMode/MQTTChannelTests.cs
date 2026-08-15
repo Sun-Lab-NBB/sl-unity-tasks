@@ -554,9 +554,9 @@ namespace SL.Tests.EditMode
             MethodInfo method = typeof(MQTTChannel<ProbeMessage>).GetMethod(
                 "Send",
                 BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly,
-                null,
-                Type.EmptyTypes,
-                null
+                binder: null,
+                types: Type.EmptyTypes,
+                modifiers: null
             );
 
             Assert.IsNotNull(method);
@@ -582,10 +582,10 @@ namespace SL.Tests.EditMode
         [Serializable]
         public class ProbeMessage
         {
-            /// <summary>The string field carried by the payload.</summary>
+            /// <summary>The label the serialization round trip must return unchanged.</summary>
             public string label;
 
-            /// <summary>The integer field carried by the payload.</summary>
+            /// <summary>The count the serialization round trip must return unchanged.</summary>
             public int count;
         }
     }

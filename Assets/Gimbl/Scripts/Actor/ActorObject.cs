@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the ActorObject class representing an animal in the VR environment.
 ///
-/// Manages the actor's display and controller references, automatically re-parenting the
-/// display and wiring the bidirectional actor-controller reference when these references change.
+/// Manages the actor's display and controller references, automatically re-parenting the display and wiring the
+/// bidirectional actor-controller reference when these references change.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -16,17 +16,15 @@ using UnityEngine.SceneManagement;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Represents an animal actor in the VR environment with linked display and controller.
-    /// </summary>
+    /// <summary>Represents an animal actor in the VR environment with linked display and controller.</summary>
     [System.Serializable]
     public class ActorObject : MonoBehaviour
     {
-        /// <summary>The serialized backing field for the Display property.</summary>
+        /// <summary>The serialized reference to the display object rendering the VR view for this actor.</summary>
         [SerializeField]
         private DisplayObject _display;
 
-        /// <summary>The serialized backing field for the Controller property.</summary>
+        /// <summary>The serialized reference to the controller providing input for this actor.</summary>
         [SerializeField]
         private ControllerOutput _controller;
 
@@ -104,7 +102,6 @@ namespace Gimbl
 
             SetModel(modelName);
 
-            // Creates tracking camera if requested.
             if (trackCamera)
             {
                 // Finds currently used displays to avoid conflicts.

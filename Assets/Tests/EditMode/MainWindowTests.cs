@@ -624,7 +624,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(displays[0], actors[0].Display);
         }
 
-        /// <summary>Verifies that pre-existing scene instances are linked instead of replaced.</summary>
+        /// <summary>Verifies that EnsureActorAndDisplay links the pre-existing actor and display in place.</summary>
         [Test]
         public void EnsureActorAndDisplay_ExistingActorAndDisplay_LinksThemWithoutCreatingMore()
         {

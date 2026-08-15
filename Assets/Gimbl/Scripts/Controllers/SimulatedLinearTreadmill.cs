@@ -1,16 +1,14 @@
 /// <summary>
 /// Provides the SimulatedLinearTreadmill class for keyboard-based treadmill simulation.
 ///
-/// Extends the LinearTreadmill controller to accept keyboard input instead of MQTT
-/// messages, enabling testing without physical hardware.
+/// Extends the LinearTreadmill controller to accept keyboard input instead of MQTT messages, enabling testing without
+/// physical hardware.
 /// </summary>
 using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Simulates linear treadmill input using keyboard controls.
-    /// </summary>
+    /// <summary>Simulates linear treadmill input using keyboard controls.</summary>
     public class SimulatedLinearTreadmill : LinearTreadmill
     {
         /// <summary>The movement speed multiplier for input scaling.</summary>
@@ -30,12 +28,7 @@ namespace Gimbl
             _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction);
         }
 
-        /// <summary>Processes simulated input and movement each frame.</summary>
-        /// <remarks>
-        /// The interaction trigger fires on every press of the Jump action (spacebar) while an actor is
-        /// assigned, routed through <see cref="_interactionTrigger"/> to the
-        /// <see cref="MQTTTopics.Interaction"/> channel.
-        /// </remarks>
+        /// <summary>Processes simulated input and movement each frame, with spacebar presses as interactions.</summary>
         public override void Update()
         {
             GetSimulatedInput();

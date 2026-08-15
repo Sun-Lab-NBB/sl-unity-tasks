@@ -5,9 +5,7 @@ using System;
 
 namespace SL.Config
 {
-    /// <summary>
-    /// Defines the Unity VR corridor system configuration.
-    /// </summary>
+    /// <summary>Defines the Unity VR corridor system configuration.</summary>
     [Serializable]
     public class VREnvironment
     {
@@ -21,7 +19,7 @@ namespace SL.Config
         public string paddingPrefabName = "Padding";
 
         /// <summary>
-        /// The number of centimeters represented by one Unity unit (centimeters-per-Unity-unit); divide a centimeter
+        /// The number of centimeters represented by one Unity unit (centimeters-per-Unity-unit). Divide a centimeter
         /// value by this to obtain Unity units.
         /// </summary>
         public float cmPerUnityUnit = 10.0f;

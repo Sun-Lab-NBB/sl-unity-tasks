@@ -5,12 +5,9 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Automatically establishes MQTT broker connection when the scene starts.
-    /// </summary>
+    /// <summary>Automatically establishes MQTT broker connection when the scene starts.</summary>
     /// <remarks>
-    /// This MonoBehaviour should be attached to a GameObject in scenes that require MQTT connectivity.
-    /// It triggers the MQTTClient.Connect() method during OnEnable.
+    /// Requires a scene that hosts an MQTTClient singleton.
     /// </remarks>
     public class MQTTConnectorObject : MonoBehaviour
     {

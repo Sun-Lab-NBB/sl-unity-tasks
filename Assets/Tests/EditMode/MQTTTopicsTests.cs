@@ -291,12 +291,10 @@ namespace SL.Tests.EditMode
         private static FieldInfo[] DeclaredTopicFields()
         {
             FieldInfo[] fields = typeof(MQTTTopics).GetFields(BindingFlags.Public | BindingFlags.Static);
-            Assert.AreEqual(
-                ExpectedTopicCount,
-                fields.Length,
+            string message =
                 "The reflected field set must cover the whole catalog, otherwise every per-topic loop passes "
-                    + "without inspecting anything."
-            );
+                + "without inspecting anything.";
+            Assert.AreEqual(ExpectedTopicCount, fields.Length, message);
             return fields;
         }
 

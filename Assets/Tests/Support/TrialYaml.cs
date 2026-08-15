@@ -42,16 +42,11 @@ namespace SL.Tests
         public Dictionary<string, float> transitions = null;
 
         /// <summary>The literal YAML text emitted for a key, overriding whatever the typed field holds.</summary>
-        /// <remarks>
-        /// An entry reaches the ConfigLoader branches a well-typed value cannot express, such as a wrong-typed or
-        /// malformed scalar.
-        /// </remarks>
         public readonly Dictionary<string, string> rawOverrides = new Dictionary<string, string>();
 
         /// <summary>Creates a trial block with the supplied name and cue sequence.</summary>
         /// <param name="trialName">The trial name used as the mapping key.</param>
         /// <param name="cues">The ordered cue names comprising the trial's segment.</param>
-        /// <returns>The trial block builder.</returns>
         public static TrialYaml Named(string trialName, params string[] cues)
         {
             return new TrialYaml { name = trialName, cueSequence = new List<string>(cues) };

@@ -18,7 +18,7 @@ namespace Gimbl
     {
         /// <summary>Session-start lifecycle marker published by Unity when the MQTT client starts.</summary>
         /// <remarks>
-        /// Direction: Unity publishes; sollertia-experiment subscribes.
+        /// Direction: Unity publishes, sollertia-experiment subscribes.
         /// Payload: empty trigger (no body).
         /// Callers (publish): <see cref="MQTTClient"/> via <c>StartSessionAsync</c>.
         /// </remarks>
@@ -26,7 +26,7 @@ namespace Gimbl
 
         /// <summary>Session-stop lifecycle marker published by Unity on application quit.</summary>
         /// <remarks>
-        /// Direction: Unity publishes; sollertia-experiment subscribes.
+        /// Direction: Unity publishes, sollertia-experiment subscribes.
         /// Payload: empty trigger (no body).
         /// Callers (publish): <see cref="MQTTClient"/> via <c>OnApplicationQuit</c>.
         /// </remarks>
@@ -34,18 +34,17 @@ namespace Gimbl
 
         /// <summary>Hardware treadmill movement payload received from the physical rig.</summary>
         /// <remarks>
-        /// Direction: Unity listens; sollertia-experiment (or the treadmill driver) publishes.
+        /// Direction: Unity listens, sollertia-experiment (or the treadmill driver) publishes.
         /// Payload: <see cref="LinearTreadmill.TreadmillMessage"/> wrapping <c>float movement</c>.
         /// Callers (subscribe): <see cref="LinearTreadmill"/>. <see cref="SimulatedLinearTreadmill"/>
-        /// intentionally does not subscribe — the simulated rig drives movement from keyboard input
-        /// instead.
+        /// intentionally does not subscribe, the simulated rig drives movement from keyboard input instead.
         /// </remarks>
         public const string Motion = "Motion";
 
         /// <summary>Sensor-interaction event indicating the animal engaged an interaction sensor.</summary>
         /// <remarks>
         /// Direction: bidirectional. The acquisition runtime resolves a concrete interaction sensor
-        /// (lick port, button, lever, pressure plate) and publishes from sollertia-experiment;
+        /// (lick port, button, lever, pressure plate) and publishes from sollertia-experiment.
         /// <see cref="SimulatedLinearTreadmill"/> publishes synthetic interactions on the Jump action
         /// (spacebar) for keyboard-only test runs.
         /// Payload: empty trigger (no body).
@@ -57,7 +56,7 @@ namespace Gimbl
 
         /// <summary>Trial outcome event published when a stimulus trigger zone resolves a trial.</summary>
         /// <remarks>
-        /// Direction: bidirectional. Unity publishes exactly one message per trial at its resolution;
+        /// Direction: bidirectional. Unity publishes exactly one message per trial at its resolution,
         /// sollertia-experiment subscribes to resolve the per-trial outcome and command the stimulus
         /// hardware. The UI spawner also subscribes locally to render an on-screen indicator when a
         /// stimulus is delivered.
@@ -71,7 +70,7 @@ namespace Gimbl
 
         /// <summary>Brake activation request carrying the remaining occupancy duration in milliseconds.</summary>
         /// <remarks>
-        /// Direction: Unity publishes; sollertia-experiment subscribes and activates the brake.
+        /// Direction: Unity publishes, sollertia-experiment subscribes and activates the brake.
         /// Payload: <see cref="SL.Tasks.OccupancyGuidanceZone.TriggerDelayMessage"/> wrapping
         /// <c>uint delayMilliseconds</c>.
         /// Callers (publish): <see cref="SL.Tasks.OccupancyGuidanceZone"/> via
@@ -81,7 +80,7 @@ namespace Gimbl
 
         /// <summary>Request for the active task's flattened cue sequence.</summary>
         /// <remarks>
-        /// Direction: Unity listens; sollertia-experiment publishes when it wants the sequence.
+        /// Direction: Unity listens, sollertia-experiment publishes when it wants the sequence.
         /// Payload: empty trigger (no body).
         /// Callers (subscribe): <see cref="SL.Tasks.Task"/> via <c>OnCueSequenceTrigger</c>, which
         /// replies on <see cref="CueSequence"/>.
@@ -90,7 +89,7 @@ namespace Gimbl
 
         /// <summary>Flattened cue sequence reply sent in response to <see cref="CueSequenceTrigger"/>.</summary>
         /// <remarks>
-        /// Direction: Unity publishes; sollertia-experiment subscribes to receive the byte-encoded
+        /// Direction: Unity publishes, sollertia-experiment subscribes to receive the byte-encoded
         /// cue sequence covering the entire pre-generated track.
         /// Payload: <see cref="SL.Tasks.Task.SequenceMessage"/> wrapping <c>byte[] cueSequence</c>.
         /// Callers (publish): <see cref="SL.Tasks.Task"/> via <c>OnCueSequenceTrigger</c>.
@@ -99,7 +98,7 @@ namespace Gimbl
 
         /// <summary>Request for the active Unity scene name.</summary>
         /// <remarks>
-        /// Direction: Unity listens; sollertia-experiment publishes when it wants the name.
+        /// Direction: Unity listens, sollertia-experiment publishes when it wants the name.
         /// Payload: empty trigger (no body).
         /// Callers (subscribe): <see cref="SL.Tasks.Task"/> via <c>OnSceneNameTrigger</c>, which
         /// replies on <see cref="SceneName"/>.
@@ -108,7 +107,7 @@ namespace Gimbl
 
         /// <summary>Active Unity scene name reply sent in response to <see cref="SceneNameTrigger"/>.</summary>
         /// <remarks>
-        /// Direction: Unity publishes; sollertia-experiment subscribes to discover which task scene
+        /// Direction: Unity publishes, sollertia-experiment subscribes to discover which task scene
         /// is currently loaded.
         /// Payload: <see cref="SL.Tasks.Task.SceneNameMessage"/> wrapping <c>string name</c>.
         /// Callers (publish): <see cref="SL.Tasks.Task"/> via <c>OnSceneNameTrigger</c>.
@@ -117,7 +116,7 @@ namespace Gimbl
 
         /// <summary>Interaction-requirement toggle. <c>value=true</c> enables, <c>value=false</c> disables.</summary>
         /// <remarks>
-        /// Direction: Unity listens; sollertia-experiment publishes.
+        /// Direction: Unity listens, sollertia-experiment publishes.
         /// Payload: <see cref="SL.Tasks.Task.BoolMessage"/> wrapping <c>bool value</c>.
         /// Callers (subscribe): <see cref="SL.Tasks.Task"/> via <c>OnRequireInteraction</c>.
         /// </remarks>
@@ -125,7 +124,7 @@ namespace Gimbl
 
         /// <summary>Wait-requirement toggle command. <c>value=true</c> enables, <c>value=false</c> disables.</summary>
         /// <remarks>
-        /// Direction: Unity listens; sollertia-experiment publishes.
+        /// Direction: Unity listens, sollertia-experiment publishes.
         /// Payload: <see cref="SL.Tasks.Task.BoolMessage"/> wrapping <c>bool value</c>.
         /// Callers (subscribe): <see cref="SL.Tasks.Task"/> via <c>OnRequireWait</c>.
         /// </remarks>

@@ -13,11 +13,11 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the OccupancyGuidanceZone class.</summary>
     /// <remarks>
-    /// Covers the two Start resolution guards, the collaborators and the Delay channel a successful Start establishes,
-    /// the collaborator guard and the three gates deciding whether a zone entry requests the brake, the per-lap latch a
-    /// fired brake leaves standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by
-    /// replacing the parent OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so an Edit
-    /// Mode run pins every boundary of the clamped subtraction without waiting on wall-clock time.
+    /// Covers the two Start resolution guards, the collaborators, and the Delay channel a successful Start establishes.
+    /// Also covers the collaborator guard, the three gates deciding whether a zone entry requests the brake, the
+    /// per-lap latch a fired brake leaves standing, and the ResetState re-arm. The remaining-duration arithmetic is
+    /// driven by replacing the parent OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so
+    /// an Edit Mode run pins every boundary of the clamped subtraction without waiting on wall-clock time.
     /// </remarks>
     [TestFixture]
     public class OccupancyGuidanceZoneTests

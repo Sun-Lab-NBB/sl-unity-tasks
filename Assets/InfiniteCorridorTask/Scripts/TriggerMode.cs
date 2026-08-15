@@ -7,25 +7,24 @@ namespace SL.Tasks
     /// Defines the supported stimulus trigger mechanisms for a StimulusTriggerZone.
     /// </summary>
     /// <remarks>
-    /// The mechanism specifies how a stimulus is triggered, not what stimulus is delivered. CreateTask sets the
-    /// mode on each generated zone from the trial's trigger_type. Interaction is the default (ordinal 0) so an
+    /// The mechanism selects the condition under which a stimulus fires. Interaction is the default (ordinal 0) so an
     /// unconfigured StimulusTriggerZone behaves as the interaction prefab that ships it.
     /// </remarks>
     public enum TriggerMode
     {
         /// <summary>
         /// The animal engages an interaction sensor in the zone to fire. With guidance mode enabled, reaching a
-        /// GuidanceZone child also fires; if guidance is enabled but no GuidanceZone exists, zone entry fires.
+        /// GuidanceZone child also fires. If guidance is enabled but no GuidanceZone exists, zone entry fires.
         /// </summary>
         Interaction,
 
         /// <summary>Crossing the invisible boundary wall fires the stimulus unconditionally.</summary>
         Collision,
 
-        /// <summary>Occupying disarms the boundary; collide-while-armed fires (occupy to avoid the stimulus).</summary>
+        /// <summary>Occupying disarms the boundary. Collide-while-armed fires (occupy to avoid the stimulus).</summary>
         OccupancyDisarm,
 
-        /// <summary>Occupying arms the boundary; collide-while-armed fires (occupy to earn the stimulus).</summary>
+        /// <summary>Occupying arms the boundary. Collide-while-armed fires (occupy to earn the stimulus).</summary>
         OccupancyArm,
 
         /// <summary>

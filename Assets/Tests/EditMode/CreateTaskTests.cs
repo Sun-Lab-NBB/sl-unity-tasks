@@ -283,8 +283,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(error);
         }
 
-        /// <summary>Verifies that the longest segment rather than the first one drives the track length check.
-        /// </summary>
+        /// <summary>Verifies that the track length check is driven by the template's longest segment.</summary>
         [Test]
         public void ValidateTrackLengthCoversCorridor_LongestSegmentTooLong_ReturnsErrorNamingThatSegment()
         {
@@ -373,7 +372,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(LoadAsset<GameObject>($"{TasksFolder}/ZZTest_ConflictOne.prefab"));
         }
 
-        /// <summary>Verifies that one cue name at two lengths is two identities rather than one conflict.</summary>
+        /// <summary>Verifies that one cue name at two lengths resolves to two separate cue identities.</summary>
         [Test]
         public void CreateFromTemplate_CueNameSharedAtTwoLengths_GeneratesOneCueAssetPerLength()
         {
@@ -561,9 +560,9 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that the rebuilt cue prefab points its wall renderers at the rebuilt material.</summary>
         /// <remarks>
-        /// Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes include
-        /// the Materials folder, so an operator can leave a cue prefab standing over a material that no longer
-        /// exists, and the regeneration repairing that state has to land the new material on both wall renderers.
+        /// Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes include the
+        /// Materials folder, so an operator can leave a cue prefab standing over a material that no longer exists. The
+        /// regeneration repairing that state has to land the new material on both wall renderers.
         /// </remarks>
         [Test]
         public void CreateFromTemplate_CuePrefabSurvivesWithoutItsMaterial_RelinksTheRebuiltMaterial()

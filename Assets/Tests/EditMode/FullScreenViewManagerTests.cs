@@ -53,8 +53,8 @@ namespace SL.Tests.EditMode
         public void ComputeWindowRect_MonitorLeftOfOrigin_ScalesXByItsOwnPixelsPerPoint()
         {
             FullScreenViewManager manager = CreateManager(
-                CreateMonitor(0, 0, 1920, 1080, 2.0f),
-                CreateMonitor(-1600, 0, 1600, 900, 1.0f)
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 2.0f),
+                CreateMonitor(left: -1600, top: 0, width: 1600, height: 900, pixelsPerPoint: 1.0f)
             );
 
             Rect rect = (Rect)PrivateAccess.Invoke(manager, "ComputeWindowRect", manager.monitors[1]);
@@ -70,8 +70,8 @@ namespace SL.Tests.EditMode
         public void ComputeWindowRect_MonitorAboveOrigin_ScalesYByItsOwnPixelsPerPoint()
         {
             FullScreenViewManager manager = CreateManager(
-                CreateMonitor(0, 0, 1920, 1080, 2.0f),
-                CreateMonitor(1920, -100, 1920, 1080, 1.5f)
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 2.0f),
+                CreateMonitor(left: 1920, top: -100, width: 1920, height: 1080, pixelsPerPoint: 1.5f)
             );
 
             Rect rect = (Rect)PrivateAccess.Invoke(manager, "ComputeWindowRect", manager.monitors[1]);
@@ -87,8 +87,8 @@ namespace SL.Tests.EditMode
         public void ComputeWindowRect_MonitorRightOfOrigin_ScalesPositionByPrimaryPixelsPerPoint()
         {
             FullScreenViewManager manager = CreateManager(
-                CreateMonitor(0, 0, 1920, 1080, 2.0f),
-                CreateMonitor(1, 1, 4, 6, 1.0f)
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 2.0f),
+                CreateMonitor(left: 1, top: 1, width: 4, height: 6, pixelsPerPoint: 1.0f)
             );
 
             Rect rect = (Rect)PrivateAccess.Invoke(manager, "ComputeWindowRect", manager.monitors[1]);
@@ -103,7 +103,9 @@ namespace SL.Tests.EditMode
         [Test]
         public void ComputeWindowRect_PrimaryMonitorLeftAndAboveOrigin_ScalesEveryComponentByItsOwnDpi()
         {
-            FullScreenViewManager manager = CreateManager(CreateMonitor(-10, -20, 800, 600, 2.0f));
+            FullScreenViewManager manager = CreateManager(
+                CreateMonitor(left: -10, top: -20, width: 800, height: 600, pixelsPerPoint: 2.0f)
+            );
 
             Rect rect = (Rect)PrivateAccess.Invoke(manager, "ComputeWindowRect", manager.monitors[0]);
 
@@ -145,7 +147,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void GetCameraFor_UnassignedMonitor_ResolvesToNull()
         {
-            Monitor monitor = CreateMonitor(0, 0, 1920, 1080, 1f);
+            Monitor monitor = CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f);
 
             Camera camera = (Camera)PrivateAccess.InvokeStatic(typeof(FullScreenViewManager), "GetCameraFor", monitor);
 
@@ -159,7 +161,7 @@ namespace SL.Tests.EditMode
             GameObject cameraObject = new GameObject("Left View");
             _createdObjects.Add(cameraObject);
             Camera assignedCamera = cameraObject.AddComponent<Camera>();
-            Monitor monitor = CreateMonitor(0, 0, 1920, 1080, 1f);
+            Monitor monitor = CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f);
             monitor.cameraEntityId = assignedCamera.GetEntityId();
 
             Camera camera = (Camera)PrivateAccess.InvokeStatic(typeof(FullScreenViewManager), "GetCameraFor", monitor);
@@ -236,7 +238,9 @@ namespace SL.Tests.EditMode
         [Test]
         public void SaveCameras_WithoutCompanionAsset_LeavesTheCompanionFieldNull()
         {
-            FullScreenViewManager manager = CreateManager(CreateMonitor(0, 0, 1920, 1080, 1f));
+            FullScreenViewManager manager = CreateManager(
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f)
+            );
             PrivateAccess.SetField(manager, "_savedFullScreenViews", null);
 
             manager.SaveCameras();
@@ -275,8 +279,8 @@ namespace SL.Tests.EditMode
             saved.cameraNames.Add("Stale/Entry");
 
             FullScreenViewManager manager = CreateManager(
-                CreateMonitor(0, 0, 1920, 1080, 1f),
-                CreateMonitor(1920, 0, 1920, 1080, 1f)
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f),
+                CreateMonitor(left: 1920, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f)
             );
             manager.monitors[0].cameraEntityId = assignedCamera.GetEntityId();
             PrivateAccess.SetField(manager, "_savedFullScreenViews", saved);
@@ -293,8 +297,8 @@ namespace SL.Tests.EditMode
         public void ShowFullScreenViews_UnassignedMonitors_OpensNoViews()
         {
             FullScreenViewManager manager = CreateManager(
-                CreateMonitor(0, 0, 1920, 1080, 1f),
-                CreateMonitor(1920, 0, 1920, 1080, 1f)
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f),
+                CreateMonitor(left: 1920, top: 0, width: 1920, height: 1080, pixelsPerPoint: 1f)
             );
             int viewCountBefore = FullScreenView.Views.Count;
 

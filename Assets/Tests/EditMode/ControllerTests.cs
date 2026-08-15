@@ -91,7 +91,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0f, buffer.Sum());
         }
 
-        /// <summary>Verifies that values added after a clear accumulate from zero rather than the old total.</summary>
+        /// <summary>Verifies that values added after a clear accumulate from zero.</summary>
         [Test]
         public void Add_AfterClear_AccumulatesFromZero()
         {

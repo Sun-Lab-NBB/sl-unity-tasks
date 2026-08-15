@@ -209,7 +209,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void Dispatch_DeleteTaskWithEmptyTemplateName_ReportsMissingArgument()
         {
-            Dictionary<string, object> response = CallTool("delete_task", Arguments("template_name", string.Empty));
+            Dictionary<string, object> response = CallTool(
+                "delete_task",
+                BuildArguments("template_name", string.Empty)
+            );
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual("Missing required argument: template_name", response["error"]);
@@ -314,7 +317,7 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual("Prefab", response["asset_type"]);
             Assert.AreEqual("Assets/InfiniteCorridorTask", response["search_path"]);
-            List<string> assets = Strings(response["assets"]);
+            List<string> assets = ReadStringList(response["assets"]);
             Assert.Contains(StimulusZonePath, assets);
             Assert.Contains(OccupancyZonePath, assets);
             Assert.Contains("Assets/InfiniteCorridorTask/Prefabs/Padding.prefab", assets);
@@ -336,7 +339,7 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual("Material", response["asset_type"]);
             Assert.AreEqual("Assets/InfiniteCorridorTask/Cues", response["search_path"]);
-            CollectionAssert.AreEqual(new List<string> { alpha, beta }, Strings(response["assets"]));
+            CollectionAssert.AreEqual(new List<string> { alpha, beta }, ReadStringList(response["assets"]));
         }
 
         /// <summary>Verifies that list_assets returns an empty list when no asset matches the filter.</summary>
@@ -352,7 +355,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = AssertSucceeded(CallTool("list_assets", arguments));
 
             Assert.AreEqual("AudioClip", response["asset_type"]);
-            Assert.AreEqual(0, Strings(response["assets"]).Count);
+            Assert.AreEqual(0, ReadStringList(response["assets"]).Count);
         }
 
         /// <summary>Verifies that list_scenes reports every scene asset plus the active scene path.</summary>
@@ -363,7 +366,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = AssertSucceeded(CallTool("list_scenes"));
 
-            List<string> scenes = Strings(response["scenes"]);
+            List<string> scenes = ReadStringList(response["scenes"]);
             Assert.Contains(TemplateScenePath, scenes);
             Assert.Contains(temporaryScene, scenes);
             Assert.AreEqual("Assets/Scenes/ZZTest_Listed.unity", response["active_scene"]);
@@ -375,7 +378,7 @@ namespace SL.Tests.EditMode
         {
             string missing = "Assets/InfiniteCorridorTask/Prefabs/ZZTest_Absent.prefab";
 
-            Dictionary<string, object> response = CallTool("inspect_prefab", Arguments("prefab_path", missing));
+            Dictionary<string, object> response = CallTool("inspect_prefab", BuildArguments("prefab_path", missing));
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual($"Prefab not found at: {missing}", response["error"]);
@@ -385,12 +388,12 @@ namespace SL.Tests.EditMode
         [Test]
         public void InspectPrefab_HandAuthoredStimulusZone_ReportsTheFullHierarchy()
         {
-            Dictionary<string, object> arguments = Arguments("prefab_path", StimulusZonePath);
+            Dictionary<string, object> arguments = BuildArguments("prefab_path", StimulusZonePath);
 
             Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_prefab", arguments));
 
             Assert.AreEqual(StimulusZonePath, response["prefab_path"]);
-            Dictionary<string, object> root = Section(response["hierarchy"]);
+            Dictionary<string, object> root = ReadSection(response["hierarchy"]);
             Assert.AreEqual("StimulusTriggerZone", root["name"]);
             AssertVector(root["position"], 0f, 0.505f, 0f);
             AssertVector(root["rotation"], 0f, 0f, 0f);
@@ -405,7 +408,7 @@ namespace SL.Tests.EditMode
                     "BoxCollider",
                     "StimulusTriggerZone",
                 },
-                Strings(root["components"])
+                ReadStringList(root["components"])
             );
             AssertVector(root["collider_size"], 1f, 1f, 1.4f);
             AssertVector(root["collider_center"], 0f, 0f, -0.3675f);
@@ -413,11 +416,11 @@ namespace SL.Tests.EditMode
 
             List<object> children = (List<object>)root["children"];
             Assert.AreEqual(1, children.Count);
-            Dictionary<string, object> guidance = Section(children[0]);
+            Dictionary<string, object> guidance = ReadSection(children[0]);
             Assert.AreEqual("GuidanceRegion", guidance["name"]);
             CollectionAssert.AreEqual(
                 new List<string> { "Transform", "BoxCollider", "GuidanceZone" },
-                Strings(guidance["components"])
+                ReadStringList(guidance["components"])
             );
             AssertVector(guidance["position"], 0f, 0f, 0f);
             AssertVector(guidance["collider_size"], 1f, 1f, 0.3325f);
@@ -433,17 +436,17 @@ namespace SL.Tests.EditMode
                 "Assets/InfiniteCorridorTask/Prefabs/ZZTest_Bare.prefab",
                 "ZZTest_Bare"
             );
-            Dictionary<string, object> arguments = Arguments("prefab_path", prefabPath);
+            Dictionary<string, object> arguments = BuildArguments("prefab_path", prefabPath);
 
             Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_prefab", arguments));
 
-            Dictionary<string, object> root = Section(response["hierarchy"]);
+            Dictionary<string, object> root = ReadSection(response["hierarchy"]);
             CollectionAssert.AreEquivalent(
                 new List<string> { "name", "position", "rotation", "scale", "components" },
                 root.Keys.ToList()
             );
             Assert.AreEqual("ZZTest_Bare", root["name"]);
-            CollectionAssert.AreEqual(new List<string> { "Transform" }, Strings(root["components"]));
+            CollectionAssert.AreEqual(new List<string> { "Transform" }, ReadStringList(root["components"]));
         }
 
         /// <summary>Verifies that inspect_scene reports a freshly saved active scene as clean.</summary>
@@ -459,17 +462,20 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(false, response["is_dirty"]);
             List<object> roots = (List<object>)response["root_objects"];
             Assert.AreEqual(1, roots.Count);
-            Dictionary<string, object> root = Section(roots[0]);
+            Dictionary<string, object> root = ReadSection(roots[0]);
             Assert.AreEqual("ZZTest_Root", root["name"]);
             AssertVector(root["position"], 1f, 2f, 3f);
-            CollectionAssert.AreEqual(new List<string> { "Transform", "BoxCollider" }, Strings(root["components"]));
+            CollectionAssert.AreEqual(
+                new List<string> { "Transform", "BoxCollider" },
+                ReadStringList(root["components"])
+            );
             AssertVector(root["collider_size"], 4f, 5f, 6f);
             AssertVector(root["collider_center"], 0f, 0.5f, 0f);
             Assert.AreEqual(true, root["collider_is_trigger"]);
             List<object> children = (List<object>)root["children"];
             Assert.AreEqual(1, children.Count);
-            Assert.AreEqual("ZZTest_Child", Section(children[0])["name"]);
-            AssertVector(Section(children[0])["scale"], 2f, 2f, 2f);
+            Assert.AreEqual("ZZTest_Child", ReadSection(children[0])["name"]);
+            AssertVector(ReadSection(children[0])["scale"], 2f, 2f, 2f);
         }
 
         /// <summary>Verifies that inspect_scene reports an edited active scene as dirty.</summary>
@@ -490,7 +496,7 @@ namespace SL.Tests.EditMode
         {
             string missing = "Assets/Scenes/ZZTest_Absent.unity";
 
-            Dictionary<string, object> response = CallTool("open_scene", Arguments("scene_path", missing));
+            Dictionary<string, object> response = CallTool("open_scene", BuildArguments("scene_path", missing));
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual($"Scene not found at: {missing}", response["error"]);
@@ -529,7 +535,7 @@ namespace SL.Tests.EditMode
 
             try
             {
-                Dictionary<string, object> response = CallTool("open_scene", Arguments("scene_path", probeName));
+                Dictionary<string, object> response = CallTool("open_scene", BuildArguments("scene_path", probeName));
 
                 Assert.AreEqual(false, response["success"]);
                 Assert.AreEqual($"Scene not found at: {probeName}", response["error"]);
@@ -593,7 +599,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteAsset_EmptyAssetPath_ReportsTheMissingArgument()
         {
-            Dictionary<string, object> arguments = Arguments("asset_path", string.Empty);
+            Dictionary<string, object> arguments = BuildArguments("asset_path", string.Empty);
 
             Dictionary<string, object> response = CallTool("delete_asset", arguments);
 
@@ -604,7 +610,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteAsset_ScenePath_RefusesAndPointsAtDeleteTask()
         {
-            Dictionary<string, object> arguments = Arguments("asset_path", TemplateScenePath);
+            Dictionary<string, object> arguments = BuildArguments("asset_path", TemplateScenePath);
 
             Dictionary<string, object> response = CallTool("delete_asset", arguments);
 
@@ -619,7 +625,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteAsset_NonSceneFileInScenesFolder_FallsThroughToThePrefixRefusal()
         {
-            Dictionary<string, object> arguments = Arguments("asset_path", "Assets/Scenes/ZZTest_Notes.txt");
+            Dictionary<string, object> arguments = BuildArguments("asset_path", "Assets/Scenes/ZZTest_Notes.txt");
 
             Dictionary<string, object> response = CallTool("delete_asset", arguments);
 
@@ -631,7 +637,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteAsset_SceneFileOutsideScenesFolder_FallsThroughToThePrefixRefusal()
         {
-            Dictionary<string, object> arguments = Arguments("asset_path", "Assets/Gimbl/ZZTest_Elsewhere.unity");
+            Dictionary<string, object> arguments = BuildArguments("asset_path", "Assets/Gimbl/ZZTest_Elsewhere.unity");
 
             Dictionary<string, object> response = CallTool("delete_asset", arguments);
 
@@ -644,7 +650,7 @@ namespace SL.Tests.EditMode
         public void DeleteAsset_PathOutsideEveryAllowedPrefix_ListsEveryAllowedRoot()
         {
             string outside = "Assets/InfiniteCorridorTask/Textures/ZZTest_Texture.png";
-            Dictionary<string, object> arguments = Arguments("asset_path", outside);
+            Dictionary<string, object> arguments = BuildArguments("asset_path", outside);
 
             Dictionary<string, object> response = CallTool("delete_asset", arguments);
 
@@ -669,7 +675,7 @@ namespace SL.Tests.EditMode
         [TestCase("Assets/InfiniteCorridorTask/Materials/TargetMat.mat")]
         public void DeleteAsset_ProtectedHandAuthoredAsset_RefusesWithoutDeletingIt(string assetPath)
         {
-            Dictionary<string, object> response = CallTool("delete_asset", Arguments("asset_path", assetPath));
+            Dictionary<string, object> response = CallTool("delete_asset", BuildArguments("asset_path", assetPath));
 
             Assert.AreEqual(false, response["success"]);
             StringAssert.StartsWith($"Refusing to delete '{assetPath}'.", (string)response["error"]);
@@ -682,7 +688,7 @@ namespace SL.Tests.EditMode
         {
             string missing = "Assets/InfiniteCorridorTask/Cues/ZZTest_Missing.prefab";
 
-            Dictionary<string, object> response = CallTool("delete_asset", Arguments("asset_path", missing));
+            Dictionary<string, object> response = CallTool("delete_asset", BuildArguments("asset_path", missing));
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual($"Asset not found at: {missing}", response["error"]);
@@ -698,7 +704,7 @@ namespace SL.Tests.EditMode
             CreateMaterialAsset(assetPath);
 
             Dictionary<string, object> response = AssertSucceeded(
-                CallTool("delete_asset", Arguments("asset_path", assetPath))
+                CallTool("delete_asset", BuildArguments("asset_path", assetPath))
             );
 
             Assert.AreEqual($"Deleted asset: {assetPath}", response["message"]);
@@ -770,7 +776,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteTask_ProtectedTemplateScene_RefusesWithoutDeletingAnything()
         {
-            Dictionary<string, object> arguments = Arguments("template_name", "ExperimentTemplate");
+            Dictionary<string, object> arguments = BuildArguments("template_name", "ExperimentTemplate");
 
             Dictionary<string, object> response = CallTool("delete_task", arguments);
 
@@ -808,7 +814,7 @@ namespace SL.Tests.EditMode
             {
                 Dictionary<string, object> response = CallTool(
                     "delete_task",
-                    Arguments("template_name", "ZZTest_Guarded")
+                    BuildArguments("template_name", "ZZTest_Guarded")
                 );
 
                 Assert.AreEqual(false, response["success"]);
@@ -825,7 +831,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void DeleteTask_TemplateWithoutArtifacts_ReportsThatNothingWasFound()
         {
-            Dictionary<string, object> arguments = Arguments("template_name", "ZZTest_Unknown");
+            Dictionary<string, object> arguments = BuildArguments("template_name", "ZZTest_Unknown");
 
             Dictionary<string, object> response = CallTool("delete_task", arguments);
 
@@ -853,7 +859,7 @@ namespace SL.Tests.EditMode
             );
 
             Dictionary<string, object> response = AssertSucceeded(
-                CallTool("delete_task", Arguments("template_name", "ZZTest_Cascade"))
+                CallTool("delete_task", BuildArguments("template_name", "ZZTest_Cascade"))
             );
 
             Assert.AreEqual("Deleted task: ZZTest_Cascade", response["message"]);
@@ -863,7 +869,7 @@ namespace SL.Tests.EditMode
             Assert.IsFalse(response.ContainsKey("companion_delete_failed"));
             CollectionAssert.AreEqual(
                 new List<string> { scenePath, taskPath, segmentPath },
-                Strings(response["deleted_paths"])
+                ReadStringList(response["deleted_paths"])
             );
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(companionPath));
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(siblingPath));
@@ -876,10 +882,10 @@ namespace SL.Tests.EditMode
             string scenePath = CreateSceneAsset("Assets/Scenes/ZZTest_Lonely.unity");
 
             Dictionary<string, object> response = AssertSucceeded(
-                CallTool("delete_task", Arguments("template_name", "ZZTest_Lonely"))
+                CallTool("delete_task", BuildArguments("template_name", "ZZTest_Lonely"))
             );
 
-            CollectionAssert.AreEqual(new List<string> { scenePath }, Strings(response["deleted_paths"]));
+            CollectionAssert.AreEqual(new List<string> { scenePath }, ReadStringList(response["deleted_paths"]));
             Assert.IsFalse(response.ContainsKey("companion_deleted"));
             Assert.IsFalse(response.ContainsKey("companion_delete_failed"));
         }
@@ -943,7 +949,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void CreateTask_UnknownTemplate_ReportsTheResolvedTemplatePath()
         {
-            Dictionary<string, object> arguments = Arguments("template_name", "ZZTest_NoSuchTemplate");
+            Dictionary<string, object> arguments = BuildArguments("template_name", "ZZTest_NoSuchTemplate");
 
             Dictionary<string, object> response = CallTool("create_task", arguments);
 
@@ -963,7 +969,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = CallTool(
                 "create_task",
-                Arguments("template_name", ExistingTemplateName)
+                BuildArguments("template_name", ExistingTemplateName)
             );
 
             Assert.AreEqual(false, response["success"]);
@@ -991,7 +997,7 @@ namespace SL.Tests.EditMode
             Directory.SetCurrentDirectory(Path.GetTempPath());
             try
             {
-                response = CallTool("create_task", Arguments("template_name", UnbuiltTemplateName));
+                response = CallTool("create_task", BuildArguments("template_name", UnbuiltTemplateName));
             }
             finally
             {
@@ -1045,7 +1051,7 @@ namespace SL.Tests.EditMode
         /// <param name="key">The argument name.</param>
         /// <param name="value">The argument value.</param>
         /// <returns>The argument dictionary.</returns>
-        private static Dictionary<string, object> Arguments(string key, object value)
+        private static Dictionary<string, object> BuildArguments(string key, object value)
         {
             return new Dictionary<string, object> { { key, value } };
         }
@@ -1063,7 +1069,7 @@ namespace SL.Tests.EditMode
         /// <summary>Converts a deserialized JSON array into a list of strings.</summary>
         /// <param name="array">The deserialized array value.</param>
         /// <returns>The array entries as strings.</returns>
-        private static List<string> Strings(object array)
+        private static List<string> ReadStringList(object array)
         {
             return ((List<object>)array).Select(entry => (string)entry).ToList();
         }
@@ -1071,7 +1077,7 @@ namespace SL.Tests.EditMode
         /// <summary>Casts a deserialized JSON object to its dictionary representation.</summary>
         /// <param name="value">The deserialized object value.</param>
         /// <returns>The value as a dictionary.</returns>
-        private static Dictionary<string, object> Section(object value)
+        private static Dictionary<string, object> ReadSection(object value)
         {
             return (Dictionary<string, object>)value;
         }
@@ -1083,7 +1089,7 @@ namespace SL.Tests.EditMode
         /// <param name="z">The expected z component.</param>
         private static void AssertVector(object vector, float x, float y, float z)
         {
-            Dictionary<string, object> components = Section(vector);
+            Dictionary<string, object> components = ReadSection(vector);
             Assert.AreEqual(3, components.Count);
             Assert.AreEqual(x, Convert.ToSingle(components["x"]), 1e-4f);
             Assert.AreEqual(y, Convert.ToSingle(components["y"]), 1e-4f);

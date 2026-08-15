@@ -21,7 +21,7 @@ using UnityEngine.SceneManagement;
 namespace SL.Tasks
 {
     /// <summary>
-    /// HTTP listener that bridges external MCP relay requests to Unity Editor API calls.
+    /// Bridges external MCP relay requests to Unity Editor API calls over an HTTP listener.
     /// Initialized automatically when the Editor loads via <see cref="InitializeOnLoadAttribute"/>.
     /// </summary>
     /// <remarks>
@@ -48,7 +48,7 @@ namespace SL.Tasks
         /// <c>delete_asset</c>.
         /// </summary>
         /// <remarks>
-        /// Scenes are intentionally absent — they are deleted exclusively through <see cref="DestroyTask"/>,
+        /// Scenes are intentionally absent. They are deleted exclusively through <see cref="DestroyTask"/>,
         /// which also cascade-deletes the per-scene <c>savedFullScreenViews</c> companion. Adding a scenes
         /// entry here would let scene paths bypass that cascade.
         /// </remarks>
@@ -62,11 +62,10 @@ namespace SL.Tasks
 
         /// <summary>The set of hand-authored asset paths that are protected from deletion.</summary>
         /// <remarks>
-        /// Covers every hand-authored asset that the CreateTask pipeline (or the generated zone
-        /// prefabs themselves) load by hardcoded path or by serialized reference. Removing any
-        /// one of these breaks task generation or leaves a regenerated prefab rendering with a
-        /// missing material, so the bridge refuses to delete them even when they sit under an
-        /// allowed prefix.
+        /// Covers every hand-authored asset that the CreateTask pipeline (or the generated zone prefabs themselves)
+        /// load by hardcoded path or by serialized reference. Removing any one of these breaks task generation or
+        /// leaves a regenerated prefab rendering with a missing material, so the bridge refuses to delete them even
+        /// when they sit under an allowed prefix.
         /// </remarks>
         private static readonly HashSet<string> DeleteProtectedPaths = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -93,10 +92,10 @@ namespace SL.Tasks
         };
 
         /// <summary>The HTTP listener instance.</summary>
-        private static readonly HttpListener _listener = new HttpListener();
+        private static readonly HttpListener Listener = new HttpListener();
 
         /// <summary>The queue of HTTP requests captured on the listener thread, drained on the editor thread.</summary>
-        private static readonly ConcurrentQueue<HttpListenerContext> _pendingContexts =
+        private static readonly ConcurrentQueue<HttpListenerContext> PendingContexts =
             new ConcurrentQueue<HttpListenerContext>();
 
         /// <summary>
@@ -120,15 +119,15 @@ namespace SL.Tasks
 
             try
             {
-                // Registers all three loopback hostnames because HttpListener performs exact
-                // host-header matching: a client requesting "localhost" is rejected by 127.0.0.1
-                // and [::1] prefixes, even though they resolve to the same socket. The explicit
-                // numeric prefixes also work around Mono's IPv6-only resolution of "localhost".
-                _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
-                _listener.Prefixes.Add($"http://[::1]:{Port}/");
-                _listener.Prefixes.Add($"http://localhost:{Port}/");
-                _listener.Start();
-                _listener.BeginGetContext(OnContextReceived, null);
+                // Registers all three loopback hostnames because HttpListener performs exact host-header matching: a
+                // client requesting "localhost" is rejected by 127.0.0.1 and [::1] prefixes, even though they resolve
+                // to the same socket. The explicit numeric prefixes also work around Mono's IPv6-only resolution of
+                // "localhost".
+                Listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
+                Listener.Prefixes.Add($"http://[::1]:{Port}/");
+                Listener.Prefixes.Add($"http://localhost:{Port}/");
+                Listener.Start();
+                Listener.BeginGetContext(OnContextReceived, null);
                 EditorApplication.update += Poll;
                 string message =
                     $"McpBridge: Listening on http://127.0.0.1:{Port}/, http://[::1]:{Port}/, "
@@ -145,15 +144,15 @@ namespace SL.Tasks
         /// <param name="asyncResult">The asynchronous result for the completed BeginGetContext call.</param>
         private static void OnContextReceived(IAsyncResult asyncResult)
         {
-            if (_listener == null || !_listener.IsListening)
+            if (Listener == null || !Listener.IsListening)
             {
                 return;
             }
 
             try
             {
-                HttpListenerContext context = _listener.EndGetContext(asyncResult);
-                _pendingContexts.Enqueue(context);
+                HttpListenerContext context = Listener.EndGetContext(asyncResult);
+                PendingContexts.Enqueue(context);
             }
             catch (Exception exception)
             {
@@ -162,7 +161,7 @@ namespace SL.Tasks
 
             try
             {
-                _listener.BeginGetContext(OnContextReceived, null);
+                Listener.BeginGetContext(OnContextReceived, null);
             }
             catch (Exception exception)
             {
@@ -173,7 +172,7 @@ namespace SL.Tasks
         /// <summary>Drains queued HTTP requests on the editor thread and dispatches each one.</summary>
         private static void Poll()
         {
-            while (_pendingContexts.TryDequeue(out HttpListenerContext context))
+            while (PendingContexts.TryDequeue(out HttpListenerContext context))
             {
                 HandleRequest(context);
             }
@@ -195,20 +194,20 @@ namespace SL.Tasks
                 string body = reader.ReadToEnd();
 
                 Dictionary<string, object> request = MiniJson.Deserialize(body);
-                // Uses TryGetValue + null check so a JSON-null value for "tool" does not NRE on ToString();
-                // a missing or non-dictionary "args" value falls back to an empty dict so dispatched tools
-                // always receive a well-formed args parameter.
+                // Uses TryGetValue + null check so a JSON-null value for "tool" does not NRE on ToString().
+                // A missing or non-dictionary "args" value falls back to an empty dict so dispatched tools
+                // always receive a well-formed arguments parameter.
                 string tool =
                     request.TryGetValue("tool", out object toolObject) && toolObject != null
                         ? toolObject.ToString()
                         : string.Empty;
-                Dictionary<string, object> args =
+                Dictionary<string, object> arguments =
                     request.TryGetValue("args", out object argsObject)
-                    && argsObject is Dictionary<string, object> argsDict
-                        ? argsDict
+                    && argsObject is Dictionary<string, object> argumentsDictionary
+                        ? argumentsDictionary
                         : new Dictionary<string, object>();
 
-                responseJson = Dispatch(tool, args);
+                responseJson = Dispatch(tool, arguments);
             }
             catch (Exception exception)
             {
@@ -235,26 +234,26 @@ namespace SL.Tasks
 
         /// <summary>Routes a tool call to the appropriate handler method.</summary>
         /// <param name="tool">The tool name to dispatch.</param>
-        /// <param name="args">The tool arguments as a string-keyed dictionary.</param>
+        /// <param name="arguments">The tool arguments as a string-keyed dictionary.</param>
         /// <returns>A JSON response string.</returns>
-        private static string Dispatch(string tool, Dictionary<string, object> args)
+        private static string Dispatch(string tool, Dictionary<string, object> arguments)
         {
             return tool switch
             {
-                "create_task" => GenerateTask(args),
-                "delete_task" => DestroyTask(args),
-                "inspect_prefab" => InspectPrefab(args),
-                "clone_zone_prefab" => CloneZonePrefab(args),
-                "delete_asset" => DeleteAsset(args),
-                "list_assets" => ListAssets(args),
+                "create_task" => GenerateTask(arguments),
+                "delete_task" => DestroyTask(arguments),
+                "inspect_prefab" => InspectPrefab(arguments),
+                "clone_zone_prefab" => CloneZonePrefab(arguments),
+                "delete_asset" => DeleteAsset(arguments),
+                "list_assets" => ListAssets(arguments),
                 "list_scenes" => ListScenes(),
-                "open_scene" => OpenScene(args),
+                "open_scene" => OpenScene(arguments),
                 "inspect_scene" => InspectScene(),
                 "enter_play_mode" => EnterPlayMode(),
                 "exit_play_mode" => ExitPlayMode(),
                 "get_play_state" => GetPlayState(),
                 "read_task_parameters" => ReadTaskParameters(),
-                "write_task_parameters" => WriteTaskParameters(args),
+                "write_task_parameters" => WriteTaskParameters(arguments),
                 "refresh_monitors" => RefreshMonitors(),
                 _ => Error($"Unknown tool: {tool}"),
             };
@@ -268,18 +267,18 @@ namespace SL.Tasks
         /// <remarks>
         /// Mirrors the <c>CreateTask/New Task</c> Editor menu so the agentic and manual paths produce
         /// byte-equivalent assets. The prefab lands at <c>Assets/InfiniteCorridorTask/Tasks/&lt;template&gt;.prefab</c>
-        /// and the scene at <c>Assets/Scenes/&lt;template&gt;.unity</c>; both paths are auto-resolved from the
+        /// and the scene at <c>Assets/Scenes/&lt;template&gt;.unity</c>. Both paths are auto-resolved from the
         /// template basename to eliminate the agentic surface's need to manage them separately. Refuses to
         /// clobber an existing scene at the resolved path so an automated client never silently destroys a
-        /// hand-edited scene — use <c>delete_task</c> first to regenerate. The prefab itself is always
+        /// hand-edited scene. Use <c>delete_task</c> first to regenerate. The prefab itself is always
         /// regenerated because the template is authoritative.
         /// </remarks>
-        /// <param name="args">The tool arguments containing template_name and optional unsaved_changes.</param>
+        /// <param name="arguments">The tool arguments containing template_name and optional unsaved_changes.</param>
         /// <returns>A JSON response with the generated prefab and scene paths or an error message.</returns>
-        private static string GenerateTask(Dictionary<string, object> args)
+        private static string GenerateTask(Dictionary<string, object> arguments)
         {
-            string templateName = GetString(args, "template_name");
-            string unsavedChanges = GetString(args, "unsaved_changes", defaultValue: "");
+            string templateName = GetString(arguments, "template_name");
+            string unsavedChanges = GetString(arguments, "unsaved_changes", defaultValue: "");
 
             if (string.IsNullOrEmpty(templateName))
             {
@@ -298,9 +297,9 @@ namespace SL.Tasks
                 return Error($"Template not found: {absoluteTemplatePath}");
             }
 
-            // The path is stored on the Task component and resolved at runtime as
-            // ``Path.Combine(Application.dataPath, configPath)``; a leading ``/`` would make
-            // Path.Combine treat the value as absolute on Linux/macOS and discard the data path.
+            // The path is stored on the Task component and resolved at runtime as ``Path.Combine(Application.dataPath,
+            // configPath)``. A leading ``/`` would make Path.Combine treat the value as absolute on Linux/macOS and
+            // discard the data path.
             string relativeConfigPath = Path.Combine("InfiniteCorridorTask", "Configurations", $"{templateName}.yaml");
 
             // AssetDatabase paths are forward-slash by contract, so these are built as literals rather than through
@@ -383,17 +382,17 @@ namespace SL.Tasks
         /// <remarks>
         /// Mirrors <c>create_task</c> so the two tools cover the full lifecycle of a task's generated
         /// artifacts. Cue prefabs and cue materials are intentionally **not** removed because they are
-        /// shared across every template that declares a matching <c>(name, length_cm)</c> identity;
-        /// deleting them would corrupt sibling tasks. Use <c>delete_asset</c> for individual cue
-        /// cleanup. The template YAML is also preserved as the source of truth. A companion the
-        /// cascade could not remove is reported under <c>companion_delete_failed</c>, because the
-        /// scene it belonged to is already gone and the orphan is only recoverable by hand.
+        /// shared across every template that declares a matching <c>(name, length_cm)</c> identity. Deleting them would
+        /// corrupt sibling tasks. Use <c>delete_asset</c> for individual cue cleanup. The template YAML is also
+        /// preserved as the source of truth. A companion the cascade could not remove is reported under
+        /// <c>companion_delete_failed</c>, because the scene it belonged to is already gone and the orphan is only
+        /// recoverable by hand.
         /// </remarks>
-        /// <param name="args">The tool arguments containing template_name.</param>
+        /// <param name="arguments">The tool arguments containing template_name.</param>
         /// <returns>A JSON response listing every deleted path or an error message.</returns>
-        private static string DestroyTask(Dictionary<string, object> args)
+        private static string DestroyTask(Dictionary<string, object> arguments)
         {
-            string templateName = GetString(args, "template_name");
+            string templateName = GetString(arguments, "template_name");
 
             if (string.IsNullOrEmpty(templateName))
             {
@@ -491,11 +490,11 @@ namespace SL.Tasks
         }
 
         /// <summary>Reads a prefab and returns its hierarchy, components, and BoxCollider details.</summary>
-        /// <param name="args">The tool arguments containing prefab_path.</param>
+        /// <param name="arguments">The tool arguments containing prefab_path.</param>
         /// <returns>A JSON response with the prefab hierarchy or an error message.</returns>
-        private static string InspectPrefab(Dictionary<string, object> args)
+        private static string InspectPrefab(Dictionary<string, object> arguments)
         {
-            string prefabPath = GetString(args, "prefab_path");
+            string prefabPath = GetString(arguments, "prefab_path");
 
             if (string.IsNullOrEmpty(prefabPath))
             {
@@ -518,19 +517,19 @@ namespace SL.Tasks
         /// Performs the prefab-authoring step of adding a new trigger zone through Unity's serialization layer, so
         /// fileIDs, script references, and parent-child wiring are assigned by Unity and stay consistent. The
         /// requested MonoBehaviour scripts must already be authored and compiled. The handler only produces the
-        /// prefab; wiring it into ConfigLoader, CreateTask, the protected-path set, and the Python TriggerType
+        /// prefab. Wiring it into ConfigLoader, CreateTask, the protected-path set, and the Python TriggerType
         /// registry remains the documented recipe. Unity names the new prefab's root after the destination filename.
         /// </remarks>
-        /// <param name="args">
+        /// <param name="arguments">
         /// The tool arguments: source_prefab, destination_prefab, and optional root_script, regions, and overwrite.
         /// </param>
         /// <returns>A JSON response with the destination path and resulting hierarchy, or an error message.</returns>
-        private static string CloneZonePrefab(Dictionary<string, object> args)
+        private static string CloneZonePrefab(Dictionary<string, object> arguments)
         {
-            string sourcePrefab = GetString(args, "source_prefab");
-            string destinationPrefab = GetString(args, "destination_prefab");
-            string rootScript = GetString(args, "root_script");
-            bool overwrite = GetBool(args, "overwrite", defaultValue: false);
+            string sourcePrefab = GetString(arguments, "source_prefab");
+            string destinationPrefab = GetString(arguments, "destination_prefab");
+            string rootScript = GetString(arguments, "root_script");
+            bool overwrite = GetBool(arguments, "overwrite", defaultValue: false);
 
             if (string.IsNullOrEmpty(sourcePrefab) || string.IsNullOrEmpty(destinationPrefab))
             {
@@ -559,7 +558,7 @@ namespace SL.Tasks
             // the overwrite delete below. Resolving after it would destroy the existing prefab and replace nothing.
             string resolveError = ResolveCloneScripts(
                 rootScript,
-                GetList(args, "regions"),
+                GetList(arguments, "regions"),
                 out Type rootScriptType,
                 out List<(Dictionary<string, object> Spec, Type ScriptType)> regionEdits
             );
@@ -584,7 +583,12 @@ namespace SL.Tasks
             {
                 if (rootScriptType != null)
                 {
-                    editError = SwapZoneScript(root, rootScriptType, typeof(StimulusTriggerZone), fields: null);
+                    editError = SwapZoneScript(
+                        root,
+                        rootScriptType,
+                        requireBaseType: typeof(StimulusTriggerZone),
+                        fields: null
+                    );
                 }
 
                 for (int i = 0; editError == null && i < regionEdits.Count; i++)
@@ -759,7 +763,7 @@ namespace SL.Tasks
                 region.name = rename;
             }
 
-            Dictionary<string, object> fields = GetDict(edit.Spec, "fields");
+            Dictionary<string, object> fields = GetDictionary(edit.Spec, "fields");
 
             if (edit.ScriptType != null)
             {
@@ -861,8 +865,8 @@ namespace SL.Tasks
         }
 
         /// <summary>Copies serialized values between two components for every property they share by path.</summary>
-        /// <param name="from">The component to read values from.</param>
-        /// <param name="to">The component to write matching values to.</param>
+        /// <param name="from">The source whose serialized property values are read.</param>
+        /// <param name="to">The destination that receives the values of the properties it also declares.</param>
         private static void CopyMatchingSerializedFields(Component from, Component to)
         {
             SerializedObject source = new SerializedObject(from);
@@ -953,13 +957,13 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a boolean value from the arguments dictionary with an optional default.</summary>
-        /// <param name="args">The arguments dictionary to search.</param>
+        /// <param name="arguments">The arguments dictionary to search.</param>
         /// <param name="key">The key to look up.</param>
         /// <param name="defaultValue">The default value when the key is absent or unparseable.</param>
         /// <returns>The parsed boolean value, or the default.</returns>
-        private static bool GetBool(Dictionary<string, object> args, string key, bool defaultValue = false)
+        private static bool GetBool(Dictionary<string, object> arguments, string key, bool defaultValue = false)
         {
-            if (args.TryGetValue(key, out object value) && value != null)
+            if (arguments.TryGetValue(key, out object value) && value != null)
             {
                 if (value is bool boolValue)
                 {
@@ -976,12 +980,12 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a list value from the arguments dictionary, or an empty list when absent.</summary>
-        /// <param name="args">The arguments dictionary to search.</param>
+        /// <param name="arguments">The arguments dictionary to search.</param>
         /// <param name="key">The key to look up.</param>
         /// <returns>The list value, or an empty list when the key is absent or not a list.</returns>
-        private static List<object> GetList(Dictionary<string, object> args, string key)
+        private static List<object> GetList(Dictionary<string, object> arguments, string key)
         {
-            if (args.TryGetValue(key, out object value) && value is List<object> list)
+            if (arguments.TryGetValue(key, out object value) && value is List<object> list)
             {
                 return list;
             }
@@ -990,14 +994,14 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a nested object from the arguments dictionary, or empty when absent.</summary>
-        /// <param name="args">The arguments dictionary to search.</param>
+        /// <param name="arguments">The arguments dictionary to search.</param>
         /// <param name="key">The key to look up.</param>
         /// <returns>The dictionary value, or an empty dictionary when the key is absent or not an object.</returns>
-        private static Dictionary<string, object> GetDict(Dictionary<string, object> args, string key)
+        private static Dictionary<string, object> GetDictionary(Dictionary<string, object> arguments, string key)
         {
-            if (args.TryGetValue(key, out object value) && value is Dictionary<string, object> dict)
+            if (arguments.TryGetValue(key, out object value) && value is Dictionary<string, object> dictionary)
             {
-                return dict;
+                return dictionary;
             }
 
             return new Dictionary<string, object>();
@@ -1005,18 +1009,17 @@ namespace SL.Tasks
 
         /// <summary>Deletes a Unity asset within an allowed directory and refreshes the AssetDatabase.</summary>
         /// <remarks>
-        /// Scoped to regenerable non-scene assets — primarily cue prefabs and cue materials that the
-        /// <see cref="GenerateTask"/> pipeline shares across templates and therefore cannot scrub
-        /// per-task. Scene deletion is handled exclusively by <see cref="DestroyTask"/>, which removes
-        /// the scene plus its <c>savedFullScreenViews</c> companion atomically; scene paths submitted
-        /// here are rejected with a pointer at <c>delete_task</c> so scene cleanup never bypasses the
-        /// companion cascade.
+        /// Scoped to regenerable non-scene assets, primarily cue prefabs and cue materials that the
+        /// <see cref="GenerateTask"/> pipeline shares across templates and therefore cannot scrub per-task. Scene
+        /// deletion is handled exclusively by <see cref="DestroyTask"/>, which removes the scene plus its
+        /// <c>savedFullScreenViews</c> companion atomically. Scene paths submitted here are rejected with a pointer at
+        /// <c>delete_task</c> so scene cleanup never bypasses the companion cascade.
         /// </remarks>
-        /// <param name="args">The tool arguments containing asset_path.</param>
+        /// <param name="arguments">The tool arguments containing asset_path.</param>
         /// <returns>A JSON response confirming deletion or an error message.</returns>
-        private static string DeleteAsset(Dictionary<string, object> args)
+        private static string DeleteAsset(Dictionary<string, object> arguments)
         {
-            string assetPath = GetString(args, "asset_path");
+            string assetPath = GetString(arguments, "asset_path");
 
             if (string.IsNullOrEmpty(assetPath))
             {
@@ -1107,12 +1110,12 @@ namespace SL.Tasks
         /// <summary>
         /// Lists Unity assets of a given type filter (e.g., "Prefab", "Scene", "Material").
         /// </summary>
-        /// <param name="args">The tool arguments containing optional asset_type and search_path filters.</param>
+        /// <param name="arguments">The tool arguments containing optional asset_type and search_path filters.</param>
         /// <returns>A JSON response with matching asset paths.</returns>
-        private static string ListAssets(Dictionary<string, object> args)
+        private static string ListAssets(Dictionary<string, object> arguments)
         {
-            string assetType = GetString(args, "asset_type", defaultValue: "Prefab");
-            string searchPath = GetString(args, "search_path", defaultValue: "Assets/InfiniteCorridorTask");
+            string assetType = GetString(arguments, "asset_type", defaultValue: "Prefab");
+            string searchPath = GetString(arguments, "search_path", defaultValue: "Assets/InfiniteCorridorTask");
 
             string[] guids = AssetDatabase.FindAssets($"t:{assetType}", new[] { searchPath });
             List<string> paths = guids.Select(AssetDatabase.GUIDToAssetPath).OrderBy(path => path).ToList();
@@ -1140,12 +1143,12 @@ namespace SL.Tasks
         }
 
         /// <summary>Opens a scene in the Editor after applying the unsaved-changes policy.</summary>
-        /// <param name="args">The tool arguments containing scene_path and optional unsaved_changes.</param>
+        /// <param name="arguments">The tool arguments containing scene_path and optional unsaved_changes.</param>
         /// <returns>A JSON response confirming the scene was opened or an error message.</returns>
-        private static string OpenScene(Dictionary<string, object> args)
+        private static string OpenScene(Dictionary<string, object> arguments)
         {
-            string scenePath = GetString(args, "scene_path");
-            string unsavedChanges = GetString(args, "unsaved_changes", defaultValue: "");
+            string scenePath = GetString(arguments, "scene_path");
+            string unsavedChanges = GetString(arguments, "unsaved_changes", defaultValue: "");
 
             if (string.IsNullOrEmpty(scenePath))
             {
@@ -1283,27 +1286,27 @@ namespace SL.Tasks
         /// paths the Parameters window uses, including <see cref="EditorUtility.SetDirty"/> on touched assets and a
         /// final <see cref="EditorSceneManager.MarkSceneDirty"/> when any write succeeded.
         /// </remarks>
-        /// <param name="args">
-        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>,
-        /// <c>display</c>, <c>camera_mapping</c>, and <c>task</c>, each carrying the field subset to write.
+        /// <param name="arguments">
+        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>, <c>display</c>,
+        /// <c>camera_mapping</c>, and <c>task</c>, each carrying the field subset to write.
         /// </param>
         /// <returns>A JSON response carrying the post-write snapshot from <see cref="ReadTaskParameters"/>.</returns>
-        private static string WriteTaskParameters(Dictionary<string, object> args)
+        private static string WriteTaskParameters(Dictionary<string, object> arguments)
         {
             SceneComponents components = AcquireSceneComponents();
 
-            string validationError = ValidateTaskParameterWrites(args, components);
+            string validationError = ValidateTaskParameterWrites(arguments, components);
             if (validationError != null)
             {
                 return Error(validationError);
             }
 
             bool dirty = false;
-            ApplyActorSection(args, components, ref dirty);
-            ApplyMqttSection(args, components, ref dirty);
-            ApplyDisplaySection(args, components, ref dirty);
-            ApplyCameraMappingSection(args, components, ref dirty);
-            ApplyTaskSection(args, components, ref dirty);
+            ApplyActorSection(arguments, components, ref dirty);
+            ApplyMqttSection(arguments, components, ref dirty);
+            ApplyDisplaySection(arguments, components, ref dirty);
+            ApplyCameraMappingSection(arguments, components, ref dirty);
+            ApplyTaskSection(arguments, components, ref dirty);
 
             if (dirty)
             {
@@ -1327,44 +1330,6 @@ namespace SL.Tasks
             SceneComponents components = AcquireSceneComponents();
             components.FullScreenManager.RefreshMonitorPositions();
             return Ok(BuildSnapshot(components));
-        }
-
-        /// <summary>
-        /// Aggregates the per-scene component references read by both <see cref="ReadTaskParameters"/> and
-        /// <see cref="WriteTaskParameters"/>. Built once per request via <see cref="AcquireSceneComponents"/>
-        /// so each tool invocation walks the scene exactly once, regardless of how many sections the writer
-        /// touches.
-        /// </summary>
-        private struct SceneComponents
-        {
-            /// <summary>The active scene's actor, or null when absent.</summary>
-            public ActorObject Actor;
-
-            /// <summary>The active scene's display, or null when absent.</summary>
-            public DisplayObject Display;
-
-            /// <summary>The active scene's Task component, or null when absent.</summary>
-            public Task Task;
-
-            /// <summary>The active scene's MQTT client singleton, or null when absent.</summary>
-            public MQTTClient Client;
-
-            /// <summary>Every <see cref="ControllerOutput"/> in the active scene.</summary>
-            public ControllerOutput[] Controllers;
-
-            /// <summary>Every assignable display camera (MainCamera excluded) in the active scene.</summary>
-            public Camera[] DisplayCameras;
-
-            /// <summary>Determines whether the scene contains at least one <see cref="GuidanceZone"/>.</summary>
-            public bool HasInteractionZone;
-
-            /// <summary>Determines whether the scene contains at least one <see cref="OccupancyZone"/>.</summary>
-            public bool HasOccupancyZone;
-
-            /// <summary>
-            /// The shared <see cref="FullScreenViewManager"/> used by camera-mapping reads and writes.
-            /// </summary>
-            public FullScreenViewManager FullScreenManager;
         }
 
         /// <summary>
@@ -1562,12 +1527,15 @@ namespace SL.Tasks
         /// partly written, the persisted EditorPrefs and companion-asset writes committed, and the response still
         /// reporting failure. Validating the whole request first is what makes the tool atomic.
         /// </remarks>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <returns>An error message when any section is invalid, otherwise null.</returns>
-        private static string ValidateTaskParameterWrites(Dictionary<string, object> args, SceneComponents components)
+        private static string ValidateTaskParameterWrites(
+            Dictionary<string, object> arguments,
+            SceneComponents components
+        )
         {
-            if (TryGetSection(args, "actor", out Dictionary<string, object> actorArgs) && components.Actor != null)
+            if (TryGetSection(arguments, "actor", out Dictionary<string, object> actorArgs) && components.Actor != null)
             {
                 if (actorArgs.TryGetValue("model", out object modelObject) && modelObject is string newModel)
                 {
@@ -1594,7 +1562,7 @@ namespace SL.Tasks
             }
 
             if (
-                TryGetSection(args, "mqtt", out Dictionary<string, object> mqttArgs)
+                TryGetSection(arguments, "mqtt", out Dictionary<string, object> mqttArgs)
                 && components.Client != null
                 && mqttArgs.TryGetValue("port", out object portObject)
                 && !IsBrokerPortInRange(portObject)
@@ -1605,7 +1573,7 @@ namespace SL.Tasks
             }
 
             if (
-                TryGetSection(args, "display", out Dictionary<string, object> displayArgs)
+                TryGetSection(arguments, "display", out Dictionary<string, object> displayArgs)
                 && components.Display != null
             )
             {
@@ -1619,23 +1587,26 @@ namespace SL.Tasks
                 }
             }
 
-            string cameraMappingError = ValidateCameraMappingWrites(args, components);
+            string cameraMappingError = ValidateCameraMappingWrites(arguments, components);
             if (cameraMappingError != null)
             {
                 return cameraMappingError;
             }
 
-            return ValidateTaskSectionWrites(args, components);
+            return ValidateTaskSectionWrites(arguments, components);
         }
 
         /// <summary>Checks the camera_mapping rows against the detected monitors and assignable cameras.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <returns>An error message when a row is invalid, otherwise null.</returns>
-        private static string ValidateCameraMappingWrites(Dictionary<string, object> args, SceneComponents components)
+        private static string ValidateCameraMappingWrites(
+            Dictionary<string, object> arguments,
+            SceneComponents components
+        )
         {
             if (
-                !args.TryGetValue("camera_mapping", out object cameraMappingObject)
+                !arguments.TryGetValue("camera_mapping", out object cameraMappingObject)
                 || cameraMappingObject is not List<object> cameraMappingList
             )
             {
@@ -1652,11 +1623,11 @@ namespace SL.Tasks
 
             foreach (object row in cameraMappingList)
             {
-                if (row is not Dictionary<string, object> rowDict)
+                if (row is not Dictionary<string, object> rowDictionary)
                 {
                     continue;
                 }
-                if (!rowDict.TryGetValue("monitor", out object monitorObject))
+                if (!rowDictionary.TryGetValue("monitor", out object monitorObject))
                 {
                     return "Invalid camera_mapping row. Every row must carry a 'monitor' key holding the one-based "
                         + "number of the monitor it assigns, but this row carries none.";
@@ -1673,7 +1644,10 @@ namespace SL.Tasks
                         + $"{components.FullScreenManager.monitors.Count} monitors.";
                 }
 
-                if (!rowDict.TryGetValue("camera", out object cameraObject) || cameraObject is not string cameraName)
+                if (
+                    !rowDictionary.TryGetValue("camera", out object cameraObject)
+                    || cameraObject is not string cameraName
+                )
                 {
                     continue;
                 }
@@ -1691,12 +1665,15 @@ namespace SL.Tasks
         }
 
         /// <summary>Checks the task subsection against the zones present and the runtime's accepted ranges.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <returns>An error message when a field is invalid, otherwise null.</returns>
-        private static string ValidateTaskSectionWrites(Dictionary<string, object> args, SceneComponents components)
+        private static string ValidateTaskSectionWrites(
+            Dictionary<string, object> arguments,
+            SceneComponents components
+        )
         {
-            if (!TryGetSection(args, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
+            if (!TryGetSection(arguments, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
             {
                 return null;
             }
@@ -1830,18 +1807,21 @@ namespace SL.Tasks
             return true;
         }
 
-        /// <summary>Applies any "actor" subsection from <paramref name="args"/>.</summary>
+        /// <summary>Applies any "actor" subsection from <paramref name="arguments"/>.</summary>
         /// <remarks>Runs only after <see cref="ValidateTaskParameterWrites"/> accepted every value it reads.</remarks>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <param name="dirty">Set to true when this section writes to the scene.</param>
         private static void ApplyActorSection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             SceneComponents components,
             ref bool dirty
         )
         {
-            if (!TryGetSection(args, "actor", out Dictionary<string, object> actorArgs) || components.Actor == null)
+            if (
+                !TryGetSection(arguments, "actor", out Dictionary<string, object> actorArgs)
+                || components.Actor == null
+            )
             {
                 return;
             }
@@ -1862,17 +1842,17 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>Applies any "mqtt" subsection from <paramref name="args"/>.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <summary>Applies any "mqtt" subsection from <paramref name="arguments"/>.</summary>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <param name="dirty">Set to true when this section writes to the scene.</param>
         private static void ApplyMqttSection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             SceneComponents components,
             ref bool dirty
         )
         {
-            if (!TryGetSection(args, "mqtt", out Dictionary<string, object> mqttArgs) || components.Client == null)
+            if (!TryGetSection(arguments, "mqtt", out Dictionary<string, object> mqttArgs) || components.Client == null)
             {
                 return;
             }
@@ -1891,18 +1871,18 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>Applies any "display" subsection from <paramref name="args"/>.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <summary>Applies any "display" subsection from <paramref name="arguments"/>.</summary>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <param name="dirty">Set to true when this section writes to the scene.</param>
         private static void ApplyDisplaySection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             SceneComponents components,
             ref bool dirty
         )
         {
             if (
-                !TryGetSection(args, "display", out Dictionary<string, object> displayArgs)
+                !TryGetSection(arguments, "display", out Dictionary<string, object> displayArgs)
                 || components.Display == null
             )
             {
@@ -1935,18 +1915,18 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>Applies any "camera_mapping" subsection from <paramref name="args"/>.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <summary>Applies any "camera_mapping" subsection from <paramref name="arguments"/>.</summary>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <param name="dirty">Set to true when this section writes to the scene.</param>
         private static void ApplyCameraMappingSection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             SceneComponents components,
             ref bool dirty
         )
         {
             if (
-                !args.TryGetValue("camera_mapping", out object cameraMappingObject)
+                !arguments.TryGetValue("camera_mapping", out object cameraMappingObject)
                 || cameraMappingObject is not List<object> cameraMappingList
             )
             {
@@ -1957,15 +1937,18 @@ namespace SL.Tasks
             bool assigned = false;
             foreach (object row in cameraMappingList)
             {
-                if (row is not Dictionary<string, object> rowDict)
+                if (row is not Dictionary<string, object> rowDictionary)
                 {
                     continue;
                 }
-                if (!rowDict.TryGetValue("monitor", out object monitorObject))
+                if (!rowDictionary.TryGetValue("monitor", out object monitorObject))
                 {
                     continue;
                 }
-                if (!rowDict.TryGetValue("camera", out object cameraObject) || cameraObject is not string cameraName)
+                if (
+                    !rowDictionary.TryGetValue("camera", out object cameraObject)
+                    || cameraObject is not string cameraName
+                )
                 {
                     continue;
                 }
@@ -1992,17 +1975,17 @@ namespace SL.Tasks
             dirty = true;
         }
 
-        /// <summary>Applies any "task" subsection from <paramref name="args"/>.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <summary>Applies any "task" subsection from <paramref name="arguments"/>.</summary>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <param name="dirty">Set to true when this section writes to the scene.</param>
         private static void ApplyTaskSection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             SceneComponents components,
             ref bool dirty
         )
         {
-            if (!TryGetSection(args, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
+            if (!TryGetSection(arguments, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
             {
                 return;
             }
@@ -2031,21 +2014,21 @@ namespace SL.Tasks
             EditorUtility.SetDirty(components.Task);
         }
 
-        /// <summary>Extracts a sub-dictionary at the given key from the args; returns false when absent.</summary>
-        /// <param name="args">The dispatched tool arguments.</param>
+        /// <summary>Extracts a sub-dictionary at the given key, returning false when it is absent.</summary>
+        /// <param name="arguments">The dispatched tool arguments.</param>
         /// <param name="key">The top-level section key to look up.</param>
         /// <param name="section">The extracted sub-dictionary when present, otherwise null.</param>
         /// <returns>True when the section was found and is a dictionary.</returns>
         private static bool TryGetSection(
-            Dictionary<string, object> args,
+            Dictionary<string, object> arguments,
             string key,
             out Dictionary<string, object> section
         )
         {
             section = null;
-            if (args.TryGetValue(key, out object value) && value is Dictionary<string, object> dict)
+            if (arguments.TryGetValue(key, out object value) && value is Dictionary<string, object> dictionary)
             {
-                section = dict;
+                section = dictionary;
                 return true;
             }
             return false;
@@ -2140,7 +2123,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Recursively inspects a GameObject and returns its hierarchy as a dictionary.</summary>
-        /// <param name="gameObject">The GameObject to inspect.</param>
+        /// <param name="gameObject">The subtree root, descended into depth-first.</param>
         /// <returns>A dictionary describing the GameObject's transform, components, and children.</returns>
         private static Dictionary<string, object> InspectGameObject(GameObject gameObject)
         {
@@ -2182,7 +2165,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Formats a Vector3 as a serializable dictionary.</summary>
-        /// <param name="vector">The Vector3 to format.</param>
+        /// <param name="vector">The value whose components become the dictionary entries.</param>
         /// <returns>A dictionary with x, y, and z keys.</returns>
         private static Dictionary<string, float> FormatVector3(Vector3 vector)
         {
@@ -2195,15 +2178,15 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a string value from the arguments dictionary with an optional default.</summary>
-        /// <param name="args">The arguments dictionary to search.</param>
+        /// <param name="arguments">The arguments dictionary to search.</param>
         /// <param name="key">The key to look up.</param>
         /// <param name="defaultValue">The default value if the key is not found.</param>
         /// <returns>The string value, or the default if not found.</returns>
-        private static string GetString(Dictionary<string, object> args, string key, string defaultValue = null)
+        private static string GetString(Dictionary<string, object> arguments, string key, string defaultValue = null)
         {
-            if (args.ContainsKey(key) && args[key] != null)
+            if (arguments.ContainsKey(key) && arguments[key] != null)
             {
-                return args[key].ToString();
+                return arguments[key].ToString();
             }
 
             return defaultValue;
@@ -2224,6 +2207,44 @@ namespace SL.Tasks
         private static string Error(string message)
         {
             return MiniJson.Serialize(new Dictionary<string, object> { { "success", false }, { "error", message } });
+        }
+
+        /// <summary>
+        /// Aggregates the per-scene component references read by both <see cref="ReadTaskParameters"/> and
+        /// <see cref="WriteTaskParameters"/>. Built once per request via <see cref="AcquireSceneComponents"/>
+        /// so each tool invocation walks the scene exactly once, regardless of how many sections the writer
+        /// touches.
+        /// </summary>
+        private struct SceneComponents
+        {
+            /// <summary>The active scene's actor, or null when absent.</summary>
+            public ActorObject Actor;
+
+            /// <summary>The active scene's display, or null when absent.</summary>
+            public DisplayObject Display;
+
+            /// <summary>The active scene's Task component, or null when absent.</summary>
+            public Task Task;
+
+            /// <summary>The active scene's MQTT client singleton, or null when absent.</summary>
+            public MQTTClient Client;
+
+            /// <summary>Every <see cref="ControllerOutput"/> in the active scene.</summary>
+            public ControllerOutput[] Controllers;
+
+            /// <summary>Every assignable display camera (MainCamera excluded) in the active scene.</summary>
+            public Camera[] DisplayCameras;
+
+            /// <summary>Determines whether the scene contains at least one <see cref="GuidanceZone"/>.</summary>
+            public bool HasInteractionZone;
+
+            /// <summary>Determines whether the scene contains at least one <see cref="OccupancyZone"/>.</summary>
+            public bool HasOccupancyZone;
+
+            /// <summary>
+            /// The shared <see cref="FullScreenViewManager"/> used by camera-mapping reads and writes.
+            /// </summary>
+            public FullScreenViewManager FullScreenManager;
         }
     }
 }
