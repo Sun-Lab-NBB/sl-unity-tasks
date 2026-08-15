@@ -62,6 +62,9 @@ ExportedObj/
 *.pdb.meta
 *.mdb.meta
 
+# Unity Test Framework result files written by a headless -runTests invocation
+*-results.xml
+
 # Unity3D generated file on crash reports
 sysinfo.txt
 

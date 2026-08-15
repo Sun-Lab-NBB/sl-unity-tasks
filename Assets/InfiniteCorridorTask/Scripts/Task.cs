@@ -38,6 +38,13 @@ namespace SL.Tasks
         /// </remarks>
         public const float DefaultTrackLength = 15000f;
 
+        /// <summary>The largest corridor map the runtime allocates, measured in segment combinations.</summary>
+        /// <remarks>
+        /// Every entry pairs two floats, so this ceiling holds the map inside the two gigabyte limit the runtime
+        /// places on a single managed array.
+        /// </remarks>
+        private const int MaximumCorridorCount = 268435456;
+
         /// <summary>The actor (animal) being tracked in the VR environment.</summary>
         [HideInInspector]
         public ActorObject actor;
@@ -225,21 +232,41 @@ namespace SL.Tasks
             _cueLengths = _template.GetCueLengthsUnity();
             _depth = _template.vrEnvironment.segmentsPerCorridor;
 
-            // Builds corridor map for teleportation. The outer loop index `i` IS the encoded corridor
-            // key for the iteration's segment combination, by construction: the inner loop decomposes
-            // `i` into base-_trialCount digits, which is the inverse of <see cref="ComputeCorridorKey"/>.
-            int corridorCount = (int)Mathf.Pow(_trialCount, _depth);
+            long combinationCount = 1;
+            for (int index = 0; index < _depth && combinationCount <= MaximumCorridorCount; index++)
+            {
+                combinationCount *= _trialCount;
+            }
+
+            if (combinationCount > MaximumCorridorCount)
+            {
+                string message =
+                    $"Task: template '{_template.templateName}' declares {_trialCount} trials over a corridor depth "
+                    + $"of {_depth}, which needs more corridor combinations than the {MaximumCorridorCount} entries "
+                    + "the corridor map holds. Lower segments_per_corridor or the number of trial structures. "
+                    + "Disabling Task to prevent runtime errors.";
+                Debug.LogError(message);
+                enabled = false;
+                return;
+            }
+
+            int corridorCount = (int)combinationCount;
             _corridorMap = new (float xPosition, float firstSegmentLength)[corridorCount];
 
             int[] corridorSegments = new int[_depth];
             float currentCorridorX = 0;
             float corridorXShift = _template.vrEnvironment.CorridorSpacingUnity;
 
+            // Builds corridor map for teleportation. The outer loop index `i` IS the encoded corridor
+            // key for the iteration's segment combination, by construction: the inner loop decomposes
+            // `i` into base-_trialCount digits, which is the inverse of <see cref="ComputeCorridorKey"/>.
             for (int i = 0; i < corridorCount; i++)
             {
-                for (int j = 0; j < _depth; j++)
+                int remainder = i;
+                for (int j = _depth - 1; j >= 0; j--)
                 {
-                    corridorSegments[j] = i / (int)Mathf.Pow(_trialCount, _depth - j - 1) % _trialCount;
+                    corridorSegments[j] = remainder % _trialCount;
+                    remainder /= _trialCount;
                 }
 
                 _corridorMap[i] = (currentCorridorX, _segmentLengths[corridorSegments[0]]);
@@ -314,7 +341,11 @@ namespace SL.Tasks
 
             if (_currentCorridorKey < 0 || _currentCorridorKey >= _corridorMap.Length)
             {
-                Debug.LogError($"Task: Corridor key '{_currentCorridorKey}' out of bounds [0, {_corridorMap.Length}).");
+                string message =
+                    $"Task: Corridor key '{_currentCorridorKey}' out of bounds [0, {_corridorMap.Length}). The key "
+                    + "stays out of range for every later frame, so the Task is disabled to prevent runtime errors.";
+                Debug.LogError(message);
+                enabled = false;
                 return;
             }
             (float xPosition, float firstSegmentLength) corridorData = _corridorMap[_currentCorridorKey];
@@ -334,7 +365,11 @@ namespace SL.Tasks
                 }
                 else
                 {
-                    Debug.LogError("Animal ran through all generated segments.");
+                    string message =
+                        "Animal ran through all generated segments. Raise Track Length in Window > Task Parameters "
+                        + "to cover a longer run. Disabling Task to prevent runtime errors.";
+                    Debug.LogError(message);
+                    enabled = false;
                     return;
                 }
 
@@ -392,7 +427,7 @@ namespace SL.Tasks
 
         /// <summary>Collects every per-lap resettable zone in the active scene.</summary>
         /// <remarks>
-        /// Enumerates the three concrete <see cref="IResettable"/> implementers by type rather than searching for the
+        /// Enumerates the four concrete <see cref="IResettable"/> implementers by type rather than searching for the
         /// interface, because Unity's typed find helpers resolve components only. A new implementer joins this method.
         /// </remarks>
         /// <returns>The resettable zones present when the task starts.</returns>
@@ -400,6 +435,7 @@ namespace SL.Tasks
         {
             List<IResettable> resettables = new List<IResettable>();
             resettables.AddRange(FindObjectsByType<StimulusTriggerZone>(FindObjectsSortMode.None));
+            resettables.AddRange(FindObjectsByType<GuidanceZone>(FindObjectsSortMode.None));
             resettables.AddRange(FindObjectsByType<OccupancyZone>(FindObjectsSortMode.None));
             resettables.AddRange(FindObjectsByType<OccupancyGuidanceZone>(FindObjectsSortMode.None));
             return resettables.ToArray();
@@ -438,24 +474,35 @@ namespace SL.Tasks
         }
 
         /// <summary>Samples a trial name from a named probability distribution over trial transitions.</summary>
-        /// <param name="transitions">The trial-name keyed transition dictionary; values must sum to 1.0.</param>
+        /// <remarks>
+        /// A distribution holding no entry carries no name to sample, so the attempt fails and the caller draws the
+        /// next trial uniformly instead of resolving a name no trial answers to.
+        /// </remarks>
+        /// <param name="transitions">The trial-name keyed transition dictionary, whose values sum to 1.0.</param>
         /// <param name="random">The random number generator instance.</param>
-        /// <returns>The sampled trial name.</returns>
-        private static string SampleFromTransitions(Dictionary<string, float> transitions, System.Random random)
+        /// <param name="trialName">The sampled trial name on success, otherwise null.</param>
+        /// <returns>True when the distribution yields a trial name.</returns>
+        private static bool TrySampleFromTransitions(
+            Dictionary<string, float> transitions,
+            System.Random random,
+            out string trialName
+        )
         {
             float randomValue = (float)random.NextDouble();
             float cumulative = 0f;
-            string lastKey = null;
+            trialName = null;
 
             foreach (KeyValuePair<string, float> entry in transitions)
             {
                 cumulative += entry.Value;
-                lastKey = entry.Key;
+                trialName = entry.Key;
                 if (randomValue < cumulative)
-                    return entry.Key;
+                {
+                    return true;
+                }
             }
 
-            return lastKey;
+            return trialName != null;
         }
 
         /// <summary>Generates a random sequence of trials based on the specified length and optional seed.</summary>
@@ -494,9 +541,11 @@ namespace SL.Tasks
                 sequenceLength += _segmentLengths[choice];
 
                 // Uses transition probabilities if defined, otherwise uniform random over all trials.
-                if (trial.HasTransitions)
+                if (
+                    trial.HasTransitions
+                    && TrySampleFromTransitions(trial.transitions, random, out string nextTrialName)
+                )
                 {
-                    string nextTrialName = SampleFromTransitions(trial.transitions, random);
                     choice = _trialNameToIndex[nextTrialName];
                 }
                 else

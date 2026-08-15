@@ -45,10 +45,14 @@ namespace SL.Config
 
         /// <summary>
         /// The duration in milliseconds the animal must occupy the zone for occupancy trigger modes. Applied
-        /// to the OccupancyZone at task creation time and ignored for non-occupancy trigger modes. Null when the
-        /// template omits it, mirroring the sollertia-shared-assets default so a missing value never silently
-        /// resolves to a fabricated duration.
+        /// to the OccupancyZone at task creation time and ignored for non-occupancy trigger modes.
         /// </summary>
+        /// <remarks>
+        /// Null is the value a non-occupancy trial carries, because null is how a template communicates that the
+        /// field is unused. Zero is a real duration rather than that signal, so it is rejected on every trial
+        /// whatever its trigger type. The nullable type mirrors the sollertia-shared-assets default, so a missing
+        /// value never silently resolves to a fabricated duration.
+        /// </remarks>
         public float? occupancyDurationMs = null;
 
         /// <summary>

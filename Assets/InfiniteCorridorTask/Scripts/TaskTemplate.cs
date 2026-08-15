@@ -6,6 +6,7 @@
 /// </summary>
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace SL.Config
@@ -63,9 +64,10 @@ namespace SL.Config
 
         /// <summary>Returns a map of cue name to byte code for MQTT encoding.</summary>
         /// <returns>Maps each cue name to its byte code.</returns>
+        /// <exception cref="InvalidDataException">A cue declares a code outside the 0 to 255 byte range.</exception>
         public Dictionary<string, byte> GetCueNameToCode()
         {
-            return _cueNameToCodeCache ??= cues.ToDictionary(cue => cue.name, cue => (byte)cue.code);
+            return _cueNameToCodeCache ??= cues.ToDictionary(cue => cue.name, cue => ToByteCode(cue));
         }
 
         /// <summary>Returns a map of cue name to Cue.</summary>
@@ -119,6 +121,8 @@ namespace SL.Config
         /// <summary>Calculates the total length of a single trial's segment in Unity units.</summary>
         /// <param name="trialName">The name of the trial whose segment length to compute.</param>
         /// <returns>The total length of the trial's segment in Unity units.</returns>
+        /// <exception cref="ArgumentNullException">The trial name is null.</exception>
+        /// <exception cref="KeyNotFoundException">The template declares no trial under the requested name.</exception>
         public float GetTrialLengthUnity(string trialName)
         {
             if (_trialLengthsUnityCache == null)
@@ -130,7 +134,34 @@ namespace SL.Config
                     entry => entry.Value.cueSequence.Sum(cueName => cueMap[cueName].LengthUnity(cmPerUnit))
                 );
             }
-            return _trialLengthsUnityCache[trialName];
+
+            if (!_trialLengthsUnityCache.TryGetValue(trialName, out float trialLength))
+            {
+                string message =
+                    $"Unable to resolve the segment length of trial '{trialName}' in task template "
+                    + $"'{templateName}'. The trial name must match a trial the template declares, but the "
+                    + $"template declares only {string.Join(", ", _trialLengthsUnityCache.Keys)}.";
+                throw new KeyNotFoundException(message);
+            }
+
+            return trialLength;
+        }
+
+        /// <summary>Converts a cue's declared code into the byte code the MQTT encoding transmits.</summary>
+        /// <param name="cue">The cue whose declared code to convert.</param>
+        /// <returns>The declared code as a byte.</returns>
+        /// <exception cref="InvalidDataException">The cue declares a code outside the 0 to 255 byte range.</exception>
+        private static byte ToByteCode(Cue cue)
+        {
+            if (cue.code < 0 || cue.code > 255)
+            {
+                string message =
+                    $"Unable to encode the code of cue '{cue.name}' for MQTT transmission. The cue code must be "
+                    + $"between 0 and 255 inclusive, but is {cue.code}.";
+                throw new InvalidDataException(message);
+            }
+
+            return (byte)cue.code;
         }
     }
 }

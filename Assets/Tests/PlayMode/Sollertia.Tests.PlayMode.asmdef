@@ -1,0 +1,27 @@
+{
+    "name": "Sollertia.Tests.PlayMode",
+    "rootNamespace": "SL.Tests.PlayMode",
+    "references": [
+        "Sollertia.Gimbl",
+        "Sollertia.InfiniteCorridorTask",
+        "Sollertia.UI",
+        "Sollertia.Tests.Support",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll",
+        "MQTTnet.dll",
+        "YamlDotNet.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

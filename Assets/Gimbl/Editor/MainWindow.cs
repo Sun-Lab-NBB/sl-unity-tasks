@@ -1,9 +1,8 @@
 /// <summary>
 /// Provides the MainWindow class for the consolidated Task Parameters editor window.
 ///
-/// Renders the single editor window that hosts every per-scene configuration surface for Gimbl:
-/// Task, Actor, Display, Camera Mapping, and MQTT. Replaces the previous Settings / Actors /
-/// Displays three-window layout with one aggregated window.
+/// Renders the single editor window that hosts every per-scene configuration surface for Gimbl: Task, Actor, Display,
+/// Camera Mapping, and MQTT.
 /// </summary>
 using System.Linq;
 using SL.Tasks;
@@ -72,11 +71,18 @@ namespace Gimbl
         /// Subscribes to scene-open and Play-Mode-enter events so closing the window does not strand the
         /// user without access to the per-scene configuration surface. Also defers a one-shot open via
         /// <see cref="EditorApplication.delayCall"/> so the window appears immediately after a script
-        /// reload or editor start, once the editor finishes initializing.
+        /// reload or editor start, once the editor finishes initializing. A batch-mode editor hosts no GUI, and
+        /// opening the window there runs <see cref="InitializeScene"/> against the throwaway startup scene, whose
+        /// unsaved changes then block the run on a save dialog batch mode cancels, so the hooks stay unregistered.
         /// </remarks>
         [InitializeOnLoadMethod]
         private static void RegisterAutoOpen()
         {
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
             EditorSceneManager.sceneOpened += (Scene scene, OpenSceneMode mode) => EnsureWindowOpen();
             EditorApplication.playModeStateChanged += state =>
             {

@@ -1,26 +1,18 @@
 /// <summary>
-/// Provides the MQTTTopics static class enumerating every MQTT topic literal published or subscribed
-/// to by sollertia-virtual-reality.
+/// Provides the MQTTTopics static class enumerating every MQTT topic literal published or subscribed to by
+/// sollertia-virtual-reality.
 /// </summary>
-/// <remarks>
-/// Centralizing the topic strings here makes the publish/subscribe contract auditable from one
-/// location and makes future renames or additions a single-edit change. Every topic carries a
-/// <c>Direction</c>, <c>Payload</c>, and <c>Callers</c> remark so the routing graph is discoverable
-/// without grepping the codebase. Topics are <c>const string</c> rather than <c>static readonly</c>
-/// so the C# compiler inlines the value at every call site, matching the literal-string code paths
-/// that existed before centralization. Any rename to a topic here must also be applied to the
-/// matching publisher/subscriber catalog on sollertia-experiment's side in the same release.
-/// </remarks>
 namespace Gimbl
 {
-    /// <summary>
-    /// Catalogs every MQTT topic the project publishes or subscribes to.
-    /// </summary>
+    /// <summary>Catalogs every MQTT topic the project publishes or subscribes to.</summary>
     /// <remarks>
-    /// The catalog is intentionally flat — each topic is a single PascalCase identifier with no
-    /// hierarchical separators. MQTT brokers treat <c>X</c> and <c>X/</c> as distinct topics, so the
-    /// flat convention removes a class of accidental routing mismatches between Unity and external
-    /// publishers.
+    /// The catalog is intentionally flat, so each topic is a single PascalCase identifier with no hierarchical
+    /// separators. MQTT brokers treat <c>X</c> and <c>X/</c> as distinct topics, so the flat convention removes a class
+    /// of accidental routing mismatches between Unity and external publishers. Holding every topic string in one place
+    /// keeps the publish and subscribe contract auditable from a single location and makes a rename or an addition a
+    /// single-edit change. Every topic is a <c>const string</c>, so the C# compiler inlines its value at every call
+    /// site. Any rename to a topic here must also be applied to the matching publisher and subscriber catalog on
+    /// sollertia-experiment's side in the same release.
     /// </remarks>
     public static class MQTTTopics
     {

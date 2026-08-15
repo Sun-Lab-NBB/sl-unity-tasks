@@ -1,20 +1,7 @@
 /// <summary>
-/// Provides the StimulusTriggerZone class that manages stimulus delivery based on animal behavior.
-///
-/// The trigger mechanism is selected by the triggerMode field (set by CreateTask from the trial's
-/// trigger_type), not by what stimulus is delivered. Any stimulus type can be paired with any mode, and
-/// the experiment driver resolves the appetitive-or-aversive valence from the trial name; this zone reports
-/// only the valence-agnostic outcome.
-///
-/// Each resolved trial publishes exactly one StimulusMessage carrying delivered (whether the physical
-/// stimulus fired) and cause (the animal's own behavior or the guidance fallback). Interaction mode delivers
-/// on a sensor interaction in the zone; with guidance enabled it also delivers on reaching the guidance zone
-/// (or on bare zone entry when no GuidanceZone is present), and it omits a failure outcome when the animal
-/// leaves the zone without interacting. Collision mode delivers unconditionally on the boundary crossing. The
-/// occupancy modes (OccupancyZone child) resolve on the boundary crossing from whether the animal occupied
-/// the zone for the required duration: OccupancyDisarm delivers when occupancy is not met and omits when it
-/// is, OccupancyArm does the reverse, and OccupancyTrigger delivers immediately when occupancy is met.
-/// Occupancy outcomes report cause guidance when the child OccupancyGuidanceZone fired the brake this lap.
+/// Provides the StimulusTriggerZone class that manages stimulus delivery based on animal behavior. Each trial resolves
+/// through one of the interaction, collision, and occupancy trigger modes and publishes a single outcome on the
+/// Stimulus topic.
 /// </summary>
 using Gimbl;
 using UnityEngine;
@@ -25,6 +12,10 @@ namespace SL.Tasks
     /// Manages stimulus delivery based on animal behavior within the trigger zone.
     /// The trigger mechanism is selected by the triggerMode field set by CreateTask at generation.
     /// </summary>
+    /// <remarks>
+    /// The experiment driver resolves the appetitive or aversive valence from the trial name, so this zone reports
+    /// only the valence-agnostic outcome.
+    /// </remarks>
     public class StimulusTriggerZone : MonoBehaviour, IResettable
     {
         /// <summary>The cause value published when the animal's own behavior produced the outcome.</summary>
@@ -36,6 +27,10 @@ namespace SL.Tasks
         /// <summary>
         /// The trigger mechanism this zone uses. Set at task creation time from the trial's trigger_type.
         /// </summary>
+        /// <remarks>
+        /// The mechanism governs how a trial resolves rather than which stimulus the trial delivers, so any stimulus
+        /// type pairs with any mode.
+        /// </remarks>
         public TriggerMode triggerMode = TriggerMode.Interaction;
 
         /// <summary>
@@ -155,13 +150,15 @@ namespace SL.Tasks
         /// <param name="other">The collider that exited the trigger zone.</param>
         private void OnTriggerExit(Collider other)
         {
+            bool wasInZone = _inZone;
             _inZone = false;
 
             // Resolves an interaction trial on the boundary crossing from whether the animal engaged the sensor
             // inside the zone. Physics runs before Update, so an interaction recorded after this zone's last Update
             // reaches here unconsumed and still delivers. The isActive guard keeps the contract at one message per
-            // trial by skipping a trial some delivery path already resolved.
-            if (isActive && triggerMode == TriggerMode.Interaction)
+            // trial by skipping a trial some delivery path already resolved, and the wasInZone guard limits the
+            // resolution to a crossing that a matching entry preceded.
+            if (isActive && wasInZone && triggerMode == TriggerMode.Interaction)
             {
                 TriggerStimulus(delivered: _interactionDetectedInZone, cause: BehaviorCause);
             }
@@ -193,12 +190,14 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>
-        /// Handles interaction mode behavior. When guidance is disabled, the animal must engage an
-        /// interaction sensor in the zone. When guidance is enabled with a GuidanceZone, the animal can
-        /// interact in the zone or reach the guidance zone. When guidance is enabled without a
-        /// GuidanceZone, the stimulus triggers on zone entry.
-        /// </summary>
+        /// <summary>Handles interaction mode behavior.</summary>
+        /// <remarks>
+        /// When guidance is disabled, the animal must engage an interaction sensor in the zone. When guidance is
+        /// enabled with a <see cref="GuidanceZone"/>, the animal can interact in the zone or reach the guidance zone
+        /// nested inside it. When guidance is enabled without a guidance zone, the stimulus triggers on zone entry. A
+        /// lap where the animal enters and then leaves the zone without interacting resolves as an omitted stimulus on
+        /// the boundary crossing.
+        /// </remarks>
         private void UpdateInteractionMode()
         {
             if (_task.requireInteraction)
@@ -215,8 +214,10 @@ namespace SL.Tasks
                 {
                     TriggerStimulus(delivered: true, cause: BehaviorCause);
                 }
-                // Delivers via the guidance fallback when the animal reaches the guidance zone instead.
-                else if (_guidanceZone.inZone)
+                // Delivers via the guidance fallback when the animal reaches the guidance region nested inside this
+                // zone. Requiring both flags keeps a mis-sized parent collider from resolving the trial without the
+                // animal crossing this zone's own boundary.
+                else if (_inZone && _guidanceZone.inZone)
                 {
                     TriggerStimulus(delivered: true, cause: GuidanceCause);
                 }
@@ -231,10 +232,11 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>
-        /// Handles collision mode behavior. The animal fires the stimulus unconditionally by crossing the
-        /// invisible boundary wall (the root trigger collider), with no sensor or occupancy requirement.
-        /// </summary>
+        /// <summary>Handles collision mode behavior.</summary>
+        /// <remarks>
+        /// The animal fires the stimulus unconditionally by crossing the invisible boundary wall, the root trigger
+        /// collider, with no sensor or occupancy requirement.
+        /// </remarks>
         private void UpdateCollisionMode()
         {
             if (_inZone)
@@ -243,13 +245,15 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>
-        /// Handles the occupancy modes. The child OccupancyZone tracks whether the animal occupied the zone
-        /// for the required duration (occupancyMet), and the child OccupancyGuidanceZone reports whether the
-        /// brake fired this lap. OccupancyDisarm and OccupancyArm resolve on the boundary crossing, delivering
-        /// the stimulus for one occupancy outcome and omitting it for the other; OccupancyTrigger delivers
-        /// immediately when occupancy is met and leaves its not-met case for the driver to infer.
-        /// </summary>
+        /// <summary>Handles the occupancy modes.</summary>
+        /// <remarks>
+        /// The child <see cref="OccupancyZone"/> tracks whether the animal occupied the zone for the required
+        /// duration, and the child <see cref="OccupancyGuidanceZone"/> reports whether the brake fired this lap, which
+        /// makes the reported cause guidance. OccupancyDisarm and OccupancyArm resolve on the boundary crossing, where
+        /// OccupancyDisarm delivers the stimulus when occupancy is not met and omits it when occupancy is met, and
+        /// OccupancyArm does the reverse. OccupancyTrigger delivers immediately when occupancy is met and leaves its
+        /// not-met case for the driver to infer.
+        /// </remarks>
         private void UpdateOccupancyMode()
         {
             if (_occupancyZone == null)
@@ -290,6 +294,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Resolves the trial by publishing its outcome over MQTT, then deactivates the zone.</summary>
+        /// <remarks>Each resolved trial publishes exactly one <see cref="StimulusMessage"/>.</remarks>
         /// <param name="delivered">Determines whether the physical stimulus was delivered or omitted.</param>
         /// <param name="cause">The outcome cause: the animal's own behavior or the guidance fallback.</param>
         private void TriggerStimulus(bool delivered, string cause)

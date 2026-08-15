@@ -39,9 +39,13 @@ namespace Gimbl
         /// <summary>The bare displayplacer executable name, resolved through PATH.</summary>
         private const string DisplayPlacerExecutableName = "displayplacer";
 
-        /// <summary>The pre-compiled regex matching xrandr `WxH+L+T` connected-monitor lines.</summary>
+        /// <summary>
+        /// The pre-compiled regex matching xrandr `WxH+L+T` connected-monitor lines. Both offsets accept a leading
+        /// minus, matching the displayplacer pattern, because xrandr reports a display left of or above the origin
+        /// with a negative offset.
+        /// </summary>
         private static readonly Regex LinuxMonitorRegex = new Regex(
-            @"(\d+)x(\d+)\+(\d+)\+(\d+)",
+            @"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)",
             RegexOptions.Compiled
         );
 
@@ -176,11 +180,13 @@ namespace Gimbl
             }
             catch (Exception exception)
             {
-                string startMessage = $"Monitor enumeration: failed to start '{command}': {exception.Message}";
+                // The reported error trails the hint, because its own text carries no terminating punctuation.
+                string startMessage = $"Monitor enumeration: failed to start '{command}'.";
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
                     startMessage += " Install it with 'brew install displayplacer'.";
                 }
+                startMessage += $" Reported error: {exception.Message}";
                 Debug.LogWarning(startMessage);
                 return;
             }

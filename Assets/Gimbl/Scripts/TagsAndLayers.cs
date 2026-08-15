@@ -17,8 +17,8 @@ namespace Gimbl
         /// <summary>The maximum number of tags allowed.</summary>
         private const int MaxTags = 10000;
 
-        /// <summary>The exclusive upper bound on layer slot indices examined (slots 0..30).</summary>
-        private const int MaxLayers = 31;
+        /// <summary>The exclusive upper bound on layer slot indices examined (slots 0..31).</summary>
+        private const int MaxLayers = 32;
 
         /// <summary>Adds a new tag to the project if it does not already exist.</summary>
         /// <param name="tagName">The name of the tag to add.</param>
@@ -62,10 +62,11 @@ namespace Gimbl
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]
             );
             SerializedProperty layersProp = tagManager.FindProperty("layers");
-            if (!PropertyExists(layersProp, start: 0, end: MaxLayers, value: layerName))
+            int layerSlotBound = Math.Min(MaxLayers, layersProp.arraySize);
+            if (!PropertyExists(layersProp, start: 0, end: layerSlotBound, value: layerName))
             {
                 SerializedProperty layerSlot;
-                for (int layerIndex = 8; layerIndex < MaxLayers; layerIndex++)
+                for (int layerIndex = 8; layerIndex < layerSlotBound; layerIndex++)
                 {
                     layerSlot = layersProp.GetArrayElementAtIndex(layerIndex);
                     if (string.IsNullOrEmpty(layerSlot.stringValue))
@@ -83,12 +84,16 @@ namespace Gimbl
         /// <summary>Checks if a value exists in a serialized array property.</summary>
         /// <param name="property">The serialized array property to search.</param>
         /// <param name="start">The starting index for the search.</param>
-        /// <param name="end">The exclusive upper bound (one past the last index) for the search.</param>
+        /// <param name="end">
+        /// The exclusive upper bound (one past the last index) for the search, clamped to the number of elements the
+        /// property stores.
+        /// </param>
         /// <param name="value">The value to search for.</param>
         /// <returns>True if the value exists in the property range.</returns>
         private static bool PropertyExists(SerializedProperty property, int start, int end, string value)
         {
-            for (int elementIndex = start; elementIndex < end; elementIndex++)
+            int searchBound = Math.Min(end, property.arraySize);
+            for (int elementIndex = start; elementIndex < searchBound; elementIndex++)
             {
                 SerializedProperty element = property.GetArrayElementAtIndex(elementIndex);
                 if (element.stringValue.Equals(value, StringComparison.Ordinal))

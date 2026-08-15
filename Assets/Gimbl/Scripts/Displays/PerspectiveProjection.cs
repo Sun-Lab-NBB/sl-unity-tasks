@@ -37,8 +37,16 @@ namespace Gimbl
         /// <summary>The material for brightness adjustment post-processing.</summary>
         public Material material;
 
-        /// <summary>The mesh type of the projection screen (Plane or Quad), resolved on first UpdateView.</summary>
+        /// <summary>
+        /// The mesh type of the projection screen (Plane or Quad), re-read whenever the screen mesh changes.
+        /// </summary>
         private string _meshType;
+
+        /// <summary>The mesh filter of the projection screen the mesh type was last read from.</summary>
+        private MeshFilter _screenMeshFilter;
+
+        /// <summary>The screen mesh the cached mesh type was read from.</summary>
+        private Mesh _resolvedMesh;
 
         /// <summary>The camera component for this projection.</summary>
         private Camera _cameraComponent;
@@ -69,9 +77,17 @@ namespace Gimbl
             {
                 return;
             }
-            if (_meshType == null)
+            if (_screenMeshFilter == null || _screenMeshFilter.gameObject != projectionScreen)
             {
-                _meshType = projectionScreen.GetComponent<MeshFilter>().sharedMesh.name;
+                _screenMeshFilter = projectionScreen.GetComponent<MeshFilter>();
+            }
+            Mesh screenMesh = _screenMeshFilter.sharedMesh;
+            bool meshTypeRefreshed = false;
+            if (_meshType == null || screenMesh != _resolvedMesh)
+            {
+                _meshType = screenMesh.name;
+                _resolvedMesh = screenMesh;
+                meshTypeRefreshed = true;
             }
             if (_cameraComponent == null)
             {
@@ -82,9 +98,9 @@ namespace Gimbl
                 return;
             }
 
-            Vector3 screenLowerLeft = new Vector3();
-            Vector3 screenLowerRight = new Vector3();
-            Vector3 screenUpperLeft = new Vector3();
+            Vector3 screenLowerLeft;
+            Vector3 screenLowerRight;
+            Vector3 screenUpperLeft;
             switch (_meshType)
             {
                 case "Plane":
@@ -97,6 +113,17 @@ namespace Gimbl
                     screenLowerRight = projectionScreen.transform.TransformPoint(new Vector3(0.5f, -0.5f, 0.0f));
                     screenUpperLeft = projectionScreen.transform.TransformPoint(new Vector3(-0.5f, 0.5f, 0.0f));
                     break;
+                default:
+                    // The warning is bound to the mesh resolution rather than to the frame, so a screen that keeps an
+                    // unsupported mesh reports once instead of once per LateUpdate.
+                    if (meshTypeRefreshed)
+                    {
+                        string meshMessage =
+                            $"Unable to update the off-axis projection of '{name}'. The mesh of projection screen "
+                            + $"'{projectionScreen.name}' must be named Plane or Quad, but it is named '{_meshType}'.";
+                        Debug.LogWarning(meshMessage);
+                    }
+                    return;
             }
 
             Vector3 eyePosition = transform.position;

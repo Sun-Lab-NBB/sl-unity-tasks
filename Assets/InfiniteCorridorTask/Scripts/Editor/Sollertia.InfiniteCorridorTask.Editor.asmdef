@@ -1,0 +1,20 @@
+{
+    "name": "Sollertia.InfiniteCorridorTask.Editor",
+    "rootNamespace": "SL.Tasks",
+    "references": [
+        "Sollertia.Gimbl",
+        "Sollertia.Gimbl.Editor",
+        "Sollertia.InfiniteCorridorTask"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

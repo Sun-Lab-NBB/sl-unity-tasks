@@ -8,39 +8,8 @@ architecture and the existing patterns, and it guards the MQTT contract shared w
 
 ## Autonomy boundaries
 
-This project supports exactly one VR paradigm, the **infinite linear corridor**. The boundary below records whether an
-author-derived recipe exists, not whether you are capable. Past the boundary you MUST consult the human supervisor and
-work in a generative, collaborative mode (co-design, get sign-off, co-implement) rather than executing autonomously.
-
-**Within-corridor work is agent-autonomous.** A new corridor task variant runs end to end through templates and the
-`McpBridge` relay without human intervention: author the YAML template, materialize it with `create_task_tool` (see
-`/task-templates` and `/task-prefabs`), select any of the five existing `trigger_type` modes per trial (`interaction`,
-`collision`, `occupancy_disarm`, `occupancy_arm`, `occupancy_trigger`), then configure the generated scene through
-`Window → Task Parameters` (see `/scene-setup` and `/task-parameters`), inspect the prefabs, and drive Play Mode.
-
-**New trigger zone types are agent-led but recipe-bound.** The recipe spans the `/zone-prefabs` clone workflow and its
-worked examples, the `/task-generator` pipeline edits, and the `/library-extension` Python `TriggerType` registration.
-It holds as long as the new mode is a zone modifier on a copied zone prefab whose root subclasses
-`StimulusTriggerZone` and publishes the standard `Stimulus` event. This tier authors C# and clones a base prefab with
-`clone_zone_prefab_tool`, so it MUST be verified with `inspect_prefab_tool`.
-
-**Beyond the recipe, you MUST escalate to the human supervisor.** The items below have no author-derived recipe, so
-treat them as collaborative, human-supervised work and do NOT attempt them autonomously:
-- A new VR paradigm or topology (T-maze, Y-maze, open field, branching or 2D mazes), or any change to `Task.cs`
-  traversal mechanics, the corridor encoding, or `CreateTask` corridor assembly. The invariants are baked into
-  `Task.cs` (forward-only Z traversal, single-axis teleport, base-`trialCount` encoding) and `CreateTask.cs` (segment
-  concatenation along Z, corridor spacing along X).
-- A new scene topology or Display rig other than the corridor scene `create_task_tool` copies from
-  `ExperimentTemplate.unity`.
-- A trigger behavior that cannot be expressed as a zone modifier publishing the standard `Stimulus` event, meaning one
-  that needs a new MQTT topic, new `Task.cs` runtime mechanics, or geometry outside a single corridor segment.
-- A new `TaskTemplate` or `VREnvironment` field or class, which is a coordinated two-repo schema change with the Python
-  originals in `sollertia-shared-assets`.
-
-**New cue textures hand off cleanly to the user.** You cannot author PNG or other binary texture assets. When a
-template needs a texture that is not already under `Assets/InfiniteCorridorTask/Textures/`, you MUST stop and state
-the intended cue `name`, `code`, `length_cm`, and target filename, then let the user supply the asset and loop you
-back to finish generation. You MUST NOT let generation dead-end in a `Failed to load texture` error.
+`.claude/rules/autonomy-boundaries.md` autoloads alongside this file and records which corridor work is
+agent-autonomous, which trigger zone work is recipe-bound, and which changes you MUST escalate to the human supervisor.
 
 ## Style guide compliance
 
@@ -125,7 +94,7 @@ mode unmapped and a config using it then raises a clear "not mapped to a runtime
 This project does not host a standalone MCP server. The `McpBridge` editor plugin
 (`Assets/InfiniteCorridorTask/Scripts/Editor/McpBridge.cs`) starts an HTTP listener on `127.0.0.1:8090`, `[::1]:8090`,
 and `localhost:8090` when the Unity Editor loads. The backing MCP server is `slsa mcp` from `sollertia-shared-assets`,
-whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. The bridge dispatches 14 tools
+whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. The bridge dispatches 15 tools
 in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the source of
 truth. Four conventions bind any new tool:
 
@@ -171,8 +140,8 @@ schema gains a field, add a matching `[Serializable]` field to the C# class. The
 
 The Unity project source, the `McpBridge` relay, and the task templates live in this repository. Claude Code skills and
 MCP server registration are distributed separately through two marketplaces, so a skill edit lands in the owning
-marketplace repository rather than here, and a bridge tool change edits `McpBridge.cs` here plus its `@mcp.tool()`
-wrapper in `sollertia-shared-assets`.
+marketplace repository rather than here. A bridge tool change edits `McpBridge.cs` here plus its `@mcp.tool()` wrapper
+in `sollertia-shared-assets`.
 
 ## Project context
 
@@ -198,6 +167,7 @@ by `sollertia-experiment`.
 | `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes           |
 | `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions    |
 | `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                          |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers  |
 
 ### Architecture
 
@@ -208,15 +178,15 @@ by `sollertia-experiment`.
   `vr_environment` geometry scalar. Per-mode geometric zone validation lives in the shared-assets Python
   `TaskTemplate`, not here.
 - **Task runtime**: `Task` (`Assets/InfiniteCorridorTask/Scripts/Task.cs`) keys a `_corridorMap` by a base-`trialCount`
-  encoding of the current segment combination, pre-generates the random maze sequence with an optional seed, and
+  encoding of the current segment combination and pre-generates the random maze sequence with an optional seed. It
   teleports the actor to the next corridor once the current corridor's first segment is traversed.
 - **Zone composition**: `StimulusTriggerZone` dispatches on a `TriggerMode` enum that `CreateTask` sets from the
   trial's `trigger_type`. Every mode publishes one `StimulusMessage { trialName, delivered, cause }` per trial on the
   `Stimulus` topic and adds no MQTT topics, where `cause` is `behavior` or `guidance`. `OccupancyZone` exposes a
   generic `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches the
-  `StimulusTriggerZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the corridor advance
-  drives every per-lap reset, so a standalone `IResettable` needs its own `FindObjectsByType` line there. See
-  `/zone-prefabs`.
+  `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
+  corridor advance drives every per-lap reset, so a standalone `IResettable` needs its own `FindObjectsByType` line
+  there. See `/zone-prefabs`.
 - **CreateTask pipeline**: `CreateTask.CreateFromTemplate` runs a cross-template cue-texture preflight, regenerates
   every segment prefab the template owns, reuses cue prefabs keyed by `(name, lengthCm)`, and places the zones. All
   five `trigger_type` literals dispatch onto the two hand-authored zone prefabs. See `/task-generator`.
@@ -245,11 +215,15 @@ tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's 
 
 ### Code standards
 
-- Unity `6000.3.15f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
+- Unity `6000.3.22f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
 - 120 character line limit enforced by CSharpier (`.csharpierrc.yaml`), with naming, brace style, and spacing enforced
   by `.editorconfig`.
 - Allman brace style, `_camelCase` private fields, PascalCase public properties and methods, camelCase Inspector
   fields, and XML documentation on every public and private member. See `/csharp-style` for the full checklist.
+- Every script compiles into a named assembly declared by an `.asmdef`, because a test assembly is unable to reference
+  Unity's predefined `Assembly-CSharp`. A new script folder sits inside an existing assembly's subtree or declares its
+  own `.asmdef` and is referenced from the assemblies that consume it. The README's "Assembly Definitions" section is
+  the catalog.
 
 ### Project-specific conventions
 
@@ -298,7 +272,16 @@ allow-list for each enum field) and `visibility` (whether each conditionally-ren
 that violate either are rejected with a descriptive error. Editor-time writes to `task.require_interaction` and
 `task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run toggles.
 
-**Before committing**: run `csharpier format .`, invoke `/audit-project` to run the four audits over the changed
-files, and invoke `/commit` to stage and write the message. The Editor menu `CreateTask → New Task` and a single
-`create_task_tool(template_name=…)` call share `CreateTask.CreateFromTemplate` and `CreateTask.CreateSceneFromTemplate`,
-so the agentic and manual paths produce byte-equivalent assets.
+**Adding or running tests**: `Assets/Tests/EditMode/` drives the private Unity lifecycle callbacks through the Support
+assembly's `PrivateAccess` helper, so it stays deterministic without frames or physics. A test belongs in
+`Assets/Tests/PlayMode/` when it needs real frames, real trigger callbacks, real elapsed time, or the engine-invoked
+`Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering. `Assets/Tests/Support/` holds the `PrivateAccess` reflection
+accessor, the staged template workspace, the task template YAML builder, the in-process MQTT harness, and the trigger
+zone rig that both assemblies draw on. Run the suite from `Window → General → Test Runner`, or headlessly with
+`Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults out.xml`, which requires the
+Editor closed on that project because Unity holds a per-project lock.
+
+**Before committing**: run `csharpier format .`, run both test platforms, invoke `/audit-project` to run the four
+audits over the changed files, and invoke `/commit` to stage and write the message. The Editor menu
+`CreateTask → New Task` and a single `create_task_tool(template_name=…)` call share `CreateTask.CreateFromTemplate` and
+`CreateTask.CreateSceneFromTemplate`, so the agentic and manual paths produce byte-equivalent assets.

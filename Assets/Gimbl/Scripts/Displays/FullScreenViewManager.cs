@@ -1,9 +1,8 @@
 /// <summary>
 /// Provides the FullScreenViewManager class for multi-monitor VR display management.
 ///
-/// Manages camera-to-monitor assignments and borderless full-screen game views that run
-/// with the Unity editor active, enabling VR studies that use sets of adjacent monitors
-/// to display the world. Camera assignments are persisted in per-scene asset files.
+/// Manages camera-to-monitor assignments and borderless full-screen game views that run with the Unity editor active,
+/// enabling VR studies that use sets of adjacent monitors to display the world.
 /// </summary>
 #if UNITY_EDITOR
 using System.Collections.Generic;
@@ -15,15 +14,13 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Manages camera-to-monitor assignments and full-screen view creation.
-    /// </summary>
+    /// <summary>Manages camera-to-monitor assignments and full-screen view creation.</summary>
     /// <remarks>
-    /// The constructor unconditionally calls <see cref="LoadCameras"/>, which leaves
-    /// <see cref="_savedFullScreenViews"/> non-null whenever the active scene has a non-empty name.
-    /// An untitled active scene leaves the field null (no persistence path exists yet), and
-    /// <see cref="SaveCameras"/> no-ops in that state instead of writing an orphan asset with a hyphen-
-    /// prefixed filename.
+    /// Camera assignments are persisted in per-scene asset files. The constructor unconditionally calls
+    /// <see cref="LoadCameras"/>, which leaves <see cref="_savedFullScreenViews"/> non-null whenever the active scene
+    /// has a non-empty name. An untitled active scene leaves the field null (no persistence path exists yet), and
+    /// <see cref="SaveCameras"/> no-ops in that state instead of writing an orphan asset with a hyphen-prefixed
+    /// filename.
     /// </remarks>
     public class FullScreenViewManager
     {

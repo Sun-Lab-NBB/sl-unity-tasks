@@ -85,13 +85,18 @@ namespace Gimbl
             : base(topicString, isListener, qosLevel) { }
 
         /// <summary>Handles received messages by deserializing JSON and invoking the typed receivedEvent.</summary>
+        /// <remarks>
+        /// The event is invoked outside the try block so that an exception raised by a subscriber propagates as
+        /// itself, leaving the deserialization failure message for payloads the parser actually rejected.
+        /// </remarks>
         /// <param name="messageString">The received JSON message string.</param>
+        /// <exception cref="InvalidOperationException">The payload cannot be deserialized into TMessage.</exception>
         public override void ReceivedMessage(string messageString)
         {
+            TMessage message;
             try
             {
-                TMessage message = JsonUtility.FromJson<TMessage>(messageString);
-                receivedEvent.Invoke(message);
+                message = JsonUtility.FromJson<TMessage>(messageString);
             }
             catch (Exception exception)
             {
@@ -100,6 +105,8 @@ namespace Gimbl
                     exception
                 );
             }
+
+            receivedEvent.Invoke(message);
         }
 
         /// <summary>Publishes a typed message as JSON to this channel's topic.</summary>
@@ -107,6 +114,24 @@ namespace Gimbl
         public void Send(TMessage message)
         {
             client.Publish(topic, Encoding.UTF8.GetBytes(JsonUtility.ToJson(message)));
+        }
+
+        /// <summary>Rejects the parameterless publish inherited from the base channel.</summary>
+        /// <remarks>
+        /// A typed topic carries a JSON payload, so the empty payload this overload would publish reaches every
+        /// typed listener on that topic as a null message. Hiding the overload turns that silent loss into a
+        /// failure at the call site, and a caller that genuinely wants a trigger message publishes it through a
+        /// base <see cref="MQTTChannel"/> on its own topic.
+        /// </remarks>
+        /// <exception cref="NotSupportedException">Always, because the typed channel publishes typed payloads.
+        /// </exception>
+        public new void Send()
+        {
+            string message =
+                $"Unable to publish a trigger message on the typed channel for topic '{topic}'. A "
+                + $"MQTTChannel<{typeof(TMessage).Name}> must publish through its Send(TMessage) overload, but the "
+                + "parameterless overload inherited from MQTTChannel was called.";
+            throw new NotSupportedException(message);
         }
 
         /// <summary>The typed Unity event class for this channel.</summary>

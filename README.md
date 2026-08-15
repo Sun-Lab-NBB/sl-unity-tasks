@@ -3,7 +3,7 @@
 Provides assets for creating and executing Virtual Reality (VR) tasks for Sollertia platform data acquisition systems.
 
 [![C#](https://tinyurl.com/bdd689s9)](https://docs.microsoft.com/en-us/dotnet/csharp/)
-[![Unity](https://img.shields.io/badge/Unity-6000.3.15f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
+[![Unity](https://img.shields.io/badge/Unity-6000.3.22f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ___
@@ -12,9 +12,8 @@ ___
 
 This project is part of the [Sollertia](https://github.com/Sun-Lab-NBB/sollertia) AI-assisted scientific data
 acquisition and processing platform, built on the [Ataraxis](https://github.com/Sun-Lab-NBB/ataraxis) framework and
-developed in the Sun (NeuroAI) lab at Cornell University. It provides the Unity-side assets and runtime bindings for
-building VR tasks consumed by Sollertia platform data acquisition systems. The current task surface targets an
-**infinite linear corridor** environment displayed to the animal during runtime across a three-monitor VR rig.
+developed in the Sun (NeuroAI) lab at Cornell University. The current task surface targets an **infinite linear
+corridor** environment displayed to the animal during runtime across a three-monitor VR rig.
 
 This project is the Unity counterpart of [sollertia-experiment](https://github.com/Sun-Lab-NBB/sollertia-experiment),
 the Python acquisition runtime. The two libraries communicate over an [MQTT 5.0](https://mqtt.org/) broker:
@@ -36,8 +35,8 @@ ___
 - Supports five stimulus trigger modes (interaction, collision, occupancy-disarm, occupancy-arm, occupancy-trigger)
   with optional guidance modes.
 - Supports probabilistic transitions between trial structures within a single task template.
-- Ships an HTTP-based McpBridge that exposes 14 Editor operations to AI agents (task lifecycle, scene management,
-  asset inspection, Play Mode control, parameter read/write).
+- Ships an HTTP-based McpBridge that exposes 15 Editor operations to AI agents (task lifecycle, scene management,
+  asset inspection, Play Mode control, parameter read/write, monitor refresh).
 - Maintains a bidirectional MQTT 5.0 contract with
   [sollertia-experiment](https://github.com/Sun-Lab-NBB/sollertia-experiment), centralized in a single `MQTTTopics`
   constant set.
@@ -61,7 +60,9 @@ ___
   - [Editor MCP Bridge](#editor-mcp-bridge)
 - [Developers](#developers)
   - [Project Layout Conventions](#project-layout-conventions)
+  - [Assembly Definitions](#assembly-definitions)
   - [Formatting and Style](#formatting-and-style)
+  - [Testing](#testing)
   - [Extending the Library](#extending-the-library)
   - [AI-Assisted Development](#ai-assisted-development)
 - [Versioning](#versioning)
@@ -75,10 +76,15 @@ ___
 
 External requirements that must be installed before working with this Unity project:
 
-- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.15f1 LTS** (Unity 6). Installed via
+- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.22f1 LTS** (Unity 6). Installed via
   [Unity Hub](https://unity.com/download).
 - An [MQTT broker](https://mosquitto.org/) supporting **MQTT 5.0**, such as Mosquitto 2.0 or later. The project
   defaults to `127.0.0.1:1883` for the broker. Both the IP and port are configurable from the Task Parameters window.
+- A monitor enumeration helper, on macOS and Linux only, required for the Camera Mapping surface that assigns display
+  cameras to physical monitors. macOS uses [displayplacer](https://github.com/jakehilborn/displayplacer), installed
+  with `brew install displayplacer` and resolved from either Homebrew prefix or the `PATH`. Linux uses `xrandr` from
+  the X11 server utilities, resolved from the `PATH`. Windows enumerates monitors through the operating system and
+  needs no helper. Without the helper, Camera Mapping lists no monitors and full-screen views cannot be assigned.
 - [Blender](https://www.blender.org/download/) **4.5.0 LTS** is required only for authoring or modifying 3D assets
   (corridor models). It is not required to build or run existing tasks.
 - [.NET SDK](https://dotnet.microsoft.com/download) **8.0 or later** and [CSharpier](https://csharpier.com/) **1.x**
@@ -96,7 +102,7 @@ ___
 This project is a Unity 6 application that is not distributed via package managers. To install:
 
 1. Install [Unity Hub](https://unity.com/download) and use it to install the required Unity Editor version
-   (**6000.3.15f1 LTS**).
+   (**6000.3.22f1 LTS**).
 2. Download this repository to the local machine using the preferred method, such as git-cloning. Use one of the
    [stable releases](https://github.com/Sun-Lab-NBB/sollertia-virtual-reality/tags) when available.
 3. From Unity Hub, select **Add project from disk** and navigate to the local folder containing the downloaded
@@ -135,6 +141,7 @@ McpBridge's protected-paths list. Generated assets live under separate folders a
 | `Assets/Textures/`                            | Wall texture source art (`woodplank.psd`, used by `Wall.mat`)              |
 | `Assets/VRSettings/`                          | Display settings plus per-scene `savedFullScreenViews` companions          |
 | `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                 |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their shared support helpers  |
 
 ### Task Runtime Structure
 
@@ -195,11 +202,11 @@ On disk, a task lives as three artifacts that share the same basename. The templ
 The task prefab and the task scene are derived from it, and the three files together represent one task end to end:
 
 ```text
-<name>.yaml      ─┐  the template — an abstract description of the task's cues, trials, and transitions
+<name>.yaml      ─┐  the template: an abstract description of the task's cues, trials, and transitions
                   ▼
-<name>.prefab    ─┐  the task prefab — the runtime hierarchy of corridors, segments, and cues
+<name>.prefab    ─┐  the task prefab: the runtime hierarchy of corridors, segments, and cues
                   ▼  introduced in the previous section, built from the template
-<name>.unity     ─┐  the task scene — a runnable scene that instantiates the task prefab and wraps
+<name>.unity     ─┐  the task scene: a runnable scene that instantiates the task prefab and wraps
                   ▼  it in the auxiliary infrastructure a session needs
 ```
 
@@ -423,11 +430,11 @@ These notes apply to project developers and task authors who modify source code,
 
 Three categories of assets coexist in this project:
 
-- **Hand-authored** (protected): `StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`,
-  `Padding.prefab`, `Materials/_CueShaderReference.mat`, `Materials/Floor.mat`, `Materials/Wall.mat`,
-  `Materials/TargetMat.mat`, and `Scenes/ExperimentTemplate.unity`. These are the source templates and shared assets
-  that `CreateTask` references at generation time (and that the trigger zone prefabs reference in turn via
-  `TargetMat.mat`). They must remain untouched, and `McpBridge.DeleteProtectedPaths` refuses to delete them.
+- **Hand-authored** (protected): `StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`, `Padding.prefab`,
+  `Materials/_CueShaderReference.mat`, `Materials/Floor.mat`, `Materials/Wall.mat`, `Materials/TargetMat.mat`, and
+  `Scenes/ExperimentTemplate.unity`. These are the source templates and shared assets that `CreateTask` references at
+  generation time (and that the trigger zone prefabs reference in turn via `TargetMat.mat`). They must remain untouched,
+  and `McpBridge.DeleteProtectedPaths` refuses to delete them.
 - **Generated** (regenerable): every cue prefab under `Cues/`, every segment prefab under `Prefabs/` matching
   `<TemplateName>-<TrialName>.prefab`, every cue material under `Materials/Cue_*_*cm.mat`, every prefab under `Tasks/`,
   and every scene other than `ExperimentTemplate.unity`. These are produced by `CreateTask` and are safe to delete via
@@ -442,12 +449,62 @@ the cue requires deleting the affected `Cue_<name>_<length>cm.prefab` and `Cue_<
 regenerating. `BuildCuePrefabs` aborts when a cached cue material was built from a different texture, and the
 cross-template cue-texture preflight catches the same conflict when two templates disagree.
 
+### Assembly Definitions
+
+Every script in the project compiles into a named assembly rather than into Unity's predefined `Assembly-CSharp`,
+because a test assembly is unable to reference a predefined one. A new script folder therefore joins an existing
+assembly by sitting inside its subtree, or declares its own `.asmdef` and is referenced from the assemblies that
+consume it.
+
+| Assembly                                | Folder                                        | References                                                 |
+|-----------------------------------------|-----------------------------------------------|------------------------------------------------------------|
+| `Sollertia.Gimbl`                       | `Assets/Gimbl/Scripts/`                       | `Unity.InputSystem`                                        |
+| `Sollertia.Gimbl.Editor`                | `Assets/Gimbl/Editor/`                        | Gimbl, InfiniteCorridorTask                                |
+| `Sollertia.InfiniteCorridorTask`        | `Assets/InfiniteCorridorTask/Scripts/`        | Gimbl                                                      |
+| `Sollertia.InfiniteCorridorTask.Editor` | `Assets/InfiniteCorridorTask/Scripts/Editor/` | Gimbl, Gimbl.Editor, corridor runtime                      |
+| `Sollertia.UI`                          | `Assets/UI-lick-reward/`                      | Gimbl, InfiniteCorridorTask                                |
+| `Sollertia.Tests.Support`               | `Assets/Tests/Support/`                       | every runtime assembly, UnityEngine.TestRunner             |
+| `Sollertia.Tests.EditMode`              | `Assets/Tests/EditMode/`                      | every assembly above, both TestRunner assemblies           |
+| `Sollertia.Tests.PlayMode`              | `Assets/Tests/PlayMode/`                      | runtime assemblies and Support, both TestRunner assemblies |
+
+The two editor assemblies and `Sollertia.Tests.EditMode` are `Editor` platform only, and all three test assemblies are
+gated on the `UNITY_INCLUDE_TESTS` define constraint so none of them compiles into a player build. `MQTTnet.dll` and
+`YamlDotNet.dll` are auto-referenced plugins for the production assemblies and are listed explicitly by the three test
+assemblies, which override their references to pick up `nunit.framework.dll`.
+
 ### Formatting and Style
 
 This project uses [CSharpier](https://csharpier.com/) for code formatting and an `.editorconfig` for naming, brace,
 and spacing conventions. Run `csharpier format .` before committing, or `csharpier check .` to verify without writing.
 See the `/csharp-style` skill in the ataraxis marketplace's **automation** plugin for the complete C# convention
 reference.
+
+### Testing
+
+The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds three groups. The first drives the runtime
+state machines directly through their private lifecycle callbacks, which keeps them deterministic and free of frame
+timing. The second covers the editor-only surface (`CreateTask`, `McpBridge`, `MainWindow`, `Monitor`, the full-screen
+view classes). The third covers the pure schema and serialization classes (`ConfigLoader`, `TaskTemplate`, `Cue`,
+`TrialStructure`, `VREnvironment`, `MiniJson`, `MQTTTopics`). Edit Mode is the only place the editor group can live,
+because `Sollertia.Tests.EditMode` is the only test assembly that references `Sollertia.Gimbl.Editor` and
+`Sollertia.InfiniteCorridorTask.Editor`. `Assets/Tests/PlayMode/` holds the tests that need real frames, real physics
+trigger callbacks, and real elapsed time. `Assets/Tests/Support/` holds the helpers both share: a reflection accessor
+for private Unity callbacks, a staged template-and-texture workspace, a task template YAML builder, an in-process MQTT
+harness, and a trigger zone rig.
+
+The MQTT harness needs no broker. `MQTTClient.Publish` routes to in-process subscribers whenever the client is
+disconnected, so a test observes exactly what the production publish path produced and drives the real listeners the
+code under test registered.
+
+Run the suite from `Window → General → Test Runner`, or headlessly:
+
+```bash
+Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults editmode-results.xml
+Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -testResults playmode-results.xml
+```
+
+***Note,*** Unity holds a per-project lock, so a headless run requires the Editor to be closed on that project. Copy
+the project directory and run against the copy to keep an Editor session open.
 
 ### Extending the Library
 
@@ -464,19 +521,19 @@ The project exposes six concentrated extension points. Each has a matching skill
 | New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework` |
 
 **Adding a new trigger zone type** is the most cross-cutting extension. The `/zone-prefabs` skill drives the
-`clone_zone_prefab` bridge tool for the prefab itself: it copies `StimulusTriggerZone.prefab` (interaction and
-collision modes) or `OccupancyTriggerZone.prefab` (the three occupancy modes) under `Prefabs/`, swaps the root and
-region modifier scripts, renames regions, and overrides field defaults through Unity's serialization layer, with a
-manual copy-and-edit YAML route documented as the fallback. The new prefab path must then be added to
+`clone_zone_prefab` bridge tool for the prefab itself: it copies `StimulusTriggerZone.prefab` (interaction and collision
+modes) or `OccupancyTriggerZone.prefab` (the three occupancy modes) under `Prefabs/`. It swaps the root and region
+modifier scripts, renames regions, and overrides field defaults through Unity's serialization layer. A manual
+copy-and-edit YAML route serves as the documented fallback. The new prefab path must then be added to
 `McpBridge.DeleteProtectedPaths`, a new branch must be added in `CreateTask.BuildSegmentPrefabs` with a matching
-`Place...Zone` helper, and `ConfigLoader.ValidateTemplate` must accept the new `trigger_type` literal. `CreateTask`
-sets the `TriggerMode` enum field on `StimulusTriggerZone` from the `trigger_type`, and the zone dispatches on that
-enum. The Python side requires a matching `TriggerType` registry update via the `/library-extension` skill in the
-**assets** plugin. Adding a `TriggerType` member does **not** require a `from_task_template` branch in every
-acquisition system: the platform `TriggerType` enum carries all members, but each system maps only the subset it
-supports and may leave a mode unmapped. A config that uses an unmapped mode raises a clear "not mapped to a runtime
-trial class" error. The Mesoscope-VR system, for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and
-`occupancy_disarm` (`MesoscopeGasPuffTrial`), and does not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
+`Place...Zone` helper, and `ConfigLoader.ValidateTemplate` must accept the new `trigger_type` literal. `CreateTask` sets
+the `TriggerMode` enum field on `StimulusTriggerZone` from the `trigger_type`, and the zone dispatches on that enum. The
+Python side requires a matching `TriggerType` registry update via the `/library-extension` skill in the **assets**
+plugin. Adding a `TriggerType` member does **not** require a `from_task_template` branch in every acquisition system:
+the platform `TriggerType` enum carries all members, but each system maps only the subset it supports and may leave a
+mode unmapped. A config that uses an unmapped mode raises a clear "not mapped to a runtime trial class" error. The
+Mesoscope-VR system, for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and `occupancy_disarm`
+(`MesoscopeGasPuffTrial`), and does not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
 
 **Adding a new MQTT topic** requires the constant in `MQTTTopics.cs` (with `Direction`, `Payload`, and `Callers`
 remarks), a runtime script that publishes or subscribes, an in-lockstep update in sollertia-experiment, and a refresh

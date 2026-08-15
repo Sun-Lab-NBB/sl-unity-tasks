@@ -1,6 +1,7 @@
 /// <summary>
 /// Provides the LickStimulusSpawner class that spawns UI indicators for lick and stimulus MQTT events.
 /// </summary>
+using System.Threading;
 using Gimbl;
 using SL.Tasks;
 using UnityEngine;
@@ -27,11 +28,20 @@ namespace SL.UI
         /// <summary>The MQTT channel for receiving stimulus outcome messages.</summary>
         private MQTTChannel<StimulusTriggerZone.StimulusMessage> _stimulus;
 
-        /// <summary>Determines whether a lick indicator should be shown on the next Update.</summary>
-        private bool _showLick = false;
+        /// <summary>The number of lick indicators awaiting instantiation on the next Update.</summary>
+        /// <remarks>
+        /// The broker delivery path invokes the channel callback on an MQTTnet worker thread while Update reads the
+        /// count on the main thread, so every access goes through <see cref="Interlocked"/> or
+        /// <see cref="Volatile"/>. A count rather than a flag renders one indicator per event when several events
+        /// land inside a single frame.
+        /// </remarks>
+        private int _pendingLickCount;
 
-        /// <summary>Determines whether a stimulus indicator should be shown on the next Update.</summary>
-        private bool _showStimulus = false;
+        /// <summary>The number of stimulus indicators awaiting instantiation on the next Update.</summary>
+        private int _pendingStimulusCount;
+
+        /// <summary>Determines whether the unassigned canvas or prefab error has already been reported.</summary>
+        private bool _missingReferenceReported;
 
         /// <summary>Sets up MQTT channels and registers event listeners.</summary>
         private void Start()
@@ -42,45 +52,105 @@ namespace SL.UI
             _stimulus.receivedEvent.AddListener(OnStimulus);
         }
 
-        /// <summary>Checks for pending indicators and spawns UI prefabs on the main thread.</summary>
+        /// <summary>Spawns one UI indicator per pending event on the main thread.</summary>
         private void Update()
         {
-            TrySpawn(ref _showLick, lickPrefab);
-            TrySpawn(ref _showStimulus, stimulusPrefab);
+            SpawnPending(ref _pendingLickCount, lickPrefab, "lick");
+            SpawnPending(ref _pendingStimulusCount, stimulusPrefab, "stimulus");
         }
 
-        /// <summary>Removes MQTT event listeners when this component is destroyed.</summary>
+        /// <summary>Removes the MQTT event listeners and the channel routing entries when destroyed.</summary>
         private void OnDestroy()
         {
-            _lick?.receivedEvent.RemoveListener(OnLick);
-            _stimulus?.receivedEvent.RemoveListener(OnStimulus);
+            if (_lick != null)
+            {
+                _lick.receivedEvent.RemoveListener(OnLick);
+                ReleaseChannel(_lick);
+            }
+
+            if (_stimulus != null)
+            {
+                _stimulus.receivedEvent.RemoveListener(OnStimulus);
+                ReleaseChannel(_stimulus);
+            }
         }
 
-        /// <summary>Flags a lick indicator to be shown on the next Update cycle.</summary>
+        /// <summary>Records one pending lick indicator to be spawned on the next Update cycle.</summary>
         private void OnLick()
         {
-            _showLick = true;
+            Interlocked.Increment(ref _pendingLickCount);
         }
 
-        /// <summary>Flags a stimulus indicator to be shown on the next Update cycle when one is delivered.</summary>
+        /// <summary>Records one pending stimulus indicator on the next Update cycle when one is delivered.</summary>
         /// <param name="message">The stimulus outcome message reporting whether the stimulus was delivered.</param>
         private void OnStimulus(StimulusTriggerZone.StimulusMessage message)
         {
             if (message.delivered)
             {
-                _showStimulus = true;
+                Interlocked.Increment(ref _pendingStimulusCount);
             }
         }
 
-        /// <summary>Consumes the pending flag and instantiates the supplied prefab on the canvas.</summary>
-        /// <param name="flag">The pending-show flag, cleared once the prefab is instantiated.</param>
-        /// <param name="prefab">The UI prefab to instantiate when the flag is set.</param>
-        private void TrySpawn(ref bool flag, GameObject prefab)
+        /// <summary>Instantiates one copy of the supplied prefab per pending event on the canvas.</summary>
+        /// <remarks>
+        /// The count is consumed only once the canvas and the prefab both resolve, so an unassigned reference holds
+        /// the indicators for the frame that follows its assignment. The consuming exchange runs before the
+        /// instantiation loop, so an event arriving on the worker thread meanwhile is carried to the next frame.
+        /// </remarks>
+        /// <param name="pendingCount">The pending event count, cleared once the indicators are instantiated.</param>
+        /// <param name="prefab">The UI prefab instantiated once per pending event.</param>
+        /// <param name="indicatorName">The indicator kind named in the unassigned-reference error.</param>
+        private void SpawnPending(ref int pendingCount, GameObject prefab, string indicatorName)
         {
-            if (flag)
+            if (Volatile.Read(ref pendingCount) == 0)
             {
-                flag = false;
-                Instantiate(prefab, canvas.transform);
+                return;
+            }
+
+            if (canvas == null || prefab == null)
+            {
+                ReportMissingReference(indicatorName);
+                return;
+            }
+
+            Transform parent = canvas.transform;
+            int pending = Interlocked.Exchange(ref pendingCount, 0);
+            for (int index = 0; index < pending; index++)
+            {
+                Instantiate(prefab, parent);
+            }
+        }
+
+        /// <summary>Reports an unassigned canvas or prefab once, naming the indicator that cannot be spawned.
+        /// </summary>
+        /// <remarks>
+        /// Update retries every frame for as long as an indicator stays pending, so the report is emitted once to
+        /// keep a single misconfiguration from filling the console.
+        /// </remarks>
+        /// <param name="indicatorName">The indicator kind that cannot be spawned.</param>
+        private void ReportMissingReference(string indicatorName)
+        {
+            if (_missingReferenceReported)
+            {
+                return;
+            }
+            _missingReferenceReported = true;
+
+            string unassignedField = canvas == null ? "canvas" : "prefab";
+            string message =
+                $"Unable to spawn the {indicatorName} indicator of the LickStimulusSpawner on '{name}'. The "
+                + $"{unassignedField} field must reference an assigned object, but it is unassigned. The pending "
+                + "indicators are held until the reference resolves.";
+            Debug.LogError(message);
+        }
+
+        /// <summary>Removes a channel from the routing list of the client that delivers its messages.</summary>
+        /// <param name="channel">The channel to detach from its client.</param>
+        private static void ReleaseChannel(MQTTChannel channel)
+        {
+            if (channel.client != null)
+            {
+                channel.client.Unsubscribe(channel);
             }
         }
     }

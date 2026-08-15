@@ -2,8 +2,7 @@
 /// Provides the McpBridge editor plugin that exposes Unity Editor operations to external MCP relay servers.
 ///
 /// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the
-/// sollertia-virtual-reality MCP relay. Each request specifies a tool name and arguments; the bridge dispatches
-/// to the corresponding Unity Editor API and returns a JSON result.
+/// sollertia-virtual-reality MCP relay.
 /// </summary>
 using System;
 using System.Collections.Concurrent;
@@ -25,6 +24,10 @@ namespace SL.Tasks
     /// HTTP listener that bridges external MCP relay requests to Unity Editor API calls.
     /// Initialized automatically when the Editor loads via <see cref="InitializeOnLoadAttribute"/>.
     /// </summary>
+    /// <remarks>
+    /// Each request specifies a tool name and arguments, and the bridge dispatches to the corresponding Unity Editor
+    /// API and returns a JSON result.
+    /// </remarks>
     [InitializeOnLoad]
     public static class McpBridge
     {
@@ -33,6 +36,12 @@ namespace SL.Tasks
 
         /// <summary>The shared error-protocol prefix returned by <see cref="CreateTask.CreateFromTemplate"/>.</summary>
         private const string CreateTaskErrorPrefix = "error: ";
+
+        /// <summary>The lowest broker port number the mqtt section accepts.</summary>
+        private const int MinimumBrokerPort = 0;
+
+        /// <summary>The highest broker port number the mqtt section accepts.</summary>
+        private const int MaximumBrokerPort = 65535;
 
         /// <summary>
         /// The set of project-relative directory prefixes under which non-scene assets may be deleted via
@@ -302,7 +311,9 @@ namespace SL.Tasks
             // Refuses to clobber an existing scene before generating the prefab so a regeneration cycle
             // is an explicit two-step action: delete_task first, then create_task. Checking up front
             // avoids leaving a regenerated prefab behind without the matching scene on overwrite refusal.
-            if (File.Exists(sceneSavePath))
+            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds
+            // whatever working directory the Editor process runs under.
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sceneSavePath) != null)
             {
                 string message = $"Scene already exists at: {sceneSavePath}. Call delete_task first to regenerate.";
                 return Error(message);
@@ -374,7 +385,9 @@ namespace SL.Tasks
         /// artifacts. Cue prefabs and cue materials are intentionally **not** removed because they are
         /// shared across every template that declares a matching <c>(name, length_cm)</c> identity;
         /// deleting them would corrupt sibling tasks. Use <c>delete_asset</c> for individual cue
-        /// cleanup. The template YAML is also preserved as the source of truth.
+        /// cleanup. The template YAML is also preserved as the source of truth. A companion the
+        /// cascade could not remove is reported under <c>companion_delete_failed</c>, because the
+        /// scene it belonged to is already gone and the orphan is only recoverable by hand.
         /// </remarks>
         /// <param name="args">The tool arguments containing template_name.</param>
         /// <returns>A JSON response listing every deleted path or an error message.</returns>
@@ -395,6 +408,9 @@ namespace SL.Tasks
 
             // Scene deletion is the one delete path that never consults IsDeleteAllowed, so the protected set is
             // checked here directly. Without it a template name matching a hand-authored asset removes that asset.
+            // The scene half is the half the current protected set can fire, because every protected path sits under
+            // Scenes, Prefabs, or Materials. The prefab half is standing defense for the first hand-authored asset to
+            // land under Tasks, which joins DeleteProtectedPaths in the same change that introduces it.
             if (DeleteProtectedPaths.Contains(scenePath) || DeleteProtectedPaths.Contains(prefabPath))
             {
                 string message =
@@ -405,6 +421,7 @@ namespace SL.Tasks
 
             List<string> deletedPaths = new List<string>();
             string companionDeleted = null;
+            string companionError = null;
 
             // Deletes the scene first so Unity can release the active-scene lock before any prefab the
             // scene instantiates is removed. The active-scene swap below is part of this same delete flow.
@@ -418,7 +435,7 @@ namespace SL.Tasks
                 if (AssetDatabase.DeleteAsset(scenePath))
                 {
                     deletedPaths.Add(scenePath);
-                    companionDeleted = TryDeleteScenePerSceneCompanions(scenePath);
+                    companionDeleted = TryDeleteScenePerSceneCompanions(scenePath, out companionError);
                 }
             }
 
@@ -465,6 +482,10 @@ namespace SL.Tasks
             if (companionDeleted != null)
             {
                 response["companion_deleted"] = companionDeleted;
+            }
+            if (companionError != null)
+            {
+                response["companion_delete_failed"] = companionError;
             }
             return Ok(response);
         }
@@ -1049,12 +1070,15 @@ namespace SL.Tasks
         /// <remarks>
         /// Bypasses the standard <see cref="IsDeleteAllowed"/> prefix check because the companion path is
         /// derived from the just-validated scene path, never user-supplied. Currently covers the saved
-        /// full-screen-views asset; extend this method when new per-scene companion assets are introduced.
+        /// full-screen-views asset, and every new per-scene companion asset is added to this method.
         /// </remarks>
         /// <param name="scenePath">The project-relative path of the scene that was just deleted.</param>
-        /// <returns>The companion path that was deleted, or null when no companion existed.</returns>
-        private static string TryDeleteScenePerSceneCompanions(string scenePath)
+        /// <param name="error">A message naming the companion left orphaned by a refused deletion, otherwise null.
+        /// </param>
+        /// <returns>The companion path that was deleted, or null when no companion was deleted.</returns>
+        private static string TryDeleteScenePerSceneCompanions(string scenePath, out string error)
         {
+            error = null;
             if (
                 !scenePath.StartsWith("Assets/Scenes/", StringComparison.Ordinal)
                 || !scenePath.EndsWith(".unity", StringComparison.Ordinal)
@@ -1068,7 +1092,16 @@ namespace SL.Tasks
             {
                 return null;
             }
-            return AssetDatabase.DeleteAsset(companionPath) ? companionPath : null;
+            if (AssetDatabase.DeleteAsset(companionPath))
+            {
+                return companionPath;
+            }
+
+            error =
+                $"Unable to delete the per-scene companion asset at {companionPath}. The companion must be "
+                + "removable for the scene deletion to complete, but Unity refused the deletion, so the companion "
+                + "is now orphaned and has to be removed by hand.";
+            return null;
         }
 
         /// <summary>
@@ -1119,7 +1152,10 @@ namespace SL.Tasks
                 return Error("Missing required argument: scene_path");
             }
 
-            if (!File.Exists(scenePath))
+            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds
+            // whatever working directory the Editor process runs under, and typing the lookup to SceneAsset keeps a
+            // folder or a non-scene asset out of the scene that EditorSceneManager is asked to open.
+            if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
             {
                 return Error($"Scene not found at: {scenePath}");
             }
@@ -1561,10 +1597,11 @@ namespace SL.Tasks
                 TryGetSection(args, "mqtt", out Dictionary<string, object> mqttArgs)
                 && components.Client != null
                 && mqttArgs.TryGetValue("port", out object portObject)
-                && !TryConvertInt(portObject, out _)
+                && !IsBrokerPortInRange(portObject)
             )
             {
-                return $"Invalid port '{portObject}'. Must be a whole number.";
+                return $"Invalid port '{portObject}'. Must be a whole number between {MinimumBrokerPort} and "
+                    + $"{MaximumBrokerPort}.";
             }
 
             if (
@@ -1621,7 +1658,8 @@ namespace SL.Tasks
                 }
                 if (!rowDict.TryGetValue("monitor", out object monitorObject))
                 {
-                    continue;
+                    return "Invalid camera_mapping row. Every row must carry a 'monitor' key holding the one-based "
+                        + "number of the monitor it assigns, but this row carries none.";
                 }
                 if (!TryConvertInt(monitorObject, out int monitorNumber))
                 {
@@ -1698,6 +1736,18 @@ namespace SL.Tasks
             }
 
             return null;
+        }
+
+        /// <summary>Determines whether a port value converts to a number a broker can be reached on.</summary>
+        /// <remarks>
+        /// Bounding the write matters because the value reaches both the scene's client and the EditorPrefs entry the
+        /// client reloads from, so a port outside the range would survive the session that wrote it.
+        /// </remarks>
+        /// <param name="value">The boxed value from the request payload.</param>
+        /// <returns>True when the value converts to an integer inside the accepted broker port range.</returns>
+        private static bool IsBrokerPortInRange(object value)
+        {
+            return TryConvertInt(value, out int port) && port >= MinimumBrokerPort && port <= MaximumBrokerPort;
         }
 
         /// <summary>Checks that an optional toggle field converts to a boolean.</summary>
@@ -1904,6 +1954,7 @@ namespace SL.Tasks
             }
 
             FullScreenViewManager fullScreenManager = components.FullScreenManager;
+            bool assigned = false;
             foreach (object row in cameraMappingList)
             {
                 if (row is not Dictionary<string, object> rowDict)
@@ -1927,7 +1978,16 @@ namespace SL.Tasks
                 )
                     ? EntityId.None
                     : components.DisplayCameras.First(camera => camera.name == cameraName).GetEntityId();
+                assigned = true;
             }
+
+            // A list whose every row was skipped assigns nothing, so persisting it would rewrite the per-scene
+            // companion asset and dirty the scene on behalf of a request that changed no assignment.
+            if (!assigned)
+            {
+                return;
+            }
+
             fullScreenManager.SaveCameras();
             dirty = true;
         }
@@ -2031,9 +2091,12 @@ namespace SL.Tasks
                 return false;
             }
 
+            // Every allowed prefix ends in a separator, so the only path a prefix match can equal is the directory
+            // itself, which the trailing-separator rejection above already refuses. A match here therefore always
+            // names an asset inside an allowed root.
             foreach (string prefix in DeleteAllowedPrefixes)
             {
-                if (assetPath.StartsWith(prefix, StringComparison.Ordinal) && assetPath.Length > prefix.Length)
+                if (assetPath.StartsWith(prefix, StringComparison.Ordinal))
                 {
                     return true;
                 }
