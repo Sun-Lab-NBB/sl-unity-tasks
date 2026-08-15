@@ -710,7 +710,6 @@ namespace SL.Tests.EditMode
             occupancyZone.isActive = false;
             occupancyZone.occupancyMet = true;
             occupancyZone.inZone = true;
-            guidanceZone.inZone = true;
             PrivateAccess.SetField(guidanceZone, "_hasTriggered", true);
             MoveActorPastFirstSegment(task, actor);
 
@@ -720,7 +719,6 @@ namespace SL.Tests.EditMode
             Assert.IsTrue(occupancyZone.isActive);
             Assert.IsFalse(occupancyZone.occupancyMet);
             Assert.IsFalse(occupancyZone.inZone);
-            Assert.IsFalse(guidanceZone.inZone);
             Assert.IsFalse(guidanceZone.BrakeTriggered);
         }
 

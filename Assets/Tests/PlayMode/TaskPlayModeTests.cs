@@ -379,7 +379,6 @@ namespace SL.Tests.PlayMode
             _occupancyZone.isActive = false;
             _occupancyZone.occupancyMet = true;
             _occupancyZone.inZone = true;
-            _occupancyGuidanceZone.inZone = true;
             PrivateAccess.SetField(_occupancyGuidanceZone, "_hasTriggered", true);
             Assert.IsTrue(_occupancyGuidanceZone.BrakeTriggered);
 
@@ -399,7 +398,6 @@ namespace SL.Tests.PlayMode
             Assert.IsTrue(_occupancyZone.isActive);
             Assert.IsFalse(_occupancyZone.occupancyMet);
             Assert.IsFalse(_occupancyZone.inZone);
-            Assert.IsFalse(_occupancyGuidanceZone.inZone);
             Assert.IsFalse(_occupancyGuidanceZone.BrakeTriggered);
             Assert.IsFalse(occupancyTimer.IsRunning);
             Assert.AreEqual(0L, OccupancyElapsedMilliseconds());

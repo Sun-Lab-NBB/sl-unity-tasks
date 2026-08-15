@@ -15,15 +15,6 @@ namespace SL.Tasks
     /// </summary>
     public class OccupancyGuidanceZone : MonoBehaviour, IResettable
     {
-        /// <summary>Determines whether the animal is currently inside this guidance zone.</summary>
-        /// <remarks>
-        /// The flag is serialized per-lap state that the debug Inspector and the test suite observe. The brake
-        /// decision runs inside <see cref="OnTriggerEnter"/> against the parent zone's occupancy, so no runtime path
-        /// reads the flag back.
-        /// </remarks>
-        [HideInInspector]
-        public bool inZone = false;
-
         /// <summary>The reference to the Task for checking guidance mode state.</summary>
         private Task _task;
 
@@ -68,20 +59,18 @@ namespace SL.Tasks
             ResetState();
         }
 
-        /// <summary>
-        /// Marks the zone as occupied (inZone = true) when the animal enters the guidance zone collider.
-        /// </summary>
+        /// <summary>Requests the brake when the animal enters the guidance zone collider.</summary>
         /// <remarks>
-        /// Entry in guidance mode, meaning <c>requireWait</c> is false, also sends a TriggerDelay message to
-        /// sollertia-experiment instructing it to lock the brake for the remaining occupancy duration. The brake
+        /// Entry in guidance mode, meaning <c>requireWait</c> is false, sends a TriggerDelay message to
+        /// sollertia-experiment instructing it to lock the brake for the remaining occupancy duration. This zone
+        /// occupies the downstream end of the parent's collider, so an animal reaching it is about to leave the
+        /// occupancy range, and the brake holds it inside long enough for the parent's timer to complete. The brake
         /// request reads the collaborators <see cref="Start"/> resolves, so an entry reaching a zone whose resolution
-        /// failed records the occupancy alone and relies on the error <see cref="Start"/> already logged.
+        /// failed relies on the error <see cref="Start"/> already logged.
         /// </remarks>
         /// <param name="other">The object that entered the trigger zone.</param>
         private void OnTriggerEnter(Collider other)
         {
-            inZone = true;
-
             if (_task == null || _parentOccupancyZone == null)
                 return;
 
@@ -93,20 +82,10 @@ namespace SL.Tasks
             }
         }
 
-        /// <summary>
-        /// Marks the zone as no longer occupied (inZone = false) when the animal exits the guidance zone collider.
-        /// </summary>
-        /// <param name="other">The object that exited the trigger zone.</param>
-        private void OnTriggerExit(Collider other)
-        {
-            inZone = false;
-        }
-
         /// <summary>Resets the guidance zone state for a new lap.</summary>
         /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
-            inZone = false;
             _hasTriggered = false;
         }
 

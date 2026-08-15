@@ -227,10 +227,11 @@ namespace SL.Config
                     throw new InvalidDataException(message);
                 }
 
-                // Occupancy trigger modes read occupancy_duration_ms at runtime, so it is required for them. A
-                // non-occupancy mode ignores the field at runtime and still holds any value it carries to the same
-                // positive finite range, so a trial keeps its duration when its trigger type changes. This mirrors
-                // the sollertia-shared-assets TrialStructure gate so the Python record and the Unity runtime agree.
+                // Null is how a template says the field is unused, so a non-occupancy trial sets occupancy_duration_ms
+                // to null rather than to zero. Zero is a real duration and an invalid one, so the positive finite
+                // range below binds every trial that supplies a value, whatever its trigger type. An occupancy mode
+                // reads the field at runtime and therefore must supply one. This mirrors the sollertia-shared-assets
+                // TrialStructure gate so the Python record and the Unity runtime agree.
                 bool isOccupancy =
                     string.Equals(trial.triggerType, "occupancy_disarm", StringComparison.Ordinal)
                     || string.Equals(trial.triggerType, "occupancy_arm", StringComparison.Ordinal)

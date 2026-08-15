@@ -186,12 +186,6 @@ namespace SL.Tests
             PrivateAccess.Invoke(RequireOccupancyGuidanceZone(), "OnTriggerEnter", new object[] { null });
         }
 
-        /// <summary>Drives the occupancy guidance zone's OnTriggerExit.</summary>
-        public void ExitOccupancyGuidanceZone()
-        {
-            PrivateAccess.Invoke(RequireOccupancyGuidanceZone(), "OnTriggerExit", new object[] { null });
-        }
-
         /// <summary>Publishes an interaction event on the topic the stimulus zone listens to.</summary>
         public void RaiseInteraction()
         {

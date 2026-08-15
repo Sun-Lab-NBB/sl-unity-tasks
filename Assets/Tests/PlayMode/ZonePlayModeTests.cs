@@ -460,7 +460,6 @@ namespace SL.Tests.PlayMode
             yield return MoveActorTo(InsideOccupancyGuidanceZoneZ);
             yield return null;
 
-            Assert.IsTrue(_rig.OccupancyGuidanceZone.inZone);
             Assert.IsTrue(_rig.OccupancyGuidanceZone.BrakeTriggered);
             Assert.AreEqual(1, _rig.Mqtt.CountOn(MQTTTopics.Delay));
 
@@ -516,12 +515,10 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(1, _rig.Mqtt.CountOn(MQTTTopics.Delay));
 
             yield return MoveActorTo(InsideOccupancyZoneZ);
-            Assert.IsFalse(_rig.OccupancyGuidanceZone.inZone);
 
             yield return MoveActorTo(InsideOccupancyGuidanceZoneZ);
             yield return null;
 
-            Assert.IsTrue(_rig.OccupancyGuidanceZone.inZone);
             Assert.IsTrue(_rig.OccupancyGuidanceZone.BrakeTriggered);
             Assert.AreEqual(1, _rig.Mqtt.CountOn(MQTTTopics.Delay));
         }
@@ -540,7 +537,6 @@ namespace SL.Tests.PlayMode
             yield return MoveActorTo(InsideOccupancyGuidanceZoneZ);
             yield return null;
 
-            Assert.IsTrue(_rig.OccupancyGuidanceZone.inZone);
             Assert.IsFalse(_rig.OccupancyGuidanceZone.BrakeTriggered);
             Assert.AreEqual(0, _rig.Mqtt.CountOn(MQTTTopics.Delay));
         }
@@ -561,7 +557,6 @@ namespace SL.Tests.PlayMode
             yield return MoveActorTo(InsideOccupancyGuidanceZoneZ);
             yield return null;
 
-            Assert.IsTrue(_rig.OccupancyGuidanceZone.inZone);
             Assert.IsFalse(_rig.OccupancyGuidanceZone.BrakeTriggered);
             Assert.AreEqual(0, _rig.Mqtt.CountOn(MQTTTopics.Delay));
         }

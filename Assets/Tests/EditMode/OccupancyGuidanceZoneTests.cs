@@ -14,8 +14,8 @@ namespace SL.Tests.EditMode
     /// <summary>Verifies the behavior of the OccupancyGuidanceZone class.</summary>
     /// <remarks>
     /// Covers the two Start resolution guards, the collaborators and the Delay channel a successful Start establishes,
-    /// the collaborator guard and the three gates deciding whether a zone entry requests the brake, the per-lap latch
-    /// OnTriggerExit leaves standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by
+    /// the collaborator guard and the three gates deciding whether a zone entry requests the brake, the per-lap latch a
+    /// fired brake leaves standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by
     /// replacing the parent OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so an Edit
     /// Mode run pins every boundary of the clamped subtraction without waiting on wall-clock time.
     /// </remarks>
@@ -141,45 +141,30 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that Start clears a serialized occupied and fired state through ResetState.</summary>
+        /// <summary>Verifies that Start clears a serialized fired state through ResetState.</summary>
         [Test]
-        public void Start_SerializedTriggeredState_ClearsInZoneAndBrakeTriggered()
+        public void Start_SerializedTriggeredState_ClearsBrakeTriggered()
         {
             ZoneRigOptions options = ZoneRigOptions.Occupancy(TriggerMode.OccupancyTrigger, 1000f);
             using (ZoneRig rig = ZoneRig.Create(options))
             {
-                rig.OccupancyGuidanceZone.inZone = true;
                 PrivateAccess.SetField(rig.OccupancyGuidanceZone, HasTriggeredFieldName, true);
 
                 rig.StartComponents();
 
-                Assert.IsFalse(rig.OccupancyGuidanceZone.inZone);
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
             }
         }
 
-        /// <summary>Verifies that BrakeTriggered reports the private per-lap fire flag rather than inZone.</summary>
+        /// <summary>Verifies that BrakeTriggered reports the private per-lap fire flag.</summary>
         [Test]
-        public void BrakeTriggered_FiredFlagSetDirectly_ReportsTrueWhileInZoneStaysFalse()
+        public void BrakeTriggered_FiredFlagSetDirectly_ReportsTrue()
         {
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
                 PrivateAccess.SetField(rig.OccupancyGuidanceZone, HasTriggeredFieldName, true);
 
                 Assert.IsTrue(rig.OccupancyGuidanceZone.BrakeTriggered);
-                Assert.IsFalse(rig.OccupancyGuidanceZone.inZone);
-            }
-        }
-
-        /// <summary>Verifies that entering the guidance zone marks it occupied.</summary>
-        [Test]
-        public void OnTriggerEnter_GuidanceMode_SetsInZoneTrue()
-        {
-            using (ZoneRig rig = CreateStartedRig(1000f))
-            {
-                rig.EnterOccupancyGuidanceZone();
-
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
             }
         }
 
@@ -210,9 +195,9 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the wait requirement suppresses the brake while still marking the zone.</summary>
+        /// <summary>Verifies that the wait requirement suppresses the brake.</summary>
         [Test]
-        public void OnTriggerEnter_WaitRequired_SetsInZoneWithoutFiringBrake()
+        public void OnTriggerEnter_WaitRequired_PublishesNoBrakeRequest()
         {
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
@@ -220,7 +205,6 @@ namespace SL.Tests.EditMode
 
                 rig.EnterOccupancyGuidanceZone();
 
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
             }
@@ -233,17 +217,15 @@ namespace SL.Tests.EditMode
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
                 rig.EnterOccupancyGuidanceZone();
-                rig.ExitOccupancyGuidanceZone();
                 rig.EnterOccupancyGuidanceZone();
 
                 Assert.AreEqual(1, rig.Mqtt.CountOn(MQTTTopics.Delay));
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
             }
         }
 
-        /// <summary>Verifies that a met occupancy requirement suppresses the brake while marking the zone.</summary>
+        /// <summary>Verifies that a met occupancy requirement suppresses the brake.</summary>
         [Test]
-        public void OnTriggerEnter_OccupancyAlreadyMet_SetsInZoneWithoutFiringBrake()
+        public void OnTriggerEnter_OccupancyAlreadyMet_PublishesNoBrakeRequest()
         {
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
@@ -251,30 +233,28 @@ namespace SL.Tests.EditMode
 
                 rig.EnterOccupancyGuidanceZone();
 
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
             }
         }
 
-        /// <summary>Verifies that an entry before Start marks the zone without firing the brake.</summary>
+        /// <summary>Verifies that an entry before Start leaves the brake unfired.</summary>
         [Test]
-        public void OnTriggerEnter_BeforeStart_SetsInZoneWithoutFiringBrake()
+        public void OnTriggerEnter_BeforeStart_PublishesNoBrakeRequest()
         {
             ZoneRigOptions options = ZoneRigOptions.Occupancy(TriggerMode.OccupancyTrigger, 1000f);
             using (ZoneRig rig = ZoneRig.Create(options))
             {
                 rig.EnterOccupancyGuidanceZone();
 
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
                 Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
             }
         }
 
-        /// <summary>Verifies that an entry with an unresolved Task marks the zone without firing the brake.</summary>
+        /// <summary>Verifies that an entry with an unresolved Task leaves the brake unfired.</summary>
         [Test]
-        public void OnTriggerEnter_TaskUnresolved_SetsInZoneWithoutFiringBrake()
+        public void OnTriggerEnter_TaskUnresolved_PublishesNoBrakeRequest()
         {
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
@@ -282,15 +262,14 @@ namespace SL.Tests.EditMode
 
                 rig.EnterOccupancyGuidanceZone();
 
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
                 Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
             }
         }
 
-        /// <summary>Verifies that an entry after a failed Start marks the zone without firing the brake.</summary>
+        /// <summary>Verifies that an entry after a failed Start leaves the brake unfired.</summary>
         [Test]
-        public void OnTriggerEnter_ReEnabledAfterAFailedStart_SetsInZoneWithoutFiringBrake()
+        public void OnTriggerEnter_ReEnabledAfterAFailedStart_PublishesNoBrakeRequest()
         {
             GameObject rootObject = new GameObject("ParentlessRig");
             try
@@ -315,7 +294,6 @@ namespace SL.Tests.EditMode
                     zone.enabled = true;
                     PrivateAccess.Invoke(zone, "OnTriggerEnter", new object[] { null });
 
-                    Assert.IsTrue(zone.inZone);
                     Assert.IsFalse(zone.BrakeTriggered);
                     Assert.AreEqual(0, harness.CountOn(MQTTTopics.Delay));
                 }
@@ -326,34 +304,17 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that leaving the guidance zone clears inZone and keeps the fired flag latched.</summary>
+        /// <summary>Verifies that ResetState clears the per-lap fire flag.</summary>
         [Test]
-        public void OnTriggerExit_AfterBrakeFired_ClearsInZoneAndKeepsBrakeTriggered()
+        public void ResetState_AfterBrakeFired_ClearsBrakeTriggered()
         {
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
                 rig.EnterOccupancyGuidanceZone();
-
-                rig.ExitOccupancyGuidanceZone();
-
-                Assert.IsFalse(rig.OccupancyGuidanceZone.inZone);
-                Assert.IsTrue(rig.OccupancyGuidanceZone.BrakeTriggered);
-            }
-        }
-
-        /// <summary>Verifies that ResetState clears both the occupancy flag and the per-lap fire flag.</summary>
-        [Test]
-        public void ResetState_AfterBrakeFired_ClearsInZoneAndBrakeTriggered()
-        {
-            using (ZoneRig rig = CreateStartedRig(1000f))
-            {
-                rig.EnterOccupancyGuidanceZone();
-                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.IsTrue(rig.OccupancyGuidanceZone.BrakeTriggered);
 
                 rig.OccupancyGuidanceZone.ResetState();
 
-                Assert.IsFalse(rig.OccupancyGuidanceZone.inZone);
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
             }
         }
@@ -365,7 +326,6 @@ namespace SL.Tests.EditMode
             using (ZoneRig rig = CreateStartedRig(1000f))
             {
                 rig.EnterOccupancyGuidanceZone();
-                rig.ExitOccupancyGuidanceZone();
 
                 rig.OccupancyGuidanceZone.ResetState();
                 rig.EnterOccupancyGuidanceZone();
