@@ -35,8 +35,7 @@ namespace SL.Tests.EditMode
             _createdObjects.Clear();
         }
 
-        /// <summary>Verifies that GetPrefabLength warns and returns zero when the object carries no renderer.
-        /// </summary>
+        /// <summary>Verifies that GetPrefabLength warns and returns zero when the object carries no renderer.</summary>
         [Test]
         public void GetPrefabLength_NoRenderers_LogsWarningAndReturnsZero()
         {
@@ -152,8 +151,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1.4142136f, length, Tolerance);
         }
 
-        /// <summary>Verifies that GetPrefabLength combines a rotated child with a scaled and displaced child.
-        /// </summary>
+        /// <summary>Verifies that GetPrefabLength combines a rotated child with a scaled and displaced child.</summary>
         [Test]
         public void GetPrefabLength_RotatedAndScaledChildren_ReturnsCombinedWorldExtent()
         {
@@ -166,8 +164,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(6.7071068f, length, Tolerance);
         }
 
-        /// <summary>Verifies that GetPrefabLength reaches a renderer nested below the immediate children.
-        /// </summary>
+        /// <summary>Verifies that GetPrefabLength reaches a renderer nested below the immediate children.</summary>
         [Test]
         public void GetPrefabLength_NestedGrandchildRenderer_IsIncluded()
         {

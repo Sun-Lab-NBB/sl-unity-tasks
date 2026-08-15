@@ -1,9 +1,7 @@
 /// <summary>
 /// Verifies the behavior of the CreateTask editor generation pipeline.
 ///
-/// Every test template is named with the ZZTest_ prefix and every test cue is named with the ZZ prefix, so the
-/// teardown sweep can delete exactly the assets these tests created without ever matching a hand-authored asset or
-/// an asset owned by one of the project's shipped templates.
+/// Every test template is named with the ZZTest_ prefix and every test cue is named with the ZZ prefix.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -49,7 +47,8 @@ namespace SL.Tests.EditMode
         /// <summary>The project-relative path of the hand-authored scene that scene generation copies.</summary>
         private const string TemplateScenePath = ScenesFolder + "/ExperimentTemplate.unity";
 
-        /// <summary>The filename prefix every template, segment, task, and scene asset a test creates carries.
+        /// <summary>
+        /// The filename prefix every template, segment, task, scene, and texture asset a test creates carries.
         /// </summary>
         private const string TestAssetPrefix = "ZZTest_";
 
@@ -111,7 +110,7 @@ namespace SL.Tests.EditMode
         /// <summary>The trigger zone ending boundary in centimeters in every generated test template.</summary>
         private const float ZoneEndCm = 15f;
 
-        /// <summary>The stimulus boundary position in centimeters in every generated test template.</summary>
+        /// <summary>The stimulus boundary position in centimeters in the shared test trial baseline.</summary>
         private const float StimulusLocationCm = 15f;
 
         /// <summary>The trigger zone center in Unity units derived from the shared zone boundaries.</summary>
@@ -120,8 +119,7 @@ namespace SL.Tests.EditMode
         /// <summary>The trigger zone length in Unity units derived from the shared zone boundaries.</summary>
         private const float ZoneSizeUnity = 1f;
 
-        /// <summary>The stimulus boundary position in Unity units derived from the shared stimulus location.
-        /// </summary>
+        /// <summary>The stimulus boundary position in Unity units derived from the shared stimulus location.</summary>
         private const float StimulusLocationUnity = 1.5f;
 
         /// <summary>The vertical offset CreateTask applies to every generated trigger zone.</summary>
@@ -178,8 +176,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("12.25", CreateTask.FormatCueLengthLabel(12.25f));
         }
 
-        /// <summary>Verifies that CanonicalSegmentName joins the template and trial with exactly one hyphen.
-        /// </summary>
+        /// <summary>Verifies that CanonicalSegmentName joins the template and trial with exactly one hyphen.</summary>
         [Test]
         public void CanonicalSegmentName_TemplateAndTrial_JoinsWithASingleHyphen()
         {
@@ -301,8 +298,7 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("at most 2 segments where segments_per_corridor requires 3", error);
         }
 
-        /// <summary>Verifies that the hand-authored asset check passes when every required asset is present.
-        /// </summary>
+        /// <summary>Verifies that the hand-authored asset check passes when every required asset is present.</summary>
         [Test]
         public void ValidateHandAuthoredAssets_EveryRequiredAssetPresent_ReturnsNull()
         {
@@ -313,8 +309,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(error);
         }
 
-        /// <summary>Verifies that the hand-authored asset check names the padding prefab it cannot resolve.
-        /// </summary>
+        /// <summary>Verifies that the hand-authored asset check names the padding prefab it cannot resolve.</summary>
         [Test]
         public void ValidateHandAuthoredAssets_MissingPaddingPrefab_ReturnsErrorNamingThePath()
         {
@@ -350,8 +345,7 @@ namespace SL.Tests.EditMode
             StringAssert.Contains($"ZZTest_ConflictTwo -> '{SecondTextureName}'", result);
         }
 
-        /// <summary>Verifies that the cue-texture conflict aborts before any cue or task asset is written.
-        /// </summary>
+        /// <summary>Verifies that the cue-texture conflict aborts before any cue or task asset is written.</summary>
         [Test]
         public void CreateFromTemplate_CueIdentityDeclaredWithTwoTextures_WritesNoAssets()
         {
@@ -422,8 +416,7 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("No cues defined in template.", result);
         }
 
-        /// <summary>Verifies that two templates agreeing on a cue identity share one cue prefab and material.
-        /// </summary>
+        /// <summary>Verifies that two templates agreeing on a cue identity share one cue material.</summary>
         [Test]
         public void CreateFromTemplate_TwoTemplatesAgreeOnACueIdentity_ShareOneCueMaterial()
         {
@@ -550,14 +543,14 @@ namespace SL.Tests.EditMode
 
             GameObject cuePrefab = LoadAsset<GameObject>($"{CuesFolder}/{FirstCueAssetStem}.prefab");
             Assert.IsNotNull(cuePrefab, "The regeneration did not rewrite the cue prefab.");
-            Assert.AreEqual(2, cuePrefab.GetComponentsInChildren<MeshRenderer>(true).Length);
+            Assert.AreEqual(2, cuePrefab.GetComponentsInChildren<MeshRenderer>(includeInactive: true).Length);
         }
 
         /// <summary>Verifies that the rebuilt cue prefab points its wall renderers at the rebuilt material.</summary>
         /// <remarks>
         /// Ignored because the pipeline does not currently satisfy this contract. BuildCuePrefabs states that a
-        /// missing material rebuilds the prefab alongside it "so the new material is the one the renderers point at",
-        /// and the rebuild does run, but the rewritten prefab reaches disk with both wall renderers holding a null
+        /// missing material rebuilds the prefab alongside it "so the new material is the one the renderers point at".
+        /// The rebuild does run, but the rewritten prefab reaches disk with both wall renderers holding a null
         /// material. Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes
         /// include the Materials folder, so an operator who removes a cue material without also removing its cue
         /// prefab regenerates a corridor whose cue walls render untextured. Remove the Ignore attribute once the
@@ -578,7 +571,9 @@ namespace SL.Tests.EditMode
 
             Material rebuiltMaterial = LoadAsset<Material>($"{MaterialsFolder}/{FirstCueAssetStem}.mat");
             GameObject cuePrefab = LoadAsset<GameObject>($"{CuesFolder}/{FirstCueAssetStem}.prefab");
-            foreach (MeshRenderer wallRenderer in cuePrefab.GetComponentsInChildren<MeshRenderer>(true))
+            foreach (
+                MeshRenderer wallRenderer in cuePrefab.GetComponentsInChildren<MeshRenderer>(includeInactive: true)
+            )
             {
                 Assert.IsNotNull(
                     wallRenderer.sharedMaterial,
@@ -605,8 +600,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("ZZTest_Segment-T1", segment.name);
         }
 
-        /// <summary>Verifies that a template declaring no cue offset leaves the segment root on the origin.
-        /// </summary>
+        /// <summary>Verifies that a template declaring no cue offset leaves the segment root on the origin.</summary>
         [Test]
         public void CreateFromTemplate_ZeroCueOffset_LeavesTheSegmentRootOnTheOrigin()
         {
@@ -713,8 +707,7 @@ namespace SL.Tests.EditMode
             Assert.IsNotNull(LoadAsset<GameObject>($"{PrefabsFolder}/ZZTest_Base_Extra-T1.prefab"));
         }
 
-        /// <summary>Verifies that an interaction trial places its zone across the declared trigger zone span.
-        /// </summary>
+        /// <summary>Verifies that an interaction trial places its zone across the declared trigger zone span.</summary>
         [Test]
         public void CreateFromTemplate_InteractionTrial_SpansTheZoneWithTheRootCollider()
         {
@@ -726,7 +719,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Interaction");
 
             GameObject segment = LoadSegment("ZZTest_Interaction", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             AssertVector3(
                 new Vector3(0f, ZoneVerticalOffset, ZoneCenterUnity),
                 zone.transform.localPosition,
@@ -737,8 +730,7 @@ namespace SL.Tests.EditMode
             AssertVector3(Vector3.zero, rootCollider.center, "root collider center");
         }
 
-        /// <summary>Verifies that an interaction trial anchors its guidance region on the stimulus location.
-        /// </summary>
+        /// <summary>Verifies that an interaction trial anchors its guidance region on the stimulus location.</summary>
         [Test]
         public void CreateFromTemplate_InteractionTrial_AnchorsTheGuidanceRegionOnTheStimulusLocation()
         {
@@ -750,7 +742,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Guidance");
 
             GameObject segment = LoadSegment("ZZTest_Guidance", FirstTrialName);
-            GuidanceZone guidanceZone = segment.GetComponentInChildren<GuidanceZone>(true);
+            GuidanceZone guidanceZone = segment.GetComponentInChildren<GuidanceZone>(includeInactive: true);
             Assert.IsNotNull(guidanceZone);
             Assert.AreEqual("GuidanceRegion", guidanceZone.gameObject.name);
             BoxCollider guidanceCollider = guidanceZone.GetComponent<BoxCollider>();
@@ -772,12 +764,12 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_InteractionSetup");
 
             GameObject segment = LoadSegment("ZZTest_InteractionSetup", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             Assert.AreEqual("StimulusTriggerZone", zone.gameObject.name);
             Assert.AreEqual(TriggerMode.Interaction, zone.triggerMode);
             Assert.AreEqual(FirstTrialName, zone.trialName);
             Assert.IsFalse(zone.showBoundary);
-            Assert.IsNull(segment.GetComponentInChildren<OccupancyZone>(true));
+            Assert.IsNull(segment.GetComponentInChildren<OccupancyZone>(includeInactive: true));
         }
 
         /// <summary>Verifies that a collision trial places its wall just past the stimulus location.</summary>
@@ -792,7 +784,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Collision");
 
             GameObject segment = LoadSegment("ZZTest_Collision", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             float expectedWallCenter = StimulusLocationUnity + GuidanceColliderDepth / 2f;
             AssertVector3(
                 new Vector3(0f, ZoneVerticalOffset, expectedWallCenter),
@@ -804,8 +796,7 @@ namespace SL.Tests.EditMode
             AssertVector3(Vector3.zero, rootCollider.center, "root collider center");
         }
 
-        /// <summary>Verifies that a collision trial strips the guidance region off the stimulus zone prefab.
-        /// </summary>
+        /// <summary>Verifies that a collision trial strips the guidance region off the stimulus zone prefab.</summary>
         [Test]
         public void CreateFromTemplate_CollisionTrial_StripsTheGuidanceRegionChild()
         {
@@ -817,12 +808,12 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_CollisionSetup");
 
             GameObject segment = LoadSegment("ZZTest_CollisionSetup", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             Assert.AreEqual("StimulusTriggerZone", zone.gameObject.name);
             Assert.AreEqual(TriggerMode.Collision, zone.triggerMode);
             Assert.AreEqual(FirstTrialName, zone.trialName);
             Assert.IsTrue(zone.showBoundary);
-            Assert.IsNull(segment.GetComponentInChildren<GuidanceZone>(true));
+            Assert.IsNull(segment.GetComponentInChildren<GuidanceZone>(includeInactive: true));
             Assert.IsNull(zone.transform.Find("GuidanceRegion"));
         }
 
@@ -838,7 +829,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Occupancy");
 
             GameObject segment = LoadSegment("ZZTest_Occupancy", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             float expectedRootZ = StimulusLocationUnity + ZoneSizeUnity / 2f;
             AssertVector3(
                 new Vector3(0f, ZoneVerticalOffset, expectedRootZ),
@@ -862,7 +853,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_OccupancyRegion");
 
             GameObject segment = LoadSegment("ZZTest_OccupancyRegion", FirstTrialName);
-            OccupancyZone occupancyZone = segment.GetComponentInChildren<OccupancyZone>(true);
+            OccupancyZone occupancyZone = segment.GetComponentInChildren<OccupancyZone>(includeInactive: true);
             Assert.IsNotNull(occupancyZone);
             Assert.AreEqual("OccupancyRegion", occupancyZone.gameObject.name);
             BoxCollider occupancyCollider = occupancyZone.GetComponent<BoxCollider>();
@@ -884,7 +875,9 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_OccupancyBrake");
 
             GameObject segment = LoadSegment("ZZTest_OccupancyBrake", FirstTrialName);
-            OccupancyGuidanceZone guidanceZone = segment.GetComponentInChildren<OccupancyGuidanceZone>(true);
+            OccupancyGuidanceZone guidanceZone = segment.GetComponentInChildren<OccupancyGuidanceZone>(
+                includeInactive: true
+            );
             Assert.IsNotNull(guidanceZone);
             Assert.AreEqual("OccupancyGuidanceRegion", guidanceZone.gameObject.name);
             BoxCollider guidanceCollider = guidanceZone.GetComponent<BoxCollider>();
@@ -906,7 +899,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_OccupancyDuration");
 
             GameObject segment = LoadSegment("ZZTest_OccupancyDuration", FirstTrialName);
-            OccupancyZone occupancyZone = segment.GetComponentInChildren<OccupancyZone>(true);
+            OccupancyZone occupancyZone = segment.GetComponentInChildren<OccupancyZone>(includeInactive: true);
             Assert.AreEqual(OccupancyDurationMs, occupancyZone.occupancyDurationMs, GeometryTolerance);
         }
 
@@ -922,7 +915,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Disarm");
 
             GameObject segment = LoadSegment("ZZTest_Disarm", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             Assert.AreEqual("OccupancyTriggerZone", zone.gameObject.name);
             Assert.AreEqual(TriggerMode.OccupancyDisarm, zone.triggerMode);
             Assert.AreEqual(FirstTrialName, zone.trialName);
@@ -941,7 +934,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Arm");
 
             GameObject segment = LoadSegment("ZZTest_Arm", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             Assert.AreEqual("OccupancyTriggerZone", zone.gameObject.name);
             Assert.AreEqual(TriggerMode.OccupancyArm, zone.triggerMode);
             Assert.AreEqual(FirstTrialName, zone.trialName);
@@ -960,7 +953,7 @@ namespace SL.Tests.EditMode
             Generate("ZZTest_Trigger");
 
             GameObject segment = LoadSegment("ZZTest_Trigger", FirstTrialName);
-            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(true);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
             Assert.AreEqual("OccupancyTriggerZone", zone.gameObject.name);
             Assert.AreEqual(TriggerMode.OccupancyTrigger, zone.triggerMode);
             Assert.AreEqual(FirstTrialName, zone.trialName);
@@ -1069,8 +1062,12 @@ namespace SL.Tests.EditMode
             GameObject task = LoadAsset<GameObject>($"{TasksFolder}/ZZTest_ZoneStrip.prefab");
             foreach (Transform corridor in task.transform)
             {
-                StimulusTriggerZone firstZone = corridor.GetChild(0).GetComponentInChildren<StimulusTriggerZone>(true);
-                StimulusTriggerZone secondZone = corridor.GetChild(1).GetComponentInChildren<StimulusTriggerZone>(true);
+                StimulusTriggerZone firstZone = corridor
+                    .GetChild(0)
+                    .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
+                StimulusTriggerZone secondZone = corridor
+                    .GetChild(1)
+                    .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
                 Assert.IsNotNull(firstZone, $"{corridor.name} first segment zone");
                 Assert.IsNull(secondZone, $"{corridor.name} second segment zone");
             }
@@ -1090,15 +1087,20 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("ZZTest_Visibility-T1", firstTrialCorridor.GetChild(0).name);
             Assert.AreEqual("ZZTest_Visibility-T2", secondTrialCorridor.GetChild(0).name);
             Assert.IsFalse(
-                firstTrialCorridor.GetChild(0).GetComponentInChildren<StimulusTriggerZone>(true).showBoundary
+                firstTrialCorridor
+                    .GetChild(0)
+                    .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true)
+                    .showBoundary
             );
             Assert.IsTrue(
-                secondTrialCorridor.GetChild(0).GetComponentInChildren<StimulusTriggerZone>(true).showBoundary
+                secondTrialCorridor
+                    .GetChild(0)
+                    .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true)
+                    .showBoundary
             );
         }
 
-        /// <summary>Verifies that the generated task component stores its configuration path and requirement.
-        /// </summary>
+        /// <summary>Verifies that the generated task component stores its configuration path and requirement.</summary>
         [Test]
         public void CreateFromTemplate_ValidTemplate_StoresTheConfigPathAndRequiresInteraction()
         {
@@ -1290,8 +1292,7 @@ namespace SL.Tests.EditMode
             return template;
         }
 
-        /// <summary>Creates a template document carrying the shared corridor geometry and no cues or trials.
-        /// </summary>
+        /// <summary>Creates a template document carrying the shared corridor geometry and no cues or trials.</summary>
         /// <param name="segmentsPerCorridor">The corridor depth in segments.</param>
         /// <param name="cueOffsetCm">The animal start offset in centimeters.</param>
         /// <returns>The template document builder.</returns>
@@ -1307,7 +1308,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a cue document block carrying the supplied identity and texture.</summary>
-        /// <param name="cueName">The cue name.</param>
+        /// <param name="cueName">The identity the cue prefab and material are keyed by.</param>
         /// <param name="cueCode">The cue byte code.</param>
         /// <param name="lengthCm">The cue length in centimeters.</param>
         /// <param name="textureName">The cue texture filename.</param>
@@ -1321,7 +1322,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a trial document block carrying the shared trigger zone geometry.</summary>
-        /// <param name="trialName">The trial name.</param>
+        /// <param name="trialName">The name the trial block declares, which suffixes the segment prefab.</param>
         /// <param name="triggerType">The trigger type literal.</param>
         /// <param name="cueNames">The ordered cue names comprising the trial's segment.</param>
         /// <returns>The trial document block builder.</returns>
@@ -1401,8 +1402,7 @@ namespace SL.Tests.EditMode
             WriteTextFile($"{ConfigurationsFolder}/{templateName}.yaml", template.Build());
         }
 
-        /// <summary>Writes a text file at a project-relative path and imports it into the asset database.
-        /// </summary>
+        /// <summary>Writes a text file at a project-relative path and imports it into the asset database.</summary>
         /// <param name="projectRelativePath">The project-relative path the file is written to.</param>
         /// <param name="contents">The file body.</param>
         private static void WriteTextFile(string projectRelativePath, string contents)
@@ -1455,8 +1455,7 @@ namespace SL.Tests.EditMode
             return $"success: Task prefab saved to {TasksFolder}/{templateName}.prefab";
         }
 
-        /// <summary>Returns the absolute path of a template written into the project's Configurations folder.
-        /// </summary>
+        /// <summary>Returns the absolute path of a template written into the project's Configurations folder.</summary>
         /// <param name="templateName">The template name, which becomes the YAML filename.</param>
         /// <returns>The absolute template path.</returns>
         private static string AbsoluteTemplatePath(string templateName)
@@ -1474,7 +1473,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Loads an asset of the requested type from a project-relative path.</summary>
         /// <typeparam name="TAsset">The asset type to load.</typeparam>
-        /// <param name="projectRelativePath">The project-relative asset path.</param>
+        /// <param name="projectRelativePath">The path the asset database resolves the asset under.</param>
         /// <returns>The loaded asset, or null when no such asset exists.</returns>
         private static TAsset LoadAsset<TAsset>(string projectRelativePath)
             where TAsset : UnityEngine.Object
@@ -1484,7 +1483,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Loads the segment prefab a template generated for one of its trials.</summary>
         /// <param name="templateName">The owning template name.</param>
-        /// <param name="trialName">The trial name.</param>
+        /// <param name="trialName">The trial whose segment prefab the template generated.</param>
         /// <returns>The loaded segment prefab.</returns>
         private static GameObject LoadSegment(string templateName, string trialName)
         {
@@ -1495,19 +1494,21 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the material the first cue instance of a generated segment renders with.</summary>
         /// <param name="templateName">The owning template name.</param>
-        /// <param name="trialName">The trial name.</param>
+        /// <param name="trialName">The trial whose segment prefab the template generated.</param>
         /// <returns>The shared material of the first cue instance's wall renderer.</returns>
         private static Material FirstCueMaterial(string templateName, string trialName)
         {
             GameObject segment = LoadSegment(templateName, trialName);
-            MeshRenderer renderer = segment.transform.GetChild(0).GetComponentInChildren<MeshRenderer>(true);
+            MeshRenderer renderer = segment
+                .transform.GetChild(0)
+                .GetComponentInChildren<MeshRenderer>(includeInactive: true);
             Assert.IsNotNull(renderer, "The first cue instance carries no wall renderer.");
             return renderer.sharedMaterial;
         }
 
         /// <summary>Asserts that every component of a generated vector matches the expected value.</summary>
-        /// <param name="expected">The expected vector.</param>
-        /// <param name="actual">The generated vector.</param>
+        /// <param name="expected">The geometry the template's declared centimeters convert to.</param>
+        /// <param name="actual">The geometry read off the generated object.</param>
         /// <param name="label">The label quoted in each component's failure message.</param>
         private static void AssertVector3(Vector3 expected, Vector3 actual, string label)
         {
@@ -1517,8 +1518,8 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Asserts that a generated rotation matches the expected orientation.</summary>
-        /// <param name="expected">The expected rotation.</param>
-        /// <param name="actual">The generated rotation.</param>
+        /// <param name="expected">The orientation the generation pipeline is required to apply.</param>
+        /// <param name="actual">The rotation read off the generated object.</param>
         /// <param name="label">The label quoted in the failure message.</param>
         private static void AssertRotation(Quaternion expected, Quaternion actual, string label)
         {

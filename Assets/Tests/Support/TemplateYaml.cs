@@ -1,10 +1,4 @@
-/// <summary>
-/// Provides the TemplateYaml builder that renders a task template YAML document for a test.
-///
-/// Minimal returns a document that passes every ConfigLoader check, so a test reaches one validation branch by
-/// mutating exactly one field of that baseline. The three top-level sections are individually suppressible and each
-/// carry raw override hooks, so a test also reaches the branches a well-typed document cannot express.
-/// </summary>
+/// <summary>Provides the TemplateYaml builder that renders a task template YAML document for a test.</summary>
 using System.Collections.Generic;
 using System.Text;
 
@@ -13,6 +7,10 @@ namespace SL.Tests
     /// <summary>
     /// Builds a complete task template YAML document from mutable cue, environment, and trial blocks.
     /// </summary>
+    /// <remarks>
+    /// The three top-level sections are individually suppressible and each carry raw override hooks, so a test also
+    /// reaches the branches a well-typed document cannot express.
+    /// </remarks>
     public sealed class TemplateYaml
     {
         /// <summary>The cue definitions rendered under the cues key.</summary>
@@ -40,6 +38,9 @@ namespace SL.Tests
         /// Creates the baseline document: two 30 cm cues sharing one texture, default corridor geometry, and two
         /// collision trials whose cue sequences differ.
         /// </summary>
+        /// <remarks>
+        /// A test reaches one validation branch by mutating exactly one field of the returned baseline.
+        /// </remarks>
         /// <returns>A builder whose rendered document passes ConfigLoader validation unchanged.</returns>
         public static TemplateYaml Minimal()
         {

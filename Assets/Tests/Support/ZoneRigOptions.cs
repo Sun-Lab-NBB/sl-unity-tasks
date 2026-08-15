@@ -5,9 +5,7 @@ using SL.Tasks;
 
 namespace SL.Tests
 {
-    /// <summary>
-    /// Selects the composition and the initial field values of a <see cref="ZoneRig"/>.
-    /// </summary>
+    /// <summary>Selects the composition and the initial field values of a <see cref="ZoneRig"/>.</summary>
     public sealed class ZoneRigOptions
     {
         /// <summary>The trigger mechanism assigned to the stimulus zone.</summary>

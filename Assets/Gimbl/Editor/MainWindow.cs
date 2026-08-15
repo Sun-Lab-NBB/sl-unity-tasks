@@ -1,9 +1,8 @@
 /// <summary>
 /// Provides the MainWindow class for the consolidated Task Parameters editor window.
 ///
-/// Renders the single editor window that hosts every per-scene configuration surface for Gimbl:
-/// Task, Actor, Display, Camera Mapping, and MQTT. Replaces the previous Settings / Actors /
-/// Displays three-window layout with one aggregated window.
+/// Renders the single editor window that hosts every per-scene configuration surface for Gimbl: Task, Actor, Display,
+/// Camera Mapping, and MQTT.
 /// </summary>
 using System.Linq;
 using SL.Tasks;

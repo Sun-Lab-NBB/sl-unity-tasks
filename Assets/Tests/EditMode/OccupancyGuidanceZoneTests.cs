@@ -1,12 +1,4 @@
-/// <summary>
-/// Verifies the behavior of the OccupancyGuidanceZone class.
-///
-/// Covers the two Start resolution guards, the collaborators and the Delay channel a successful Start establishes,
-/// the three gates deciding whether a zone entry requests the brake, the per-lap latch OnTriggerExit leaves standing,
-/// and the ResetState re-arm. The remaining-duration arithmetic is driven by replacing the parent OccupancyZone's
-/// stopwatch with a stopped one carrying an arranged tick count, so an Edit Mode run pins every boundary of the
-/// clamped subtraction without waiting on wall-clock time.
-/// </summary>
+/// <summary>Verifies the behavior of the OccupancyGuidanceZone class.</summary>
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text.RegularExpressions;
@@ -20,6 +12,13 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the OccupancyGuidanceZone class.</summary>
+    /// <remarks>
+    /// Covers the two Start resolution guards, the collaborators and the Delay channel a successful Start establishes,
+    /// the three gates deciding whether a zone entry requests the brake, the per-lap latch OnTriggerExit leaves
+    /// standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by replacing the parent
+    /// OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so an Edit Mode run pins every
+    /// boundary of the clamped subtraction without waiting on wall-clock time.
+    /// </remarks>
     [TestFixture]
     public class OccupancyGuidanceZoneTests
     {

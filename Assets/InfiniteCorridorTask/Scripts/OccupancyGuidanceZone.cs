@@ -2,8 +2,6 @@
 /// Provides the OccupancyGuidanceZone class that triggers brake activation in occupancy guidance mode.
 ///
 /// Used as a child of OccupancyZone to define where guidance mode activates the brake.
-/// When the animal enters this zone in guidance mode (!requireWait), sends a TriggerDelay message
-/// to sollertia-experiment instructing it to lock the brake for the remaining occupancy duration.
 /// </summary>
 using System;
 using Gimbl;
@@ -68,6 +66,10 @@ namespace SL.Tasks
         /// <summary>
         /// Marks the zone as occupied (inZone = true) when the animal enters the guidance zone collider.
         /// </summary>
+        /// <remarks>
+        /// Entry in guidance mode, meaning <c>requireWait</c> is false, also sends a TriggerDelay message to
+        /// sollertia-experiment instructing it to lock the brake for the remaining occupancy duration.
+        /// </remarks>
         /// <param name="other">The object that entered the trigger zone.</param>
         private void OnTriggerEnter(Collider other)
         {

@@ -1,10 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the Task class.
-///
-/// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every template a test
-/// loads is staged inside the project's own Configurations directory under a "ZZTest_" name and deleted again in
-/// TearDown. Cue textures resolve as "&lt;template directory&gt;/../Textures", so the staged templates reference a
-/// texture that already ships with the project rather than a placeholder.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -21,10 +16,15 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the Task class.</summary>
+    /// <remarks>
+    /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every template a test
+    /// loads is staged inside the project's own Configurations directory under a "ZZTest_" name and deleted again in
+    /// TearDown.
+    /// </remarks>
     [TestFixture]
     public class TaskTests
     {
-        /// <summary>The project-relative directory that every staged test template is written into.</summary>
+        /// <summary>The dataPath-relative directory that every staged test template is written into.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the two-trial corridor template that most tests load.</summary>
@@ -40,6 +40,10 @@ namespace SL.Tests.EditMode
         private const string InvalidTemplateName = "ZZTest_Invalid";
 
         /// <summary>The texture every staged cue references, which already ships under Textures.</summary>
+        /// <remarks>
+        /// ConfigLoader resolves a cue texture as "&lt;template directory&gt;/../Textures", so a template staged in the
+        /// Configurations directory reaches the project's own texture folder.
+        /// </remarks>
         private const string StagedTextureName = "Gray Cue 2x1.png";
 
         /// <summary>The corridor depth the pair template declares.</summary>
@@ -69,7 +73,10 @@ namespace SL.Tests.EditMode
         /// <summary>The byte code the staged templates assign to cue "B".</summary>
         private const byte CueCodeB = 2;
 
-        /// <summary>The seed every deterministic pair-template test generates its maze with.</summary>
+        /// <summary>
+        /// The seed the pair-template tests generate their maze with, except the generation-comparison tests that vary
+        /// it deliberately.
+        /// </summary>
         private const int PairSeed = 4242;
 
         /// <summary>The track length every pair-template traversal test generates its maze with.</summary>
@@ -166,7 +173,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(Task.RandomSeedSentinel, task.trackSeed);
         }
 
-        /// <summary>Verifies that Start warns about a displaced task and moves it back to the world origin.</summary>
+        /// <summary>Verifies that Start moves a displaced task back to the world origin.</summary>
         [Test]
         public void Start_NonZeroTransformPosition_ResetsTaskToTheOrigin()
         {
@@ -313,8 +320,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(PairTrialCount, PrivateAccess.GetField<int>(task, "_trialCount"));
         }
 
-        /// <summary>Verifies that Start converts each trial's cue sequence into a Unity-unit segment length.
-        /// </summary>
+        /// <summary>Verifies that Start converts each trial's cue sequence into a Unity-unit segment length.</summary>
         [Test]
         public void Start_ValidTemplate_ConvertsSegmentLengthsToUnityUnits()
         {
@@ -326,8 +332,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(ShortSegmentLengthUnity, segmentLengths[TrialIndex(task, "Short")]);
         }
 
-        /// <summary>Verifies that the corridor map holds one entry per trial-count-to-the-depth combination.
-        /// </summary>
+        /// <summary>Verifies that the corridor map holds one entry per trial-count-to-the-depth combination.</summary>
         [Test]
         public void Start_ValidTemplate_SizesCorridorMapAsTrialCountToTheDepth()
         {
@@ -366,8 +371,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that Start seeds the corridor window with the first depth segments of the maze.
-        /// </summary>
+        /// <summary>Verifies that Start seeds the corridor window with the first depth segments of the maze.</summary>
         [Test]
         public void Start_ValidTemplate_SeedsCorridorWindowWithTheFirstDepthSegments()
         {
@@ -428,8 +432,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(5, key);
         }
 
-        /// <summary>Verifies that the corridor key of a base-three corridor weights each digit positionally.
-        /// </summary>
+        /// <summary>Verifies that the corridor key of a base-three corridor weights each digit positionally.</summary>
         [Test]
         public void ComputeCorridorKey_BaseThreeDepthThree_WeightsDigitsPositionally()
         {
@@ -475,8 +478,7 @@ namespace SL.Tests.EditMode
             AssertKeyRoundTrip(task, trialCount: 5, depth: 3);
         }
 
-        /// <summary>Verifies that Update returns before touching corridor state when no actor is assigned.
-        /// </summary>
+        /// <summary>Verifies that Update returns before touching corridor state when no actor is assigned.</summary>
         [Test]
         public void Update_ActorNullOnUnstartedTask_ReturnsWithoutThrowing()
         {
@@ -514,8 +516,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
         }
 
-        /// <summary>Verifies that a corridor key equal to the map length logs an error and skips the frame.
-        /// </summary>
+        /// <summary>Verifies that a corridor key equal to the map length logs an error and skips the frame.</summary>
         [Test]
         public void Update_CorridorKeyAtMapLength_LogsErrorAndReturns()
         {
@@ -564,8 +565,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(firstSegmentLength - 0.5f, actor.transform.position.z);
         }
 
-        /// <summary>Verifies that an actor exactly on the first segment's end does not advance the corridor.
-        /// </summary>
+        /// <summary>Verifies that an actor exactly on the first segment's end does not advance the corridor.</summary>
         [Test]
         public void Update_ActorExactlyAtFirstSegmentLength_DoesNotAdvance()
         {
@@ -626,8 +626,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the advance recomputes the key and teleports the actor to the new corridor.
-        /// </summary>
+        /// <summary>Verifies that the advance recomputes the key and teleports the actor to the new corridor.</summary>
         [Test]
         public void Update_ActorPastFirstSegmentLength_MovesActorToTheNewCorridorXPosition()
         {
@@ -769,8 +768,7 @@ namespace SL.Tests.EditMode
             CollectionAssert.AreEqual(ReferenceDraws(12345, sequence.Length, PairTrialCount), sequence);
         }
 
-        /// <summary>Verifies that the sentinel selects the nondeterministic path instead of seeding with it.
-        /// </summary>
+        /// <summary>Verifies that the sentinel selects the nondeterministic path instead of seeding with it.</summary>
         [Test]
         public void Start_RandomSeedSentinel_DoesNotSeedTheGeneratorWithTheSentinel()
         {
@@ -799,8 +797,7 @@ namespace SL.Tests.EditMode
             Assert.Less(total - segmentLengths[sequence[sequence.Length - 1]], PairTrackLength);
         }
 
-        /// <summary>Verifies that a track length landing exactly on a segment boundary adds no extra segment.
-        /// </summary>
+        /// <summary>Verifies that a track length landing exactly on a segment boundary adds no extra segment.</summary>
         [Test]
         public void Start_TrackLengthAMultipleOfSegmentLength_StopsAtExactlyTrackLength()
         {
@@ -837,8 +834,7 @@ namespace SL.Tests.EditMode
             CollectionAssert.AreEqual(expected, CueSequence(task));
         }
 
-        /// <summary>Verifies that transitions with a single certain target produce that deterministic walk.
-        /// </summary>
+        /// <summary>Verifies that transitions with a single certain target produce that deterministic walk.</summary>
         [Test]
         public void Start_TransitionsOnEveryTrial_FollowsTheDeterministicWalk()
         {
@@ -881,8 +877,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, result.cueCodes.Length);
         }
 
-        /// <summary>Verifies that a non-positive shortest segment falls back to the fixed capacity estimate.
-        /// </summary>
+        /// <summary>Verifies that a zero-length shortest segment still returns empty segment and cue arrays.</summary>
         [Test]
         public void GenerateRandomMaze_NonPositiveShortestSegment_StillReturnsEmptyArrays()
         {
@@ -980,8 +975,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(expectedName, _harness.LastMessageOn<Task.SceneNameMessage>(MQTTTopics.SceneName).name);
         }
 
-        /// <summary>Verifies that a true payload on RequireInteraction enables the interaction requirement.
-        /// </summary>
+        /// <summary>Verifies that a true payload on RequireInteraction enables the interaction requirement.</summary>
         [Test]
         public void OnRequireInteraction_TruePayload_EnablesTheInteractionRequirement()
         {
@@ -993,8 +987,7 @@ namespace SL.Tests.EditMode
             Assert.IsTrue(task.requireInteraction);
         }
 
-        /// <summary>Verifies that a false payload on RequireInteraction disables the interaction requirement.
-        /// </summary>
+        /// <summary>Verifies that a false payload on RequireInteraction disables the interaction requirement.</summary>
         [Test]
         public void OnRequireInteraction_FalsePayload_DisablesTheInteractionRequirement()
         {
@@ -1061,8 +1054,7 @@ namespace SL.Tests.EditMode
             Assert.IsFalse(task.requireWait);
         }
 
-        /// <summary>Verifies that destroying a task whose Start never ran leaves no unset channel to unhook.
-        /// </summary>
+        /// <summary>Verifies that destroying a task whose Start never ran leaves no unset channel to unhook.</summary>
         [Test]
         public void OnDestroy_BeforeStart_DoesNotThrow()
         {
@@ -1100,8 +1092,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(baseline.Length, found.Length);
         }
 
-        /// <summary>Builds the two-trial corridor template with a short single-cue and a long two-cue trial.
-        /// </summary>
+        /// <summary>Builds the two-trial corridor template with a short single-cue and a long two-cue trial.</summary>
         /// <returns>The template builder.</returns>
         private static TemplateYaml BuildPairTemplate()
         {
@@ -1178,10 +1169,10 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a Task component configured with the supplied fields.</summary>
-        /// <param name="configPath">The value assigned to the task's configPath field.</param>
-        /// <param name="trackLength">The value assigned to the task's trackLength field.</param>
-        /// <param name="trackSeed">The value assigned to the task's trackSeed field.</param>
-        /// <param name="actor">The value assigned to the task's actor field.</param>
+        /// <param name="configPath">The dataPath-relative path of the staged template YAML.</param>
+        /// <param name="trackLength">The Unity-unit track length the pre-generated segment sequence covers.</param>
+        /// <param name="trackSeed">The maze seed, or Task.RandomSeedSentinel for a nondeterministic run.</param>
+        /// <param name="actor">The actor the task teleports between corridors, or null to leave it unassigned.</param>
         /// <returns>The created task.</returns>
         private Task CreateTask(string configPath, float trackLength, int trackSeed, ActorObject actor)
         {
@@ -1196,9 +1187,9 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Stages the pair template, creates a task against it, and runs the task's Start.</summary>
-        /// <param name="trackLength">The value assigned to the task's trackLength field.</param>
-        /// <param name="trackSeed">The value assigned to the task's trackSeed field.</param>
-        /// <param name="actor">The value assigned to the task's actor field.</param>
+        /// <param name="trackLength">The Unity-unit track length the pre-generated segment sequence covers.</param>
+        /// <param name="trackSeed">The maze seed, or Task.RandomSeedSentinel for a nondeterministic run.</param>
+        /// <param name="actor">The actor the task teleports between corridors, or null to leave it unassigned.</param>
         /// <returns>The started task.</returns>
         private Task StartPairTask(float trackLength, int trackSeed, ActorObject actor)
         {
@@ -1327,8 +1318,7 @@ namespace SL.Tests.EditMode
             actor.transform.position = position;
         }
 
-        /// <summary>Moves the actor half a Unity unit past the end of the current corridor's first segment.
-        /// </summary>
+        /// <summary>Moves the actor half a Unity unit past the end of the current corridor's first segment.</summary>
         /// <param name="task">The task whose current corridor supplies the segment length.</param>
         /// <param name="actor">The actor whose transform to move.</param>
         private static void MoveActorPastFirstSegment(Task task, ActorObject actor)

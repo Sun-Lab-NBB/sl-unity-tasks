@@ -548,7 +548,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that each getter caches independently, so one call does not populate another's cache.
+        /// Verifies that a first GetTrialNames call populates only its own cache, leaving the other five unset.
         /// </summary>
         [Test]
         public void Getters_FirstCallOnOneGetter_LeavesTheUnrelatedCachesUnpopulated()

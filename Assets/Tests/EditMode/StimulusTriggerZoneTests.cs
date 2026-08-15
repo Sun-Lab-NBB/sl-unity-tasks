@@ -1,12 +1,4 @@
-/// <summary>
-/// Verifies the behavior of the StimulusTriggerZone class.
-///
-/// The fixture walks the full trigger-mode dispatch matrix, both sides of every guard in the interaction,
-/// collision, and occupancy handlers, and the per-lap contract the zone shares with Task, meaning exactly one
-/// StimulusMessage per resolved trial, a cause of "behavior" or "guidance", and a verbatim trial name. The two
-/// closing tests pin the IResettable implementer set, because Task discovers resettable zones by concrete type
-/// and an unregistered implementer would silently never reset.
-/// </summary>
+/// <summary>Verifies the behavior of the StimulusTriggerZone class.</summary>
 using System;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -19,6 +11,13 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the StimulusTriggerZone class.</summary>
+    /// <remarks>
+    /// The fixture walks the full trigger-mode dispatch matrix, both sides of every guard in the interaction,
+    /// collision, and occupancy handlers, and the per-lap contract the zone shares with Task. That contract is exactly
+    /// one StimulusMessage per resolved trial, a cause of "behavior" or "guidance", and a verbatim trial name. The two
+    /// closing tests pin the IResettable implementer set, because Task discovers resettable zones by concrete type and
+    /// an unregistered implementer would silently never reset.
+    /// </remarks>
     [TestFixture]
     public class StimulusTriggerZoneTests
     {
@@ -209,7 +208,9 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a freshly attached zone carries the serialized defaults CreateTask relies on.
+        /// <summary>
+        /// Verifies that a freshly attached zone carries the field-initializer defaults its Start and CreateTask
+        /// both layer on top of.
         /// </summary>
         [Test]
         public void SerializedDefaults_FreshlyAttachedZone_AreArmedInteractionModeWithNoTrialName()
@@ -309,8 +310,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an interaction outranks the guidance fallback when both hold on one frame.
-        /// </summary>
+        /// <summary>Verifies that an interaction outranks the guidance fallback when both hold on one frame.</summary>
         [Test]
         public void Update_GuidanceEnabledWithInteractionAndGuidanceEntry_PublishesBehaviorCause()
         {
@@ -548,8 +548,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the trigger mode ignores the boundary crossing while occupancy is unmet.
-        /// </summary>
+        /// <summary>Verifies that the trigger mode ignores the boundary crossing while occupancy is unmet.</summary>
         [Test]
         public void Update_OccupancyTriggerOccupancyNotMetInsideZone_PublishesNoOutcome()
         {
@@ -565,8 +564,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the trigger mode publishes one outcome no matter how many frames elapse.
-        /// </summary>
+        /// <summary>Verifies that the trigger mode publishes one outcome no matter how many frames elapse.</summary>
         [Test]
         public void Update_OccupancyTriggerAcrossManyFrames_PublishesExactlyOneOutcome()
         {
@@ -644,8 +642,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an interaction recorded after the last Update still delivers on the exit.
-        /// </summary>
+        /// <summary>Verifies that an interaction recorded after the last Update still delivers on the exit.</summary>
         [Test]
         public void OnTriggerExit_InteractionRecordedAfterTheLastUpdate_PublishesDeliveredOutcome()
         {
@@ -718,8 +715,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a guidance-mode exit before any Update still reports an omitted outcome.
-        /// </summary>
+        /// <summary>Verifies that a guidance-mode exit before any Update still reports an omitted outcome.</summary>
         [Test]
         public void OnTriggerExit_GuidanceEnabledWithoutInteraction_PublishesOmittedBehaviorOutcome()
         {
@@ -738,8 +734,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an interaction-mode exit with no matching entry still resolves the trial.
-        /// </summary>
+        /// <summary>Verifies that an interaction-mode exit with no matching entry still resolves the trial.</summary>
         [Test]
         public void OnTriggerExit_WithoutAMatchingEntry_PublishesOmittedBehaviorOutcome()
         {
@@ -919,8 +914,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that ResetState re-hides the boundary of a zone configured to keep it hidden.
-        /// </summary>
+        /// <summary>Verifies that ResetState re-hides the boundary of a zone configured to keep it hidden.</summary>
         [Test]
         public void ResetState_BoundaryConfiguredHidden_LeavesTheRendererDisabled()
         {
@@ -986,8 +980,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the runtime assembly declares exactly the three expected IResettable types.
-        /// </summary>
+        /// <summary>Verifies that the runtime assembly declares exactly the three expected IResettable types.</summary>
         [Test]
         public void IResettable_RuntimeAssembly_DeclaresExactlyTheRegisteredImplementers()
         {
@@ -1005,8 +998,7 @@ namespace SL.Tests.EditMode
             CollectionAssert.AreEqual(expected, implementers);
         }
 
-        /// <summary>Verifies that the Task reset enumeration discovers every zone implementing IResettable.
-        /// </summary>
+        /// <summary>Verifies that the Task reset enumeration discovers every zone implementing IResettable.</summary>
         [Test]
         public void FindResettableZones_OccupancyHierarchy_DiscoversEveryImplementer()
         {

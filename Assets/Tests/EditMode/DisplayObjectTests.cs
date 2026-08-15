@@ -1,9 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the DisplayObject class.
-///
-/// The successful branch of Create instantiates a Resources model prefab and writes a settings asset into the
-/// project, so only its missing-model guard is exercised here. Everything reachable without touching project assets
-/// is covered: the actor attachment, the eye height offset, the actor layer culling, and the detach path.
 /// </summary>
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -15,6 +11,10 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the DisplayObject class.</summary>
+    /// <remarks>
+    /// Everything reachable without touching project assets is covered: the actor attachment, the eye height offset,
+    /// the actor layer culling, and the detach path.
+    /// </remarks>
     [TestFixture]
     public class DisplayObjectTests
     {
@@ -172,6 +172,10 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Verifies that creating a display from an absent model prefab reports the failure.</summary>
+        /// <remarks>
+        /// The successful branch of Create instantiates a Resources model prefab and writes a settings asset into the
+        /// project, so the missing-model guard is the branch this fixture exercises.
+        /// </remarks>
         [Test]
         public void Create_AbsentModelPrefab_LogsErrorAndReturnsNull()
         {

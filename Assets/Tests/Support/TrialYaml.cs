@@ -1,9 +1,5 @@
 /// <summary>
 /// Provides the TrialYaml builder describing one entry of a task template's trial_structures mapping.
-///
-/// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's
-/// missing-field branches. An entry in rawOverrides emits its literal text for that key instead, which reaches the
-/// branches a well-typed value cannot express, such as a wrong-typed or malformed scalar.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -11,9 +7,11 @@ using System.Text;
 
 namespace SL.Tests
 {
-    /// <summary>
-    /// Builds the YAML block for a single trial structure.
-    /// </summary>
+    /// <summary>Builds the YAML block for a single trial structure.</summary>
+    /// <remarks>
+    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
+    /// branches.
+    /// </remarks>
     public sealed class TrialYaml
     {
         /// <summary>The trial name, which becomes the mapping key under trial_structures.</summary>
@@ -44,6 +42,10 @@ namespace SL.Tests
         public Dictionary<string, float> transitions = null;
 
         /// <summary>The literal YAML text emitted for a key, overriding whatever the typed field holds.</summary>
+        /// <remarks>
+        /// An entry reaches the ConfigLoader branches a well-typed value cannot express, such as a wrong-typed or
+        /// malformed scalar.
+        /// </remarks>
         public readonly Dictionary<string, string> rawOverrides = new Dictionary<string, string>();
 
         /// <summary>Creates a trial block with the supplied name and cue sequence.</summary>

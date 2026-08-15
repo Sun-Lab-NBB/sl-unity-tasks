@@ -15,7 +15,7 @@ namespace SL.Tests
         /// ConfigLoader rejects a non-finite geometry scalar, so a test covering that branch needs the loader to
         /// actually parse a NaN or an infinity rather than a token YamlDotNet would reject outright.
         /// </remarks>
-        /// <param name="value">The number to render.</param>
+        /// <param name="value">The value whose YAML spelling is produced, including a non-finite one.</param>
         /// <returns>The YAML scalar text.</returns>
         internal static string Number(float value)
         {
@@ -35,7 +35,7 @@ namespace SL.Tests
         }
 
         /// <summary>Renders an integer.</summary>
-        /// <param name="value">The integer to render.</param>
+        /// <param name="value">The value written as a plain YAML integer.</param>
         /// <returns>The YAML scalar text.</returns>
         internal static string Integer(int value)
         {
@@ -43,7 +43,7 @@ namespace SL.Tests
         }
 
         /// <summary>Renders a boolean using YAML's lowercase spelling.</summary>
-        /// <param name="value">The boolean to render.</param>
+        /// <param name="value">The value written as a YAML true or false token.</param>
         /// <returns>The YAML scalar text.</returns>
         internal static string Boolean(bool value)
         {
@@ -51,7 +51,7 @@ namespace SL.Tests
         }
 
         /// <summary>Renders a string as a double-quoted scalar with backslashes and quotes escaped.</summary>
-        /// <param name="value">The string to render.</param>
+        /// <param name="value">The value quoted and escaped for the document.</param>
         /// <returns>The YAML scalar text.</returns>
         internal static string Text(string value)
         {

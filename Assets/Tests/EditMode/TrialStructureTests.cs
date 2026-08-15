@@ -163,7 +163,8 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that the stimulus zone boundary fields retain the exact centimeter values assigned.
+        /// Verifies that every assigned trial field retains its exact value, across the cue sequence, the three
+        /// zone geometry centimeter boundaries, the boundary visibility flag, and the trigger type.
         /// </summary>
         [Test]
         public void ZoneGeometryFields_AssignedValues_RetainExactCentimeterValues()

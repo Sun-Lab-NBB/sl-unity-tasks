@@ -2,8 +2,7 @@
 /// Provides the McpBridge editor plugin that exposes Unity Editor operations to external MCP relay servers.
 ///
 /// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the
-/// sollertia-virtual-reality MCP relay. Each request specifies a tool name and arguments; the bridge dispatches
-/// to the corresponding Unity Editor API and returns a JSON result.
+/// sollertia-virtual-reality MCP relay.
 /// </summary>
 using System;
 using System.Collections.Concurrent;
@@ -25,6 +24,10 @@ namespace SL.Tasks
     /// HTTP listener that bridges external MCP relay requests to Unity Editor API calls.
     /// Initialized automatically when the Editor loads via <see cref="InitializeOnLoadAttribute"/>.
     /// </summary>
+    /// <remarks>
+    /// Each request specifies a tool name and arguments, and the bridge dispatches to the corresponding Unity Editor
+    /// API and returns a JSON result.
+    /// </remarks>
     [InitializeOnLoad]
     public static class McpBridge
     {

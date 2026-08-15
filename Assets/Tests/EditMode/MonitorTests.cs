@@ -1,10 +1,4 @@
-/// <summary>
-/// Verifies the behavior of the Monitor class.
-///
-/// EnumerateMonitors itself opens a popup EditorWindow per detected monitor and shells out to the platform
-/// enumeration command, so the fixture drives the parsing helpers, the subprocess helper, and the record
-/// constructor directly rather than the public entry point.
-/// </summary>
+/// <summary>Verifies the behavior of the Monitor class.</summary>
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -19,6 +13,11 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the Monitor class.</summary>
+    /// <remarks>
+    /// EnumerateMonitors itself opens a popup EditorWindow per detected monitor, P/Invokes user32 on Windows, and
+    /// shells out to xrandr or displayplacer on Linux and macOS. The fixture therefore drives the parsing helpers, the
+    /// subprocess helper, and the record constructor directly rather than the public entry point.
+    /// </remarks>
     [TestFixture]
     public class MonitorTests
     {
@@ -42,8 +41,8 @@ namespace SL.Tests.EditMode
             MatchCollection matches = LinuxPattern().Matches(output);
 
             Assert.AreEqual(2, matches.Count);
-            AssertGeometry(matches[0], 1920, 1080, 0, 0);
-            AssertGeometry(matches[1], 1280, 720, 1920, 360);
+            AssertGeometry(matches[0], width: 1920, height: 1080, left: 0, top: 0);
+            AssertGeometry(matches[1], width: 1280, height: 720, left: 1920, top: 360);
         }
 
         /// <summary>Verifies that the Linux pattern ignores the mode list rows xrandr prints per output.</summary>
@@ -102,8 +101,8 @@ namespace SL.Tests.EditMode
             MatchCollection matches = MacOsPattern().Matches(output);
 
             Assert.AreEqual(2, matches.Count);
-            AssertGeometry(matches[0], 2560, 1440, 0, 0);
-            AssertGeometry(matches[1], 1512, 982, -1512, -360);
+            AssertGeometry(matches[0], width: 2560, height: 1440, left: 0, top: 0);
+            AssertGeometry(matches[1], width: 1512, height: 982, left: -1512, top: -360);
         }
 
         /// <summary>Verifies that a block missing its origin cannot borrow the origin of the next block.</summary>
@@ -122,7 +121,7 @@ namespace SL.Tests.EditMode
             MatchCollection matches = MacOsPattern().Matches(output);
 
             Assert.AreEqual(1, matches.Count);
-            AssertGeometry(matches[0], 1920, 1080, 10, 20);
+            AssertGeometry(matches[0], width: 1920, height: 1080, left: 10, top: 20);
         }
 
         /// <summary>Verifies that the macOS pattern tolerates carriage return line endings.</summary>
@@ -137,7 +136,7 @@ namespace SL.Tests.EditMode
             MatchCollection matches = MacOsPattern().Matches(output);
 
             Assert.AreEqual(1, matches.Count);
-            AssertGeometry(matches[0], 3840, 2160, 0, 0);
+            AssertGeometry(matches[0], width: 3840, height: 2160, left: 0, top: 0);
         }
 
         /// <summary>Verifies that the macOS pattern rejects an origin whose coordinates are not numeric.</summary>
@@ -164,7 +163,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void Constructor_NewMonitor_StoresGeometryAndUnassignedDefaults()
         {
-            Monitor monitor = CreateMonitor(-1920, -360, 1280, 720);
+            Monitor monitor = CreateMonitor(left: -1920, top: -360, width: 1280, height: 720);
 
             Assert.AreEqual(-1920, monitor.left);
             Assert.AreEqual(-360, monitor.top);
@@ -174,7 +173,10 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(EntityId.None, monitor.cameraEntityId);
         }
 
-        /// <summary>Verifies that the displayplacer install paths match the two supported Homebrew prefixes.</summary>
+        /// <summary>
+        /// Verifies that the displayplacer constants match the two supported Homebrew prefixes and the bare
+        /// PATH-resolved executable name.
+        /// </summary>
         [Test]
         public void DisplayPlacerConstants_InstallPaths_MatchTheHomebrewPrefixes()
         {
@@ -199,7 +201,10 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(5000, PrivateAccess.GetStaticField<int>(typeof(Monitor), "SubprocessTimeoutMilliseconds"));
         }
 
-        /// <summary>Verifies that the displayplacer path resolves to the first Homebrew prefix that exists.</summary>
+        /// <summary>
+        /// Verifies that the displayplacer path resolves to the first Homebrew prefix that exists, falling back to
+        /// the bare executable name.
+        /// </summary>
         [Test]
         public void ResolveDisplayPlacerPath_HomebrewPrefixes_ReturnsTheFirstExistingPath()
         {

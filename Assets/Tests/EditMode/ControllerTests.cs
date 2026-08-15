@@ -1,10 +1,6 @@
 /// <summary>
 /// Verifies the behavior of the controller classes: ControllerObject and its ValueBuffer, ControllerOutput,
 /// ControllerTypes, LinearTreadmill, and SimulatedLinearTreadmill.
-///
-/// Every lifecycle callback is invoked directly, because Edit Mode runs no player loop. The simulated treadmill's
-/// keyboard action map is detached from its component before teardown, so the Input System asset is never disposed
-/// through UnityEngine.Object.Destroy, which is illegal outside Play Mode.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -16,6 +12,7 @@ using UnityEngine;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the controller classes.</summary>
+    /// <remarks>Every lifecycle callback is invoked directly, because Edit Mode runs no player loop.</remarks>
     [TestFixture]
     public class ControllerTests
     {
@@ -437,8 +434,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(string.Empty, _mqtt.LastPayloadOn(MQTTTopics.Interaction));
         }
 
-        /// <summary>Verifies that destroying a simulated treadmill that never started leaves the input alone.
-        /// </summary>
+        /// <summary>Verifies that destroying a simulated treadmill that never started leaves the input alone.</summary>
         [Test]
         public void OnDestroy_SimulatedTreadmillThatNeverStarted_DoesNotThrow()
         {

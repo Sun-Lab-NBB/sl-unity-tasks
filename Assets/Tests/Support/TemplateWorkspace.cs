@@ -78,6 +78,15 @@ namespace SL.Tests
             return Path.Combine(ConfigurationsPath, $"{templateName}.yaml");
         }
 
+        /// <summary>Deletes the staged directory tree.</summary>
+        public void Dispose()
+        {
+            if (Directory.Exists(RootPath))
+            {
+                Directory.Delete(RootPath, recursive: true);
+            }
+        }
+
         /// <summary>Writes a placeholder texture file so a cue's texture existence check resolves.</summary>
         /// <remarks>
         /// ConfigLoader checks only that the path exists, so the placeholder carries no image data. A test that
@@ -86,7 +95,7 @@ namespace SL.Tests
         /// </remarks>
         /// <param name="fileName">The texture file name exactly as the cue's texture field spells it.</param>
         /// <returns>The absolute path of the written texture file.</returns>
-        public string WriteTexture(string fileName)
+        private string WriteTexture(string fileName)
         {
             string path = Path.Combine(TexturesPath, fileName);
             string directory = Path.GetDirectoryName(path);
@@ -96,15 +105,6 @@ namespace SL.Tests
             }
             File.WriteAllBytes(path, Array.Empty<byte>());
             return path;
-        }
-
-        /// <summary>Deletes the staged directory tree.</summary>
-        public void Dispose()
-        {
-            if (Directory.Exists(RootPath))
-            {
-                Directory.Delete(RootPath, recursive: true);
-            }
         }
     }
 }

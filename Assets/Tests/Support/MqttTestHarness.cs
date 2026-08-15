@@ -1,9 +1,5 @@
 /// <summary>
 /// Provides the MqttTestHarness that stands up an MQTTClient singleton and records every published payload.
-///
-/// The harness never contacts a broker. MQTTClient.Publish falls back to in-process delivery whenever the client is
-/// disconnected, so a capture channel subscribed to a topic observes exactly what the production publish path
-/// produced, and a harness publish reaches the real listener the code under test registered.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -17,6 +13,11 @@ namespace SL.Tests
     /// <summary>
     /// Hosts an MQTTClient singleton for a test and captures the payloads published on every known topic.
     /// </summary>
+    /// <remarks>
+    /// The harness never contacts a broker. MQTTClient.Publish falls back to in-process delivery whenever the client is
+    /// disconnected, so a capture channel subscribed to a topic observes exactly what the production publish path
+    /// produced. A harness publish reaches the real listener the code under test registered.
+    /// </remarks>
     public sealed class MqttTestHarness : IDisposable
     {
         /// <summary>The GameObject hosting the client component.</summary>
@@ -68,16 +69,6 @@ namespace SL.Tests
             return topics;
         }
 
-        /// <summary>Returns the payloads captured on a topic, oldest first.</summary>
-        /// <param name="topic">The topic to read.</param>
-        /// <returns>The captured payload strings.</returns>
-        public IReadOnlyList<string> PayloadsOn(string topic)
-        {
-            return _captures.TryGetValue(topic, out CapturingChannel channel)
-                ? channel.payloads
-                : (IReadOnlyList<string>)Array.Empty<string>();
-        }
-
         /// <summary>Returns the number of payloads captured on a topic.</summary>
         /// <param name="topic">The topic to count.</param>
         /// <returns>The captured payload count.</returns>
@@ -89,6 +80,7 @@ namespace SL.Tests
         /// <summary>Returns the most recent payload captured on a topic.</summary>
         /// <param name="topic">The topic to read.</param>
         /// <returns>The most recent payload string.</returns>
+        /// <exception cref="InvalidOperationException">The topic carries no captured payload.</exception>
         public string LastPayloadOn(string topic)
         {
             IReadOnlyList<string> payloads = PayloadsOn(topic);
@@ -159,6 +151,16 @@ namespace SL.Tests
                 UnityEngine.Object.DestroyImmediate(_host);
             }
             PrivateAccess.SetStaticProperty(typeof(MQTTClient), "Instance", null);
+        }
+
+        /// <summary>Returns the payloads captured on a topic, oldest first.</summary>
+        /// <param name="topic">The topic to read.</param>
+        /// <returns>The captured payload strings.</returns>
+        private IReadOnlyList<string> PayloadsOn(string topic)
+        {
+            return _captures.TryGetValue(topic, out CapturingChannel channel)
+                ? channel.payloads
+                : (IReadOnlyList<string>)Array.Empty<string>();
         }
 
         /// <summary>Records every payload routed to its topic while preserving the base channel behavior.</summary>

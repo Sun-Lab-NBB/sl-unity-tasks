@@ -1,11 +1,5 @@
 /// <summary>
 /// Verifies the Task Parameters, play state, and monitor surfaces of the McpBridge editor plugin.
-///
-/// Every test drives the bridge through its Dispatch entry point or through the private handler that backs a tool,
-/// against a scene the fixture builds from scratch, so no assertion depends on whichever scene happened to be open.
-/// The FullScreenViewManager the bridge resolves is installed by the fixture with a synthetic monitor list, and it is
-/// built without running the enumerating constructor, so the camera mapping surface is deterministic and real monitor
-/// enumeration runs in the refresh test alone.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -25,6 +19,13 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the task parameter, scene snapshot, play state, and monitor handlers of McpBridge.</summary>
+    /// <remarks>
+    /// Every test drives the bridge through its Dispatch entry point or through the private handler that backs a tool,
+    /// against a scene the fixture builds from scratch, so no assertion depends on whichever scene happened to be open.
+    /// The FullScreenViewManager the bridge resolves is installed by the fixture with a synthetic monitor list. That
+    /// manager is either an open Parameters window's manager or one built without running the enumerating constructor,
+    /// so the camera mapping surface is deterministic and real monitor enumeration runs in the refresh test alone.
+    /// </remarks>
     [TestFixture]
     public class McpBridgeTaskParametersTests
     {
@@ -123,8 +124,8 @@ namespace SL.Tests.EditMode
             _originalMonitors = _manager.monitors;
             _syntheticMonitors = new List<Monitor>
             {
-                CreateMonitor(0, 0, 1920, 1080),
-                CreateMonitor(1920, 0, 2560, 1440),
+                CreateMonitor(left: 0, top: 0, width: 1920, height: 1080),
+                CreateMonitor(left: 1920, top: 0, width: 2560, height: 1440),
             };
             _manager.monitors = _syntheticMonitors;
 
@@ -1229,7 +1230,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void RefreshMonitors_ActiveScene_ReplacesTheMonitorListAndReportsIt()
         {
-            _manager.monitors = new List<Monitor> { CreateMonitor(SentinelCoordinate, SentinelCoordinate, 100, 100) };
+            _manager.monitors = new List<Monitor>
+            {
+                CreateMonitor(left: SentinelCoordinate, top: SentinelCoordinate, width: 100, height: 100),
+            };
 
             Dictionary<string, object> response = DispatchEnumeratingMonitors("refresh_monitors");
 
@@ -1286,10 +1290,10 @@ namespace SL.Tests.EditMode
 
         /// <summary>Resolves the manager the fixture shares, preferring one an open Parameters window owns.</summary>
         /// <remarks>
-        /// The public constructor runs Monitor.EnumerateMonitors, which spawns an OS subprocess and opens one popup
-        /// EditorWindow per detected monitor, so the fallback builds the manager without running any constructor.
-        /// The resulting instance carries an empty monitor list and a null saved-views field, which is exactly the
-        /// state every test installs anyway, and it keeps SaveCameras a no-op for the whole fixture.
+        /// The public constructor runs Monitor.EnumerateMonitors, which spawns an OS subprocess on Linux and macOS and
+        /// opens one popup EditorWindow per detected monitor, so the fallback builds the manager without running any
+        /// constructor. The resulting instance carries an empty monitor list and a null saved-views field, which is
+        /// exactly the state every test installs anyway, and it keeps SaveCameras a no-op for the whole fixture.
         /// </remarks>
         /// <returns>The manager installed into the bridge cache for the whole fixture.</returns>
         private static FullScreenViewManager ResolveSharedManager()

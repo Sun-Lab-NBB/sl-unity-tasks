@@ -135,7 +135,14 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("{\"success\":true}", json);
         }
 
-        /// <summary>Verifies that every dispatchable tool name resolves to a handler, not to the fallback.</summary>
+        /// <summary>Verifies that each covered tool name resolves to a handler, not to the fallback.</summary>
+        /// <remarks>
+        /// The cases cover eleven of the fifteen dispatched names. enter_play_mode is excluded because dispatching it
+        /// here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it from
+        /// inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
+        /// write_task_parameters, and refresh_monitors are excluded because McpBridgeTaskParametersTests dispatches
+        /// them against the FullScreenViewManager fixture their handlers need.
+        /// </remarks>
         [TestCase("create_task")]
         [TestCase("delete_task")]
         [TestCase("inspect_prefab")]

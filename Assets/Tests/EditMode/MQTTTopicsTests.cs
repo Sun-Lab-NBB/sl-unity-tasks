@@ -44,43 +44,6 @@ namespace SL.Tests.EditMode
             "RequireWait",
         };
 
-        /// <summary>Returns every public static field declared by the topic catalog.</summary>
-        /// <remarks>
-        /// The reflected set is size-checked here rather than in the callers because every structural test below
-        /// walks it with a foreach. An empty or truncated set would make each of those loops pass vacuously, so the
-        /// guard turns a reflection lookup that stopped seeing the catalog into a failure in every test that relies
-        /// on it instead of a silent green run.
-        /// </remarks>
-        /// <returns>The declared topic fields.</returns>
-        private static FieldInfo[] DeclaredTopicFields()
-        {
-            FieldInfo[] fields = typeof(MQTTTopics).GetFields(BindingFlags.Public | BindingFlags.Static);
-            Assert.AreEqual(
-                ExpectedTopicCount,
-                fields.Length,
-                "The reflected field set must cover the whole catalog, otherwise every per-topic loop passes "
-                    + "without inspecting anything."
-            );
-            return fields;
-        }
-
-        /// <summary>Returns the value of every topic field declared by the catalog.</summary>
-        /// <remarks>
-        /// The value is read with <c>GetValue</c> rather than <c>GetRawConstantValue</c> so a field that stopped
-        /// being a compile-time constant still yields a value here and fails the dedicated constness test with a
-        /// readable message instead of throwing out of this helper.
-        /// </remarks>
-        /// <returns>The declared topic values.</returns>
-        private static List<string> DeclaredTopicValues()
-        {
-            List<string> values = new List<string>();
-            foreach (FieldInfo field in DeclaredTopicFields())
-            {
-                values.Add((string)field.GetValue(null));
-            }
-            return values;
-        }
-
         /// <summary>Verifies that the session-start topic matches the experiment-side contract literal.</summary>
         [Test]
         public void SessionStart_Constant_EqualsTheContractLiteral()
@@ -174,9 +137,9 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that the catalog declares exactly the number of topics the contract expects.</summary>
         /// <remarks>
-        /// The reflection call is written out here rather than routed through <see cref="DeclaredTopicFields"/> so
-        /// this test owns the count contract outright and reports it under its own name, leaving the helper's guard
-        /// to serve only the structural tests that would otherwise loop over nothing.
+        /// The reflection call is written out here rather than routed through <see cref="DeclaredTopicFields"/> so this
+        /// test owns the count contract outright and reports it under its own name. That leaves the helper's guard to
+        /// serve only the structural tests that would otherwise loop over nothing.
         /// </remarks>
         [Test]
         public void DeclaredTopics_FieldCount_MatchesTheContractTopicCount()
@@ -315,6 +278,43 @@ namespace SL.Tests.EditMode
             );
 
             Assert.AreEqual(0, instanceFields.Length);
+        }
+
+        /// <summary>Returns every public static field declared by the topic catalog.</summary>
+        /// <remarks>
+        /// The reflected set is size-checked here rather than in the callers because every structural test below walks
+        /// it with a foreach. An empty or truncated set would make each of those loops pass vacuously. The guard
+        /// therefore turns a reflection lookup that stopped seeing the catalog into a failure in every test that relies
+        /// on it.
+        /// </remarks>
+        /// <returns>The declared topic fields.</returns>
+        private static FieldInfo[] DeclaredTopicFields()
+        {
+            FieldInfo[] fields = typeof(MQTTTopics).GetFields(BindingFlags.Public | BindingFlags.Static);
+            Assert.AreEqual(
+                ExpectedTopicCount,
+                fields.Length,
+                "The reflected field set must cover the whole catalog, otherwise every per-topic loop passes "
+                    + "without inspecting anything."
+            );
+            return fields;
+        }
+
+        /// <summary>Returns the value of every topic field declared by the catalog.</summary>
+        /// <remarks>
+        /// The value is read with <c>GetValue</c> rather than <c>GetRawConstantValue</c> so a field that stopped
+        /// being a compile-time constant still yields a value here and fails the dedicated constness test with a
+        /// readable message instead of throwing out of this helper.
+        /// </remarks>
+        /// <returns>The declared topic values.</returns>
+        private static List<string> DeclaredTopicValues()
+        {
+            List<string> values = new List<string>();
+            foreach (FieldInfo field in DeclaredTopicFields())
+            {
+                values.Add((string)field.GetValue(null));
+            }
+            return values;
         }
     }
 }

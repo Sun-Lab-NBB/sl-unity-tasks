@@ -1,12 +1,7 @@
 /// <summary>
-/// Provides the OccupancyZone class that tracks whether an animal has occupied a zone for a required duration.
-///
-/// Used by the occupancy trigger modes (occupancy_disarm, occupancy_arm, occupancy_trigger). The occupancy
-/// mode specifies how a stimulus is triggered, not what stimulus is delivered.
-///
-/// When the animal enters the zone, a high-precision timer starts. If the animal stays for the configured
-/// occupancy duration, the occupancy requirement is met. If the animal leaves early, it remains unmet. The
-/// parent StimulusTriggerZone reads the occupancyMet state and interprets it per trigger mode.
+/// Provides the OccupancyZone class that tracks whether an animal has occupied a zone for a required duration. The
+/// occupancy_disarm, occupancy_arm, and occupancy_trigger modes of the parent StimulusTriggerZone read the tracked
+/// state.
 /// </summary>
 using UnityEngine;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -16,6 +11,10 @@ namespace SL.Tasks
     /// <summary>
     /// Tracks animal occupancy duration within a zone and exposes whether the occupancy requirement was met.
     /// </summary>
+    /// <remarks>
+    /// The occupancy mode specifies how a stimulus is triggered rather than which stimulus is delivered, because any
+    /// stimulus type pairs with any trigger mode.
+    /// </remarks>
     public class OccupancyZone : MonoBehaviour, IResettable
     {
         /// <summary>
@@ -58,6 +57,10 @@ namespace SL.Tasks
         }
 
         /// <summary>Checks if the occupancy duration has been met while the animal is in the zone.</summary>
+        /// <remarks>
+        /// The requirement is met once the animal has stayed in the zone for <see cref="occupancyDurationMs"/> without
+        /// leaving, because each entry restarts the timer.
+        /// </remarks>
         private void Update()
         {
             if (!isActive || occupancyMet)
@@ -85,6 +88,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Stops the timer and checks the result when the animal exits the zone collider.</summary>
+        /// <remarks>An exit before the required duration elapses leaves <see cref="occupancyMet"/> false.</remarks>
         /// <param name="other">The object that exited the trigger zone.</param>
         private void OnTriggerExit(Collider other)
         {

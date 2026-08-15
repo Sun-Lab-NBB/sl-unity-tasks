@@ -1,9 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the ActorObject class.
-///
-/// Every test drives the editor-time entry points directly, because Edit Mode runs no player loop. The tests that
-/// touch the tracking camera reason about the displays already claimed by the open scene rather than assuming an
-/// empty scene, so the assertions hold whether the runner opens ExperimentTemplate.unity or an untitled scene.
 /// </summary>
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
@@ -16,6 +12,11 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the ActorObject class.</summary>
+    /// <remarks>
+    /// Every test drives the editor-time entry points directly, because Edit Mode runs no player loop. The tests that
+    /// touch the tracking camera reason about the displays the open scene already claims, so the assertions hold
+    /// whether the runner opens ExperimentTemplate.unity or an untitled scene.
+    /// </remarks>
     [TestFixture]
     public class ActorObjectTests
     {
@@ -393,7 +394,9 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(Color.black, trackingCamera.backgroundColor);
         }
 
-        /// <summary>Verifies that the tracking camera claims the lowest display no other camera uses.</summary>
+        /// <summary>
+        /// Verifies that the tracking camera claims the lowest display no other TrackCam camera uses.
+        /// </summary>
         [Test]
         public void InitiateActor_TrackCameraEnabled_ClaimsTheLowestUnusedDisplay()
         {

@@ -1,10 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the FullScreenViewManager class.
-///
-/// The public constructor enumerates the host's monitors, which opens a popup EditorWindow per monitor, so every
-/// test builds the manager without running that constructor and injects the monitor list and the saved-views
-/// companion directly. The IMGUI entry points and the borderless window creation path need a real editor layout and
-/// a graphics device, so they stay out of scope.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -17,6 +12,10 @@ using UnityEngine;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the FullScreenViewManager class.</summary>
+    /// <remarks>
+    /// The IMGUI entry points and the borderless window creation path need a real editor layout and a graphics device,
+    /// so they stay out of scope.
+    /// </remarks>
     [TestFixture]
     public class FullScreenViewManagerTests
     {
@@ -305,6 +304,10 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Builds a manager without running the monitor-enumerating constructor.</summary>
+        /// <remarks>
+        /// The public constructor enumerates the host's monitors, which opens a popup EditorWindow per monitor, so no
+        /// test runs it.
+        /// </remarks>
         /// <param name="monitors">The monitors assigned to the manager.</param>
         /// <returns>The manager carrying the supplied monitor list.</returns>
         private static FullScreenViewManager CreateManager(params Monitor[] monitors)

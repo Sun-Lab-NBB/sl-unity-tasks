@@ -1,8 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the FullScreenView class.
-///
-/// The render path allocates a RenderTexture and blits a camera into an IMGUI repaint event, which needs a shown
-/// window and a graphics device, so only the registration bookkeeping that survives a domain reload is covered here.
 /// </summary>
 using Gimbl;
 using NUnit.Framework;
@@ -12,6 +9,11 @@ using UnityEngine;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the FullScreenView class.</summary>
+    /// <remarks>
+    /// The render path allocates a RenderTexture and blits a camera into an IMGUI repaint event, which needs a shown
+    /// window and a graphics device. The registration bookkeeping that survives a domain reload and the Play Mode
+    /// transition handler are therefore what this fixture covers.
+    /// </remarks>
     [TestFixture]
     public class FullScreenViewTests
     {

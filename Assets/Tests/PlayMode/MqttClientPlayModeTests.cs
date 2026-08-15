@@ -1,16 +1,6 @@
 /// <summary>
-/// Verifies the behavior of the MQTTClient, MQTTChannel, MQTTConnectorObject, and LickStimulusSpawner classes
-/// under the real Unity player loop.
-///
-/// Every test here needs something Edit Mode cannot supply, meaning Unity itself invoking Awake, Start, and
-/// OnDestroy, a genuine frame boundary between a publish and the Update that consumes it, or the wall-clock
-/// delay the session-start broadcast waits out. No broker participates, so the publish path always takes the
-/// in-process loopback branch and the connector's connection attempt always fails against a closed port.
-///
-/// A client whose Start runs schedules a session-start broadcast one second later. Tests that do not measure
-/// that broadcast keep their client's host object inactive, so Start never runs and no delayed publish outlives
-/// the test. The two tests that do measure it leave their client running, and the loopback warning their
-/// broadcast may log after the fixture tears the client down is a warning rather than an error.
+/// Verifies the behavior of the MQTTClient, MQTTChannel, MQTTConnectorObject, and LickStimulusSpawner classes under the
+/// real Unity player loop.
 /// </summary>
 using System.Collections;
 using System.Collections.Generic;
@@ -25,8 +15,13 @@ using UnityEngine.TestTools;
 
 namespace SL.Tests.PlayMode
 {
-    /// <summary>Verifies the MQTT client, channel, connector, and UI spawner behavior under the player loop.
-    /// </summary>
+    /// <summary>Verifies the MQTT client, channel, connector, and UI spawner behavior under the player loop.</summary>
+    /// <remarks>
+    /// Every test here needs something Edit Mode cannot supply, meaning Unity itself invoking Awake, OnEnable, Start,
+    /// and OnDestroy, a genuine frame boundary between a publish and the Update that consumes it, or the wall-clock
+    /// delay the session-start broadcast waits out. No broker participates, so the publish path always takes the
+    /// in-process loopback branch and the connector's connection attempt always fails against a closed port.
+    /// </remarks>
     [TestFixture]
     public class MqttClientPlayModeTests
     {
@@ -44,12 +39,10 @@ namespace SL.Tests.PlayMode
         /// </remarks>
         private const string ConnectionFailurePattern = @"Could not connect to MQTT broker at 127\.0\.0\.1:47999";
 
-        /// <summary>The pattern matching the error the connector logs when no client singleton is installed.
-        /// </summary>
+        /// <summary>The pattern matching the error the connector logs when no client singleton is installed.</summary>
         private const string MissingInstancePattern = @"MQTTConnectorObject: MQTTClient\.Instance not available";
 
-        /// <summary>The seconds to wait before the session-start delay elapses, staying short of one second.
-        /// </summary>
+        /// <summary>The seconds to wait before the session-start delay elapses, staying short of one second.</summary>
         private const float BeforeSessionStartSeconds = 0.5f;
 
         /// <summary>The seconds to wait for the session-start delay to elapse, clearing one second with margin.
@@ -175,8 +168,7 @@ namespace SL.Tests.PlayMode
             Assert.AreSame(firstClient, MQTTClient.Instance);
         }
 
-        /// <summary>Verifies that the player loop's Start call creates the session start and stop channels.
-        /// </summary>
+        /// <summary>Verifies that the player loop's Start call creates the session start and stop channels.</summary>
         [UnityTest]
         public IEnumerator Start_UnderThePlayerLoop_CreatesTheSessionStartAndStopChannels()
         {
@@ -195,8 +187,7 @@ namespace SL.Tests.PlayMode
             Assert.AreSame(harness.Client, stopChannel.client);
         }
 
-        /// <summary>Verifies that the session channels are publish-only, so neither joins the routing list.
-        /// </summary>
+        /// <summary>Verifies that the session channels are publish-only, so neither joins the routing list.</summary>
         [UnityTest]
         public IEnumerator Start_UnderThePlayerLoop_LeavesTheSessionChannelsOutOfTheRoutingList()
         {
@@ -210,8 +201,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(registrationsBeforeStart, RegisteredChannelCount(harness.Client));
         }
 
-        /// <summary>Verifies that no session-start message is published before the one second delay elapses.
-        /// </summary>
+        /// <summary>Verifies that no session-start message is published before the one second delay elapses.</summary>
         [UnityTest]
         public IEnumerator StartSessionAsync_BeforeTheDelayElapses_PublishesNothingOnSessionStart()
         {
@@ -280,8 +270,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(publishFrame, capture.Frames[0]);
         }
 
-        /// <summary>Verifies that a channel subscribed several frames earlier still receives a later publish.
-        /// </summary>
+        /// <summary>Verifies that a channel subscribed several frames earlier still receives a later publish.</summary>
         [UnityTest]
         public IEnumerator Publish_ChannelSubscribedInAnEarlierFrame_ReceivesTheLaterPublish()
         {
@@ -301,8 +290,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(publishFrame, capture.Frames[0]);
         }
 
-        /// <summary>Verifies that a trigger channel's Send reaches a listener registered on an earlier frame.
-        /// </summary>
+        /// <summary>Verifies that a trigger channel's Send reaches a listener registered on an earlier frame.</summary>
         [UnityTest]
         public IEnumerator Send_TriggerChannel_DeliversAnEmptyPayloadAcrossAFrameBoundary()
         {
@@ -321,8 +309,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(1, invocations);
         }
 
-        /// <summary>Verifies that a typed channel's Send reaches a listener registered on an earlier frame.
-        /// </summary>
+        /// <summary>Verifies that a typed channel's Send reaches a listener registered on an earlier frame.</summary>
         [UnityTest]
         public IEnumerator Send_TypedChannel_DeliversTheDeserializedMessageAcrossAFrameBoundary()
         {
@@ -414,8 +401,7 @@ namespace SL.Tests.PlayMode
             Assert.IsNotNull(PrivateAccess.GetField<object>(client, "_messageReceivedHandler"));
         }
 
-        /// <summary>Verifies that re-enabling the connector runs a second attempt on a replacement handle.
-        /// </summary>
+        /// <summary>Verifies that re-enabling the connector runs a second attempt on a replacement handle.</summary>
         [Test]
         public void OnEnable_ConnectorReEnabled_ReplacesTheUnderlyingClientWithASecondAttempt()
         {
@@ -491,8 +477,7 @@ namespace SL.Tests.PlayMode
             Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
         }
 
-        /// <summary>Verifies that the frame after a delivered stimulus spawns exactly one stimulus indicator.
-        /// </summary>
+        /// <summary>Verifies that the frame after a delivered stimulus spawns exactly one stimulus indicator.</summary>
         [UnityTest]
         public IEnumerator Update_OnTheFrameAfterADeliveredStimulus_SpawnsOneStimulusIndicator()
         {
@@ -510,8 +495,7 @@ namespace SL.Tests.PlayMode
             Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showStimulus"));
         }
 
-        /// <summary>Verifies that an omitted stimulus outcome spawns no indicator on the following frame.
-        /// </summary>
+        /// <summary>Verifies that an omitted stimulus outcome spawns no indicator on the following frame.</summary>
         [UnityTest]
         public IEnumerator Update_OnTheFrameAfterAnOmittedStimulus_SpawnsNothing()
         {
@@ -560,8 +544,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(2, _canvas.transform.childCount);
         }
 
-        /// <summary>Verifies that a disabled spawner records the interaction without spawning an indicator.
-        /// </summary>
+        /// <summary>Verifies that a disabled spawner records the interaction without spawning an indicator.</summary>
         [UnityTest]
         public IEnumerator Update_WhileTheSpawnerIsDisabled_SpawnsNothing()
         {
@@ -577,8 +560,7 @@ namespace SL.Tests.PlayMode
             Assert.IsTrue(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
         }
 
-        /// <summary>Verifies that re-enabling the spawner spawns the indicator armed while it was disabled.
-        /// </summary>
+        /// <summary>Verifies that re-enabling the spawner spawns the indicator armed while it was disabled.</summary>
         [UnityTest]
         public IEnumerator Update_AfterTheSpawnerIsEnabledAgain_SpawnsThePendingLickIndicator()
         {
@@ -596,8 +578,7 @@ namespace SL.Tests.PlayMode
             Assert.IsNotNull(_canvas.transform.GetChild(0).GetComponent<LickMessage>());
         }
 
-        /// <summary>Verifies that destroying the spawner stops it from observing later interaction events.
-        /// </summary>
+        /// <summary>Verifies that destroying the spawner stops it from observing later interaction events.</summary>
         [UnityTest]
         public IEnumerator OnDestroy_SpawnerUnderThePlayerLoop_StopsObservingLaterInteractions()
         {
@@ -613,8 +594,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
-        /// <summary>Verifies that destroying the spawner stops it from observing later stimulus outcomes.
-        /// </summary>
+        /// <summary>Verifies that destroying the spawner stops it from observing later stimulus outcomes.</summary>
         [UnityTest]
         public IEnumerator OnDestroy_SpawnerUnderThePlayerLoop_StopsObservingLaterStimulusOutcomes()
         {
@@ -630,8 +610,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
-        /// <summary>Creates an inactive host object registered for teardown, so no callback has run on it.
-        /// </summary>
+        /// <summary>Creates an inactive host object registered for teardown, so no callback has run on it.</summary>
         /// <param name="hostName">The name given to the host object.</param>
         /// <returns>The inactive host object.</returns>
         private GameObject CreateDormantHost(string hostName)
@@ -642,8 +621,7 @@ namespace SL.Tests.PlayMode
             return host;
         }
 
-        /// <summary>Creates a client component on an inactive host, so Awake and Start have not run yet.
-        /// </summary>
+        /// <summary>Creates a client component on an inactive host, so Awake and Start have not run yet.</summary>
         /// <param name="hostName">The name given to the host object.</param>
         /// <returns>The client component the test activates itself.</returns>
         private MQTTClient CreateDormantClient(string hostName)
@@ -653,8 +631,7 @@ namespace SL.Tests.PlayMode
             return client;
         }
 
-        /// <summary>Creates a dormant client and installs it as the singleton without running any callback.
-        /// </summary>
+        /// <summary>Creates a dormant client and installs it as the singleton without running any callback.</summary>
         /// <param name="hostName">The name given to the host object.</param>
         /// <returns>The client every channel constructed afterwards resolves.</returns>
         private MQTTClient CreateSuspendedClient(string hostName)
@@ -664,8 +641,7 @@ namespace SL.Tests.PlayMode
             return client;
         }
 
-        /// <summary>Creates a harness whose client never reaches Start, so no session broadcast is scheduled.
-        /// </summary>
+        /// <summary>Creates a harness whose client never reaches Start, so no session broadcast is scheduled.</summary>
         /// <returns>The harness, whose installed client stays usable while its host object is inactive.</returns>
         private MqttTestHarness CreateSuspendedHarness()
         {
@@ -679,6 +655,11 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Creates a harness whose client runs its full lifecycle under the player loop.</summary>
+        /// <remarks>
+        /// A client whose Start runs schedules a session-start broadcast one second later, so a test built on this
+        /// harness leaves that broadcast pending past its own end. The loopback warning the broadcast may log after the
+        /// fixture tears the client down is a warning rather than an error.
+        /// </remarks>
         /// <returns>The harness, whose client reaches Start on the frame after creation.</returns>
         private MqttTestHarness CreateRunningHarness()
         {
@@ -687,8 +668,7 @@ namespace SL.Tests.PlayMode
             return harness;
         }
 
-        /// <summary>Builds the canvas, both indicator sources, and the spawner under a suspended client.
-        /// </summary>
+        /// <summary>Builds the canvas, both indicator sources, and the spawner under a suspended client.</summary>
         private void BuildSpawnerRig()
         {
             _harness = CreateSuspendedHarness();

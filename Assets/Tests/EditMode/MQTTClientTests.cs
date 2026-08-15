@@ -1,9 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the MQTTClient class.
-///
-/// No test contacts a broker. The singleton installation, the EditorPrefs load with its loopback fallback, the
-/// routing list, and the in-process publish fallback all resolve without a connection, so every private lifecycle
-/// callback is driven directly through PrivateAccess.
 /// </summary>
 using System;
 using System.Collections;
@@ -19,6 +15,12 @@ using UnityEngine;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the MQTTClient class.</summary>
+    /// <remarks>
+    /// No test contacts a broker. The singleton installation, the EditorPrefs load with its loopback fallback, the
+    /// routing list, and the in-process publish fallback all resolve without a connection, so the lifecycle callbacks
+    /// this fixture covers, Awake and OnDestroy, are driven directly through PrivateAccess. Start runs under the player
+    /// loop in the Play Mode suite, and OnApplicationQuit is left uncovered.
+    /// </remarks>
     [TestFixture]
     public class MQTTClientTests
     {
@@ -46,13 +48,13 @@ namespace SL.Tests.EditMode
         /// <summary>The recorder capturing every warning logged while a test runs.</summary>
         private LogRecorder _recorder;
 
-        /// <summary>Whether the editor stored a broker address before the test replaced it.</summary>
+        /// <summary>Determines whether the editor stored a broker address before the test replaced it.</summary>
         private bool _hadAddressPreference;
 
         /// <summary>The broker address stored before the test replaced it.</summary>
         private string _savedAddressPreference;
 
-        /// <summary>Whether the editor stored a broker port before the test replaced it.</summary>
+        /// <summary>Determines whether the editor stored a broker port before the test replaced it.</summary>
         private bool _hadPortPreference;
 
         /// <summary>The broker port stored before the test replaced it.</summary>
@@ -228,8 +230,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1883, client.port);
         }
 
-        /// <summary>Verifies that Awake preserves the smallest non-zero port rather than applying the fallback.
-        /// </summary>
+        /// <summary>Verifies that Awake preserves the smallest non-zero port.</summary>
         [Test]
         public void Awake_PortPreferenceOfOne_PreservesStoredPort()
         {

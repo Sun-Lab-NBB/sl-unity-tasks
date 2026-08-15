@@ -22,9 +22,9 @@ namespace SL.Tests.EditMode
     /// Every test starts from a fresh empty scene, because each helper under test resolves its collaborators
     /// through GameObject.Find or FindAnyObjectByType, and whichever scene the editor happened to have open
     /// would otherwise decide the outcome. The window instance is created once on first demand and reused,
-    /// because its OnEnable enumerates the system monitors through a subprocess and initializes the scene.
-    /// The drawing code is unreachable from a headless editor, so only the static and per-scene helpers are
-    /// covered here.
+    /// because its OnEnable enumerates the system monitors, opens a probe window on each one, and initializes
+    /// the scene. The drawing code is unreachable from a headless editor, so only the static and per-scene
+    /// helpers are covered here.
     /// </remarks>
     [TestFixture]
     public class MainWindowTests
@@ -361,7 +361,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(DefaultBrokerPort, client.port);
         }
 
-        /// <summary>Verifies that the smallest non-zero stored port is preserved rather than replaced.</summary>
+        /// <summary>Verifies that the smallest non-zero stored port survives the synchronization.</summary>
         [Test]
         public void EnsureMqttDefaults_StoredPortOfOne_PreservesTheStoredPort()
         {
@@ -374,7 +374,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1, client.port);
         }
 
-        /// <summary>Verifies that a negative stored port is preserved rather than replaced.</summary>
+        /// <summary>Verifies that a negative stored port survives the synchronization.</summary>
         [Test]
         public void EnsureMqttDefaults_NegativeStoredPort_PreservesTheStoredPort()
         {
@@ -849,12 +849,12 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the shared window, creating it against a scene the caller has not populated yet.</summary>
         /// <remarks>
-        /// Creating the window runs its OnEnable, which initializes the active scene, so the call replaces the
-        /// scene afterwards to hand the caller the empty scene it expects. Every test that needs the window
-        /// therefore requests it before it creates any object of its own. OnEnable also builds a
+        /// Creating the window runs its OnEnable, which initializes the active scene, so the call replaces the scene
+        /// afterwards to hand the caller the empty scene it expects. Every test that needs the window therefore
+        /// requests it before it creates any object of its own. OnEnable also builds a
         /// <see cref="FullScreenViewManager"/>, whose monitor enumeration opens one short-lived popup window per
-        /// detected monitor, and a headless editor logs a graphics-device error for each, so the construction runs
-        /// with log failures suppressed and restores the setting before the caller resumes.
+        /// detected monitor, and a headless editor logs a graphics-device error for each. The construction therefore
+        /// runs with log failures suppressed and restores the setting before the caller resumes.
         /// </remarks>
         /// <returns>The window instance shared by the fixture.</returns>
         private MainWindow RequireWindow()

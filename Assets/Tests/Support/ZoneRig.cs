@@ -1,11 +1,5 @@
 /// <summary>
 /// Provides the ZoneRig that assembles a trigger zone hierarchy and drives its Unity callbacks from a test.
-///
-/// The hierarchy mirrors the hand-authored StimulusTriggerZone and OccupancyTriggerZone prefabs, because every zone
-/// resolves its collaborators through GetComponentInChildren or GetComponentInParent at Start. The drive methods
-/// invoke the private lifecycle and trigger callbacks directly, so an Edit Mode test advances the state machine one
-/// deterministic step at a time without a player loop or a physics tick. Every zone callback ignores its Collider
-/// argument, so the rig passes null.
 /// </summary>
 using System;
 using Gimbl;
@@ -17,6 +11,13 @@ namespace SL.Tests
     /// <summary>
     /// Assembles a Task and trigger zone hierarchy and exposes the transitions a test drives against it.
     /// </summary>
+    /// <remarks>
+    /// The hierarchy mirrors the hand-authored StimulusTriggerZone and OccupancyTriggerZone prefabs, because every zone
+    /// resolves its collaborators through GetComponentInChildren or GetComponentInParent at Start. The drive methods
+    /// invoke the private lifecycle and trigger callbacks directly, so an Edit Mode test advances the state machine one
+    /// deterministic step at a time without a player loop or a physics tick. Every zone callback ignores its Collider
+    /// argument, so the rig passes null.
+    /// </remarks>
     public sealed class ZoneRig : IDisposable
     {
         /// <summary>The root object parenting every object the rig creates.</summary>
@@ -223,6 +224,7 @@ namespace SL.Tests
 
         /// <summary>Returns the guidance zone, rejecting a rig that was composed without one.</summary>
         /// <returns>The guidance zone.</returns>
+        /// <exception cref="InvalidOperationException">The rig options did not set includeGuidanceZone.</exception>
         private GuidanceZone RequireGuidanceZone()
         {
             if (GuidanceZone == null)
@@ -237,6 +239,7 @@ namespace SL.Tests
 
         /// <summary>Returns the occupancy zone, rejecting a rig that was composed without one.</summary>
         /// <returns>The occupancy zone.</returns>
+        /// <exception cref="InvalidOperationException">The rig options did not set includeOccupancyZone.</exception>
         private OccupancyZone RequireOccupancyZone()
         {
             if (OccupancyZone == null)
@@ -251,6 +254,9 @@ namespace SL.Tests
 
         /// <summary>Returns the occupancy guidance zone, rejecting a rig that was composed without one.</summary>
         /// <returns>The occupancy guidance zone.</returns>
+        /// <exception cref="InvalidOperationException">
+        /// The rig options did not set includeOccupancyGuidanceZone.
+        /// </exception>
         private OccupancyGuidanceZone RequireOccupancyGuidanceZone()
         {
             if (OccupancyGuidanceZone == null)

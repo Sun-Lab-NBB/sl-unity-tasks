@@ -1,18 +1,14 @@
-/// <summary>
-/// Provides the CueYaml builder describing one entry of a task template's cues list.
-///
-/// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's
-/// missing-field branches. An entry in rawOverrides emits its literal text for that key instead, which reaches the
-/// branches a well-typed value cannot express, such as a wrong-typed or malformed scalar.
-/// </summary>
+/// <summary>Provides the CueYaml builder describing one entry of a task template's cues list.</summary>
 using System.Collections.Generic;
 using System.Text;
 
 namespace SL.Tests
 {
-    /// <summary>
-    /// Builds the YAML block for a single cue definition.
-    /// </summary>
+    /// <summary>Builds the YAML block for a single cue definition.</summary>
+    /// <remarks>
+    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
+    /// branches.
+    /// </remarks>
     public sealed class CueYaml
     {
         /// <summary>The cue name, or null to omit the name key.</summary>
@@ -28,6 +24,10 @@ namespace SL.Tests
         public string texture = "Gray Cue 2x1.png";
 
         /// <summary>The literal YAML text emitted for a key, overriding whatever the typed field holds.</summary>
+        /// <remarks>
+        /// An entry reaches the ConfigLoader branches a well-typed value cannot express, such as a wrong-typed or
+        /// malformed scalar.
+        /// </remarks>
         public readonly Dictionary<string, string> rawOverrides = new Dictionary<string, string>();
 
         /// <summary>Creates a cue block with the supplied identity and the default length and texture.</summary>

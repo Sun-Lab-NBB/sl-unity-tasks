@@ -2,7 +2,6 @@
 /// Provides the GuidanceZone class that tracks whether an animal has entered a guidance trigger area.
 ///
 /// Used as a child of StimulusTriggerZone to define where guidance mode delivers automatic stimulus.
-/// When the animal reaches this zone in guidance mode, the parent StimulusTriggerZone delivers the stimulus.
 /// </summary>
 using UnityEngine;
 

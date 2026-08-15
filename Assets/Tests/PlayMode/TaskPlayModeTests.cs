@@ -1,15 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the Task class under the real Unity player loop.
-///
-/// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every template these tests
-/// load is staged inside the project's own Configurations directory under a "ZZTest_" name and deleted again in the
-/// one-time teardown. Cue textures resolve as "&lt;template directory&gt;/../Textures", so the staged templates
-/// reference a texture that already ships with the project rather than a placeholder.
-///
-/// Unity itself drives Awake, Start, and Update here, and every corridor advance happens across real frames. That is
-/// what separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through reflection and
-/// therefore cannot observe the ordering the engine imposes, a component that stops receiving Update once it is
-/// disabled, or a teleport that lands between two consecutive frames.
 /// </summary>
 using System;
 using System.Collections;
@@ -27,10 +17,16 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace SL.Tests.PlayMode
 {
     /// <summary>Verifies the behavior of the Task class under the real Unity player loop.</summary>
+    /// <remarks>
+    /// Unity itself drives Awake, Start, and Update here, and every corridor advance happens across real frames. That
+    /// is what separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through
+    /// reflection. Reflection cannot observe the ordering the engine imposes, a component that stops receiving Update
+    /// once it is disabled, or a teleport that lands between two consecutive frames.
+    /// </remarks>
     [TestFixture]
     public class TaskPlayModeTests
     {
-        /// <summary>The project-relative directory that every staged test template is written into.</summary>
+        /// <summary>The dataPath-relative directory that every staged test template is written into.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the two-trial corridor template that the traversal tests load.</summary>
@@ -46,6 +42,10 @@ namespace SL.Tests.PlayMode
         private const string AbsentTemplateName = "ZZTest_PlayAbsent";
 
         /// <summary>The texture every staged cue references, which already ships under Textures.</summary>
+        /// <remarks>
+        /// Cue textures resolve as "&lt;template directory&gt;/../Textures", so a template staged under Configurations
+        /// reaches the project's own Textures directory.
+        /// </remarks>
         private const string StagedTextureName = "Gray Cue 2x1.png";
 
         /// <summary>The corridor depth every staged template declares.</summary>
@@ -94,12 +94,10 @@ namespace SL.Tests.PlayMode
         /// <summary>The task under test.</summary>
         private Task _task;
 
-        /// <summary>The stimulus zone the corridor advance must re-arm, or null when a test omits the zones.
-        /// </summary>
+        /// <summary>The stimulus zone the corridor advance must re-arm, or null when a test omits the zones.</summary>
         private StimulusTriggerZone _stimulusZone;
 
-        /// <summary>The occupancy zone the corridor advance must re-arm, or null when a test omits the zones.
-        /// </summary>
+        /// <summary>The occupancy zone the corridor advance must re-arm, or null when a test omits the zones.</summary>
         private OccupancyZone _occupancyZone;
 
         /// <summary>The occupancy guidance zone the corridor advance must re-arm, or null when omitted.</summary>
@@ -123,8 +121,7 @@ namespace SL.Tests.PlayMode
             DeleteStagedTemplate(InvalidTemplateName);
         }
 
-        /// <summary>Installs the MQTT singleton and creates the root object every test hangs its objects on.
-        /// </summary>
+        /// <summary>Installs the MQTT singleton and creates the root object every test hangs its objects on.</summary>
         [SetUp]
         public void SetUp()
         {
@@ -151,8 +148,7 @@ namespace SL.Tests.PlayMode
             _harness = null;
         }
 
-        /// <summary>Verifies that Unity's own Start places the actor on its corridor before the first Update.
-        /// </summary>
+        /// <summary>Verifies that Unity's own Start places the actor on its corridor before the first Update.</summary>
         [UnityTest]
         public IEnumerator Start_UnityDrivenLifecycle_PlacesTheActorOnTheStartingCorridorXPosition()
         {
@@ -169,8 +165,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(startingKey, CurrentCorridorKey());
         }
 
-        /// <summary>Verifies that a task hosted away from the origin is moved back to it on the first frame.
-        /// </summary>
+        /// <summary>Verifies that a task hosted away from the origin is moved back to it on the first frame.</summary>
         [UnityTest]
         public IEnumerator Start_TaskHostedAwayFromTheOrigin_MovesTheTaskBackToTheOrigin()
         {
@@ -268,8 +263,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(1, SegmentSequence().Length);
         }
 
-        /// <summary>Verifies that a track length yielding exactly the corridor depth leaves the task enabled.
-        /// </summary>
+        /// <summary>Verifies that a track length yielding exactly the corridor depth leaves the task enabled.</summary>
         [UnityTest]
         public IEnumerator Start_TrackLengthYieldingExactlyTheCorridorDepth_LeavesTheComponentEnabled()
         {
@@ -372,8 +366,7 @@ namespace SL.Tests.PlayMode
             }
         }
 
-        /// <summary>Verifies that a corridor advance restores the per-lap state of every zone in the scene.
-        /// </summary>
+        /// <summary>Verifies that a corridor advance restores the per-lap state of every zone in the scene.</summary>
         [UnityTest]
         public IEnumerator Update_CorridorAdvance_RestoresThePerLapStateOfEveryZone()
         {
@@ -655,6 +648,10 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Returns the absolute path a staged template of the given name occupies.</summary>
+        /// <remarks>
+        /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every staged template
+        /// lives under the project's own Configurations directory.
+        /// </remarks>
         /// <param name="templateName">The template name, which becomes the file name without its extension.</param>
         /// <returns>The absolute path of the staged template file.</returns>
         private static string AbsoluteTemplatePath(string templateName)

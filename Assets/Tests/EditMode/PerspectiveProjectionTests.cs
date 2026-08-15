@@ -38,9 +38,7 @@ namespace SL.Tests.EditMode
         /// <summary>The projection under test.</summary>
         private PerspectiveProjection _projection;
 
-        /// <summary>
-        /// Builds a deactivated camera GameObject carrying the projection under test.
-        /// </summary>
+        /// <summary>Builds a deactivated camera GameObject carrying the projection under test.</summary>
         /// <remarks>
         /// The GameObject stays deactivated so Unity never invokes Awake on the ExecuteInEditMode component, which
         /// keeps the material, the resolved display object, and the cached camera out of the matrix tests. UpdateView
@@ -140,7 +138,14 @@ namespace SL.Tests.EditMode
 
             _projection.UpdateView();
 
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -170,7 +175,14 @@ namespace SL.Tests.EditMode
 
             _projection.UpdateView();
 
-            Matrix4x4 expected = BuildExpectedProjection(1f, -0.5f, 1f, 0f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: -0.5f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -201,7 +213,14 @@ namespace SL.Tests.EditMode
 
             _projection.UpdateView();
 
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, -0.5f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: -0.5f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -214,7 +233,14 @@ namespace SL.Tests.EditMode
 
             _projection.UpdateView();
 
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -250,7 +276,14 @@ namespace SL.Tests.EditMode
 
             _projection.UpdateView();
 
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -323,7 +356,14 @@ namespace SL.Tests.EditMode
             _projection.UpdateView();
 
             Assert.AreEqual("Quad", PrivateAccess.GetField<string>(_projection, "_meshType"));
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0202020f, -2.0202020f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -338,7 +378,14 @@ namespace SL.Tests.EditMode
             _projection.UpdateView();
 
             Assert.AreEqual(0.99f, _camera.nearClipPlane, 1e-5f);
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0199980f, -1.9997980f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0199980f,
+                depthOffset: -1.9997980f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -354,7 +401,14 @@ namespace SL.Tests.EditMode
             _projection.UpdateView();
 
             Assert.AreEqual(1.5f, _camera.nearClipPlane, 1e-5f);
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0304569f, -3.0456853f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0304569f,
+                depthOffset: -3.0456853f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 
@@ -369,7 +423,14 @@ namespace SL.Tests.EditMode
             _projection.UpdateView();
 
             Assert.AreEqual(2f, _camera.nearClipPlane, 1e-5f);
-            Matrix4x4 expected = BuildExpectedProjection(1f, 0f, 1f, 0f, -1.0408163f, -4.0816327f);
+            Matrix4x4 expected = BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: 0f,
+                depthScale: -1.0408163f,
+                depthOffset: -4.0816327f
+            );
             AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
         }
 

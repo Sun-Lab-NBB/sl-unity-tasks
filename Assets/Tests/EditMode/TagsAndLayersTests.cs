@@ -1,10 +1,4 @@
-/// <summary>
-/// Verifies the behavior of the TagsAndLayers class.
-///
-/// Every test writes into the project's TagManager asset, so each name a test introduces carries the ZZTest prefix
-/// and teardown removes every prefixed tag and layer. The assertions read the asset back through a separate
-/// SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a failure.
-/// </summary>
+/// <summary>Verifies the behavior of the TagsAndLayers class.</summary>
 using System;
 using Gimbl;
 using NUnit.Framework;
@@ -14,6 +8,11 @@ using UnityEngine;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the TagsAndLayers class.</summary>
+    /// <remarks>
+    /// Every test writes into the project's TagManager asset, so each name a test introduces carries the ZZTest prefix
+    /// and teardown removes every prefixed tag and layer. The assertions read the asset back through a separate
+    /// SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a failure.
+    /// </remarks>
     [TestFixture]
     public class TagsAndLayersTests
     {
@@ -258,8 +257,7 @@ namespace SL.Tests.EditMode
             return OpenTagManager().FindProperty("layers").GetArrayElementAtIndex(index).stringValue;
         }
 
-        /// <summary>Returns the lowest empty writable layer slot, or the examined bound when none is empty.
-        /// </summary>
+        /// <summary>Returns the lowest empty writable layer slot, or the examined bound when none is empty.</summary>
         /// <returns>The lowest empty writable slot index.</returns>
         private static int FirstEmptyLayerSlot()
         {

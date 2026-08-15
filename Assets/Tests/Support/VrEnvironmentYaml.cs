@@ -1,17 +1,14 @@
-/// <summary>
-/// Provides the VrEnvironmentYaml builder describing a task template's vr_environment block.
-///
-/// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's
-/// missing-field branches. An entry in rawOverrides emits its literal text for that key instead.
-/// </summary>
+/// <summary>Provides the VrEnvironmentYaml builder describing a task template's vr_environment block.</summary>
 using System.Collections.Generic;
 using System.Text;
 
 namespace SL.Tests
 {
-    /// <summary>
-    /// Builds the YAML block for the VR corridor geometry configuration.
-    /// </summary>
+    /// <summary>Builds the YAML block for the VR corridor geometry configuration.</summary>
+    /// <remarks>
+    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
+    /// branches.
+    /// </remarks>
     public sealed class VrEnvironmentYaml
     {
         /// <summary>The horizontal spacing between corridors in centimeters, or null to omit the key.</summary>

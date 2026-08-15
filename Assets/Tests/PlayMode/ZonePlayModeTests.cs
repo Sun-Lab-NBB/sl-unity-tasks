@@ -1,16 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the trigger zone hierarchy under the real Unity player loop.
-///
-/// The Edit Mode zone suites invoke OnTriggerEnter, OnTriggerExit, Start, and Update through reflection, which makes
-/// the state machines deterministic but leaves three things unobservable: the trigger callbacks Unity's own physics
-/// raises when a Rigidbody-carrying actor sweeps through a trigger collider, the Stopwatch readings an occupancy
-/// requirement actually accumulates over wall-clock time, and the Awake and Start ordering the engine imposes on a
-/// freshly created hierarchy. This fixture covers exactly those three.
-///
-/// Every rig's Task is pointed at a template staged inside the project's own Configurations directory under a
-/// "ZZTest_" name, because Task.Start resolves its template as Path.Combine(Application.dataPath, configPath) and
-/// would otherwise report an error on the first frame of every test. The task never moves the actor, because its
-/// actor reference stays null and Update returns on that check.
 /// </summary>
 using System;
 using System.Collections;
@@ -26,10 +15,17 @@ using UnityEngine.TestTools;
 namespace SL.Tests.PlayMode
 {
     /// <summary>Verifies the behavior of the trigger zone hierarchy under the real Unity player loop.</summary>
+    /// <remarks>
+    /// The Edit Mode zone suites invoke OnTriggerEnter, OnTriggerExit, Start, and Update through reflection, which
+    /// makes the state machines deterministic but leaves three things unobservable. The first two are the trigger
+    /// callbacks Unity's own physics raises when a Rigidbody-carrying actor sweeps through a trigger collider, and the
+    /// Stopwatch readings an occupancy requirement accumulates over wall-clock time. The third is the Awake and Start
+    /// ordering the engine imposes on a freshly created hierarchy. This fixture covers exactly those three.
+    /// </remarks>
     [TestFixture]
     public class ZonePlayModeTests
     {
-        /// <summary>The project-relative directory the staged template is written into.</summary>
+        /// <summary>The dataPath-relative directory the staged template is written into.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the template every rig's task loads so its Start succeeds quietly.</summary>
@@ -74,8 +70,7 @@ namespace SL.Tests.PlayMode
         /// <summary>The actor z position that overlaps no zone collider at all.</summary>
         private const float OutsideEveryZoneZ = -10f;
 
-        /// <summary>The actor z position whose leading face stops half a unit short of the stimulus collider.
-        /// </summary>
+        /// <summary>The actor z position whose leading face stops half a unit short of the stimulus collider.</summary>
         private const float JustShortOfStimulusZoneZ = 7f;
 
         /// <summary>The actor z position whose trailing face clears the stimulus collider by half a unit.</summary>
@@ -96,7 +91,7 @@ namespace SL.Tests.PlayMode
         /// <summary>The occupancy requirement a test satisfies by waiting it out, in milliseconds.</summary>
         /// <remarks>
         /// The value sits far enough above a frame time that the check taken on the frame after the actor enters the
-        /// zone reads an unmet requirement even on a slow editor frame, and far enough below
+        /// zone reads an unmet requirement even on a slow editor frame. It also sits far enough below
         /// <see cref="OccupancyMetWaitSeconds"/> that the wait always outlasts it.
         /// </remarks>
         private const float ShortOccupancyMilliseconds = 250f;
@@ -122,8 +117,7 @@ namespace SL.Tests.PlayMode
         /// <summary>The Rigidbody-carrying object Unity's physics sweeps through the trigger colliders.</summary>
         private GameObject _actorObject;
 
-        /// <summary>An extra object a single test creates outside the rig, or null when no test created one.
-        /// </summary>
+        /// <summary>An extra object a single test creates outside the rig, or null when no test created one.</summary>
         private GameObject _detachedObject;
 
         /// <summary>Writes the staged template into the project's Configurations directory.</summary>
@@ -572,8 +566,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(0, _rig.Mqtt.CountOn(MQTTTopics.Delay));
         }
 
-        /// <summary>Verifies that Unity allocates the occupancy stopwatch before the first Update reads it.
-        /// </summary>
+        /// <summary>Verifies that Unity allocates the occupancy stopwatch before the first Update reads it.</summary>
         [UnityTest]
         public IEnumerator Start_UnityDrivenLifecycle_AllocatesTheOccupancyTimerBeforeTheFirstUpdate()
         {
@@ -602,8 +595,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(0L, _rig.OccupancyElapsedMilliseconds());
         }
 
-        /// <summary>Verifies that Unity's own Start arms a stimulus zone whose serialized state was inactive.
-        /// </summary>
+        /// <summary>Verifies that Unity's own Start arms a stimulus zone whose serialized state was inactive.</summary>
         [UnityTest]
         public IEnumerator Start_SerializedInactiveStimulusZone_IsArmedByTheFirstFrame()
         {
@@ -676,6 +668,10 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Returns the absolute path the staged template occupies.</summary>
+        /// <remarks>
+        /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so the staged template
+        /// lives under the project's own Configurations directory.
+        /// </remarks>
         /// <returns>The absolute path of the staged template file.</returns>
         private static string AbsoluteTemplatePath()
         {
@@ -703,6 +699,9 @@ namespace SL.Tests.PlayMode
         /// Creates the zone hierarchy, points its task at the staged template, spreads the colliders along z, and
         /// creates the Rigidbody-carrying actor outside every one of them.
         /// </summary>
+        /// <remarks>
+        /// The task never moves the actor, because its actor reference stays null and Update returns on that check.
+        /// </remarks>
         /// <param name="options">The composition and initial field values of the rig.</param>
         private void BuildRig(ZoneRigOptions options)
         {
@@ -740,8 +739,7 @@ namespace SL.Tests.PlayMode
             actorBody.interpolation = RigidbodyInterpolation.None;
         }
 
-        /// <summary>Sweeps the actor to a world z position and lets Unity's physics raise its trigger events.
-        /// </summary>
+        /// <summary>Sweeps the actor to a world z position and lets Unity's physics raise its trigger events.</summary>
         /// <remarks>
         /// The transform sync makes the moved collider visible to the next simulation step, and waiting on two fixed
         /// updates guarantees that step and its trigger callbacks ran before the caller resumes.

@@ -42,22 +42,6 @@ namespace SL.Tests.EditMode
             PrivateAccess.SetStaticProperty(typeof(MQTTClient), "Instance", null);
         }
 
-        /// <summary>Returns the routing records the client currently delivers received messages to.</summary>
-        /// <param name="client">The client whose channel registration list to read.</param>
-        /// <returns>The registration records, oldest first.</returns>
-        private static IList Registrations(MQTTClient client)
-        {
-            return PrivateAccess.GetField<IList>(client, "_channelList");
-        }
-
-        /// <summary>Returns the number of channels the client currently routes messages to.</summary>
-        /// <param name="client">The client whose channel registration list to read.</param>
-        /// <returns>The registered channel count.</returns>
-        private static int RegisteredChannelCount(MQTTClient client)
-        {
-            return Registrations(client).Count;
-        }
-
         /// <summary>Verifies that constructing a channel without a client singleton throws.</summary>
         [Test]
         public void Constructor_MissingClientSingleton_ThrowsInvalidOperation()
@@ -258,7 +242,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the base channel ignores the payload text rather than parsing it.</summary>
+        /// <summary>Verifies that the base channel invokes its event for a payload it never parses.</summary>
         [Test]
         public void ReceivedMessage_BaseChannelWithMalformedPayload_StillInvokesTheParameterlessEvent()
         {
@@ -520,7 +504,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the inherited parameterless Send publishes an empty payload, not JSON.</summary>
+        /// <summary>Verifies that the inherited parameterless Send publishes an empty payload.</summary>
         [Test]
         public void Send_TypedChannelParameterlessOverload_PublishesAnEmptyPayload()
         {
@@ -533,6 +517,22 @@ namespace SL.Tests.EditMode
                 Assert.AreEqual(1, harness.CountOn(MQTTTopics.Delay));
                 Assert.AreEqual(string.Empty, harness.LastPayloadOn(MQTTTopics.Delay));
             }
+        }
+
+        /// <summary>Returns the routing records the client currently delivers received messages to.</summary>
+        /// <param name="client">The client whose channel registration list to read.</param>
+        /// <returns>The registration records, oldest first.</returns>
+        private static IList Registrations(MQTTClient client)
+        {
+            return PrivateAccess.GetField<IList>(client, "_channelList");
+        }
+
+        /// <summary>Returns the number of channels the client currently routes messages to.</summary>
+        /// <param name="client">The client whose channel registration list to read.</param>
+        /// <returns>The registered channel count.</returns>
+        private static int RegisteredChannelCount(MQTTClient client)
+        {
+            return Registrations(client).Count;
         }
 
         /// <summary>The payload type used to exercise the typed channel's serialization round trip.</summary>

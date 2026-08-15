@@ -1,12 +1,4 @@
-/// <summary>
-/// Verifies the behavior of the OccupancyZone class.
-///
-/// The fixture drives the zone's Start, Update, OnTriggerEnter, and OnTriggerExit callbacks directly, so every
-/// guard resolves without a player loop or a physics tick. Both sides of each guard are covered, and the
-/// elapsed-versus-duration comparison is pinned on all three sides: strictly above, exactly equal, and strictly
-/// below. The boundary tests install a substitute stopwatch carrying a known accumulated reading rather than
-/// waiting on wall-clock time, because an Edit Mode test may neither sleep nor busy-wait.
-/// </summary>
+/// <summary>Verifies the behavior of the OccupancyZone class.</summary>
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -19,6 +11,12 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the OccupancyZone class.</summary>
+    /// <remarks>
+    /// The fixture drives the zone's Start, Update, OnTriggerEnter, and OnTriggerExit callbacks directly, so every
+    /// guard resolves without a player loop or a physics tick. Both sides of each guard are covered, and the
+    /// elapsed-versus-duration comparison is pinned on all three sides: strictly above, exactly equal, and strictly
+    /// below.
+    /// </remarks>
     [TestFixture]
     public class OccupancyZoneTests
     {
@@ -34,8 +32,7 @@ namespace SL.Tests.EditMode
         /// <summary>The occupancy duration in milliseconds that no elapsed reading inside a test reaches.</summary>
         private const long UnreachableDurationMilliseconds = 60000L;
 
-        /// <summary>The occupancy duration in milliseconds the boundary tests compare their readings against.
-        /// </summary>
+        /// <summary>The occupancy duration in milliseconds the boundary tests compare their readings against.</summary>
         private const long BoundaryDurationMilliseconds = 1000L;
 
         /// <summary>The elapsed reading in milliseconds that sits strictly above the boundary duration.</summary>
@@ -192,8 +189,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that entering after the requirement is met leaves the occupancy state untouched.
-        /// </summary>
+        /// <summary>Verifies that entering after the requirement is met leaves the occupancy state untouched.</summary>
         [Test]
         public void OnTriggerEnter_OccupancyAlreadyMet_LeavesTheZoneStateUnchanged()
         {
@@ -304,8 +300,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an elapsed reading equal to the duration meets the occupancy requirement.
-        /// </summary>
+        /// <summary>Verifies that an elapsed reading equal to the duration meets the occupancy requirement.</summary>
         [Test]
         public void Update_ElapsedEqualToTheDuration_MeetsTheRequirement()
         {
@@ -497,8 +492,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that stopping the timer on exit retains the reading the guidance zone consumes.
-        /// </summary>
+        /// <summary>Verifies that stopping the timer on exit retains the reading the guidance zone consumes.</summary>
         [Test]
         public void GetElapsedMilliseconds_AfterOnTriggerExit_RetainsTheAccumulatedReading()
         {

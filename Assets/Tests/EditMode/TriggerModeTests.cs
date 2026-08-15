@@ -1,9 +1,5 @@
 /// <summary>
 /// Verifies the serialized contract of the TriggerMode enumeration.
-///
-/// CreateTask writes the ordinal of each member into the generated prefabs, so a reordered or renamed member
-/// silently repoints every already-generated zone at a different trigger mechanism. Each ordinal is therefore
-/// pinned individually rather than through the enumeration order alone.
 /// </summary>
 using System;
 using NUnit.Framework;
@@ -12,6 +8,11 @@ using SL.Tasks;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the serialized contract of the TriggerMode enumeration.</summary>
+    /// <remarks>
+    /// CreateTask writes the ordinal of each member into the generated prefabs, so a reordered or renamed member
+    /// silently repoints every already-generated zone at a different trigger mechanism. Each ordinal is therefore
+    /// pinned individually rather than through the enumeration order alone.
+    /// </remarks>
     [TestFixture]
     public class TriggerModeTests
     {

@@ -1,10 +1,5 @@
 /// <summary>
 /// Verifies the behavior of the GuidanceZone class.
-///
-/// The zone is a two-line state machine over inZone, so the fixture pins each transition and then pins the two
-/// consequences that matter to the parent StimulusTriggerZone. The guidance fallback stays silent while the flag
-/// is clear, and the flag survives a corridor advance because GuidanceZone implements no per-lap reset hook and
-/// Task's reset enumeration therefore never reaches it.
 /// </summary>
 using NUnit.Framework;
 using SL.Tasks;
@@ -12,6 +7,10 @@ using SL.Tasks;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the GuidanceZone class.</summary>
+    /// <remarks>
+    /// The zone is a two-line state machine over inZone, so the fixture pins each transition and then pins the two
+    /// consequences that matter to the parent StimulusTriggerZone.
+    /// </remarks>
     [TestFixture]
     public class GuidanceZoneTests
     {
@@ -127,6 +126,10 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that the corridor reset enumeration skips the guidance zone and leaves it occupied.
         /// </summary>
+        /// <remarks>
+        /// The flag survives the advance because GuidanceZone implements no per-lap reset hook, so Task's reset
+        /// enumeration never reaches it.
+        /// </remarks>
         [Test]
         public void ResetState_CorridorAdvance_LeavesTheGuidanceZoneOccupancyLatched()
         {
