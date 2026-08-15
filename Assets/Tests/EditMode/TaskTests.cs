@@ -39,6 +39,9 @@ namespace SL.Tests.EditMode
         /// <summary>The name of the template that fails ConfigLoader validation.</summary>
         private const string InvalidTemplateName = "ZZTest_Invalid";
 
+        /// <summary>The name of the template whose corridor depth overruns the corridor map allocation limit.</summary>
+        private const string DeepTemplateName = "ZZTest_Deep";
+
         /// <summary>The texture every staged cue references, which already ships under Textures.</summary>
         /// <remarks>
         /// ConfigLoader resolves a cue texture as "&lt;template directory&gt;/../Textures", so a template staged in the
@@ -54,6 +57,9 @@ namespace SL.Tests.EditMode
 
         /// <summary>The number of corridor map entries the pair template produces (2 raised to the depth).</summary>
         private const int PairCorridorCount = 8;
+
+        /// <summary>The corridor depth whose two-trial combination count overruns the corridor map limit.</summary>
+        private const int ExcessiveCorridorDepth = 29;
 
         /// <summary>The corridor spacing of every staged template in Unity units (20 cm over 10 cm per unit).</summary>
         private const float CorridorSpacingUnity = 2f;
@@ -85,6 +91,9 @@ namespace SL.Tests.EditMode
         /// <summary>The track length the generation-comparison tests use, long enough to make collisions absurd.
         /// </summary>
         private const float LongTrackLength = 300f;
+
+        /// <summary>The seed every transition-sampler test draws its cumulative bucket with.</summary>
+        private const int SamplerSeed = 11;
 
         /// <summary>The MQTT harness installed for every test, which captures every published payload.</summary>
         private MqttTestHarness _harness;
@@ -267,6 +276,28 @@ namespace SL.Tests.EditMode
             PrivateAccess.Invoke(task, "Start");
 
             Assert.IsFalse(task.enabled);
+        }
+
+        /// <summary>Verifies that a combination count above the allocation limit logs an error and disables the task.
+        /// </summary>
+        /// <remarks>
+        /// Two trials over a depth of 29 encode 536870912 corridors, which is twice the corridor map limit, so the
+        /// guard rejects the template rather than requesting the four gigabyte array the count asks for.
+        /// </remarks>
+        [Test]
+        public void Start_CombinationCountAboveTheAllocationLimit_LogsErrorAndDisablesTask()
+        {
+            string configPath = StageTemplate(DeepTemplateName, BuildDeepTemplate());
+            Task task = CreateTask(configPath, PairTrackLength, PairSeed, actor: null);
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex($"declares {PairTrialCount} trials over a corridor depth of {ExcessiveCorridorDepth}")
+            );
+
+            PrivateAccess.Invoke(task, "Start");
+
+            Assert.IsFalse(task.enabled);
+            Assert.IsNull(PrivateAccess.GetField<Array>(task, "_corridorMap"));
         }
 
         /// <summary>Verifies that a sequence shorter than the corridor depth logs an error and disables the task.
@@ -501,9 +532,9 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
         }
 
-        /// <summary>Verifies that a negative corridor key logs an error and skips the frame.</summary>
+        /// <summary>Verifies that a negative corridor key logs an error and disables the task.</summary>
         [Test]
-        public void Update_NegativeCorridorKey_LogsErrorAndReturns()
+        public void Update_NegativeCorridorKey_LogsErrorAndDisablesTask()
         {
             ActorObject actor = CreateActor(Vector3.zero);
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
@@ -513,12 +544,13 @@ namespace SL.Tests.EditMode
 
             PrivateAccess.Invoke(task, "Update");
 
+            Assert.IsFalse(task.enabled);
             Assert.AreEqual(0, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
         }
 
-        /// <summary>Verifies that a corridor key equal to the map length logs an error and skips the frame.</summary>
+        /// <summary>Verifies that a corridor key equal to the map length logs an error and disables the task.</summary>
         [Test]
-        public void Update_CorridorKeyAtMapLength_LogsErrorAndReturns()
+        public void Update_CorridorKeyAtMapLength_LogsErrorAndDisablesTask()
         {
             ActorObject actor = CreateActor(Vector3.zero);
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
@@ -528,6 +560,28 @@ namespace SL.Tests.EditMode
 
             PrivateAccess.Invoke(task, "Update");
 
+            Assert.IsFalse(task.enabled);
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
+        }
+
+        /// <summary>Verifies that an out-of-bounds corridor key reports its error on one frame only.</summary>
+        /// <remarks>
+        /// The key stays out of range once it is corrupted, so a guard that only returned would log the same error on
+        /// every later frame. The second frame is driven through the enabled check the player loop applies.
+        /// </remarks>
+        [Test]
+        public void Update_CorridorKeyOutOfBoundsOnTwoFrames_ReportsTheErrorOnce()
+        {
+            ActorObject actor = CreateActor(Vector3.zero);
+            Task task = StartPairTask(PairTrackLength, PairSeed, actor);
+            MoveActorPastFirstSegment(task, actor);
+            PrivateAccess.SetField(task, "_currentCorridorKey", PairCorridorCount);
+            LogAssert.Expect(LogType.Error, new Regex("Task: Corridor key '8' out of bounds"));
+
+            InvokeUpdateWhileEnabled(task);
+            InvokeUpdateWhileEnabled(task);
+
+            Assert.IsFalse(task.enabled);
             Assert.AreEqual(0, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
         }
 
@@ -670,6 +724,23 @@ namespace SL.Tests.EditMode
             Assert.IsFalse(guidanceZone.BrakeTriggered);
         }
 
+        /// <summary>Verifies that the advance collects a standalone GuidanceZone and clears its in-zone flag.
+        /// </summary>
+        [Test]
+        public void Update_ActorPastFirstSegmentLength_ResetsAStandaloneGuidanceZone()
+        {
+            GuidanceZone guidanceZone = CreateComponent<GuidanceZone>("GuidanceRegion");
+            ActorObject actor = CreateActor(Vector3.zero);
+            Task task = StartPairTask(PairTrackLength, PairSeed, actor);
+            guidanceZone.inZone = true;
+            MoveActorPastFirstSegment(task, actor);
+
+            PrivateAccess.Invoke(task, "Update");
+
+            CollectionAssert.Contains(PrivateAccess.GetField<IResettable[]>(task, "_resettables"), guidanceZone);
+            Assert.IsFalse(guidanceZone.inZone);
+        }
+
         /// <summary>Verifies that the last sequence index still leaving a full corridor window advances.</summary>
         [Test]
         public void Update_LastReachableSegmentIndex_StillAdvances()
@@ -687,10 +758,9 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(sequence[sequence.Length - 1], window[PairDepth - 1]);
         }
 
-        /// <summary>Verifies that running past the generated sequence logs an error and leaves the actor in place.
-        /// </summary>
+        /// <summary>Verifies that running past the generated sequence logs an error and disables the task.</summary>
         [Test]
-        public void Update_SequenceExhausted_LogsErrorAndLeavesActorInPlace()
+        public void Update_SequenceExhausted_LogsErrorAndDisablesTask()
         {
             ActorObject actor = CreateActor(Vector3.zero);
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
@@ -702,8 +772,32 @@ namespace SL.Tests.EditMode
 
             PrivateAccess.Invoke(task, "Update");
 
+            Assert.IsFalse(task.enabled);
             Assert.AreEqual(sequence.Length - PairDepth + 1, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
             Assert.AreEqual(positionBefore.x, actor.transform.position.x);
+            Assert.AreEqual(100f, actor.transform.position.z);
+        }
+
+        /// <summary>Verifies that an exhausted sequence reports its error on one frame only.</summary>
+        /// <remarks>
+        /// The actor is left past the segment boundary, so a path that only returned would re-enter the advance on
+        /// every later frame, logging again and raising the segment index without bound.
+        /// </remarks>
+        [Test]
+        public void Update_SequenceExhaustedOnTwoFrames_ReportsTheErrorOnce()
+        {
+            ActorObject actor = CreateActor(Vector3.zero);
+            Task task = StartPairTask(PairTrackLength, PairSeed, actor);
+            int[] sequence = SegmentSequence(task);
+            PrivateAccess.SetField(task, "_currentSegmentIndex", sequence.Length - PairDepth);
+            SetActorZ(actor, 100f);
+            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+
+            InvokeUpdateWhileEnabled(task);
+            InvokeUpdateWhileEnabled(task);
+
+            Assert.IsFalse(task.enabled);
+            Assert.AreEqual(sequence.Length - PairDepth + 1, PrivateAccess.GetField<int>(task, "_currentSegmentIndex"));
             Assert.AreEqual(100f, actor.transform.position.z);
         }
 
@@ -893,57 +987,63 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that a single certain target is always sampled from the distribution.</summary>
         [Test]
-        public void SampleFromTransitions_SingleCertainTarget_ReturnsThatTarget()
+        public void TrySampleFromTransitions_SingleCertainTarget_ReturnsThatTarget()
         {
-            Dictionary<string, float> transitions = new Dictionary<string, float> { { "Short", 1f } };
+            object[] arguments = SamplerArguments(new Dictionary<string, float> { { "Short", 1f } });
 
-            string sampled = (string)
-                PrivateAccess.InvokeStatic(typeof(Task), "SampleFromTransitions", transitions, new System.Random(11));
+            bool sampled = (bool)PrivateAccess.InvokeStatic(typeof(Task), "TrySampleFromTransitions", arguments);
 
-            Assert.AreEqual("Short", sampled);
+            Assert.IsTrue(sampled);
+            Assert.AreEqual("Short", arguments[2]);
         }
 
         /// <summary>Verifies that a zero-weight entry is skipped in favor of the next cumulative bucket.</summary>
         [Test]
-        public void SampleFromTransitions_ZeroWeightFirstEntry_SkipsToTheNextTarget()
+        public void TrySampleFromTransitions_ZeroWeightFirstEntry_SkipsToTheNextTarget()
         {
             // The trailing zero-weight entry separates the cumulative-bucket return from the fall-through
             // return, because a sampler that never matched a bucket would answer with the last key instead.
-            Dictionary<string, float> transitions = new Dictionary<string, float>
-            {
-                { "Long", 0f },
-                { "Short", 1f },
-                { "Extra", 0f },
-            };
+            object[] arguments = SamplerArguments(
+                new Dictionary<string, float>
+                {
+                    { "Long", 0f },
+                    { "Short", 1f },
+                    { "Extra", 0f },
+                }
+            );
 
-            string sampled = (string)
-                PrivateAccess.InvokeStatic(typeof(Task), "SampleFromTransitions", transitions, new System.Random(11));
+            bool sampled = (bool)PrivateAccess.InvokeStatic(typeof(Task), "TrySampleFromTransitions", arguments);
 
-            Assert.AreEqual("Short", sampled);
+            Assert.IsTrue(sampled);
+            Assert.AreEqual("Short", arguments[2]);
         }
 
         /// <summary>Verifies that a distribution no bucket exceeds falls through onto the final key.</summary>
         [Test]
-        public void SampleFromTransitions_NoEntryExceedsTheDraw_ReturnsTheLastKey()
+        public void TrySampleFromTransitions_NoEntryExceedsTheDraw_ReturnsTheLastKey()
         {
-            Dictionary<string, float> transitions = new Dictionary<string, float> { { "Long", 0f }, { "Short", 0f } };
+            object[] arguments = SamplerArguments(new Dictionary<string, float> { { "Long", 0f }, { "Short", 0f } });
 
-            string sampled = (string)
-                PrivateAccess.InvokeStatic(typeof(Task), "SampleFromTransitions", transitions, new System.Random(11));
+            bool sampled = (bool)PrivateAccess.InvokeStatic(typeof(Task), "TrySampleFromTransitions", arguments);
 
-            Assert.AreEqual("Short", sampled);
+            Assert.IsTrue(sampled);
+            Assert.AreEqual("Short", arguments[2]);
         }
 
-        /// <summary>Verifies that an empty distribution samples nothing at all.</summary>
+        /// <summary>Verifies that an empty distribution samples nothing and reports the failure.</summary>
+        /// <remarks>
+        /// The reported failure keeps the maze generator off the trial-name lookup, which raises a
+        /// KeyNotFoundException for a name no trial carries.
+        /// </remarks>
         [Test]
-        public void SampleFromTransitions_EmptyDistribution_ReturnsNull()
+        public void TrySampleFromTransitions_EmptyDistribution_ReturnsFalseWithoutATrialName()
         {
-            Dictionary<string, float> transitions = new Dictionary<string, float>();
+            object[] arguments = SamplerArguments(new Dictionary<string, float>());
 
-            string sampled = (string)
-                PrivateAccess.InvokeStatic(typeof(Task), "SampleFromTransitions", transitions, new System.Random(11));
+            bool sampled = (bool)PrivateAccess.InvokeStatic(typeof(Task), "TrySampleFromTransitions", arguments);
 
-            Assert.IsNull(sampled);
+            Assert.IsFalse(sampled);
+            Assert.IsNull(arguments[2]);
         }
 
         /// <summary>Verifies that a cue-sequence request is answered with the flattened cue array.</summary>
@@ -1063,21 +1163,25 @@ namespace SL.Tests.EditMode
             Assert.DoesNotThrow(() => PrivateAccess.Invoke(task, "OnDestroy"));
         }
 
-        /// <summary>Verifies that the zone scan returns every one of the three resettable implementers.</summary>
+        /// <summary>Verifies that the zone scan returns every one of the four resettable implementers.</summary>
         [Test]
-        public void FindResettableZones_SceneWithEachImplementer_ReturnsAllThree()
+        public void FindResettableZones_SceneWithEachImplementer_ReturnsAllFour()
         {
             IResettable[] baseline = (IResettable[])PrivateAccess.InvokeStatic(typeof(Task), "FindResettableZones");
             StimulusTriggerZone stimulusZone = CreateComponent<StimulusTriggerZone>("StimulusTriggerZone");
+            GuidanceZone guidanceZone = CreateComponent<GuidanceZone>("GuidanceRegion");
             OccupancyZone occupancyZone = CreateComponent<OccupancyZone>("OccupancyRegion");
-            OccupancyGuidanceZone guidanceZone = CreateComponent<OccupancyGuidanceZone>("OccupancyGuidanceRegion");
+            OccupancyGuidanceZone occupancyGuidanceZone = CreateComponent<OccupancyGuidanceZone>(
+                "OccupancyGuidanceRegion"
+            );
 
             IResettable[] found = (IResettable[])PrivateAccess.InvokeStatic(typeof(Task), "FindResettableZones");
 
-            Assert.AreEqual(baseline.Length + 3, found.Length);
+            Assert.AreEqual(baseline.Length + 4, found.Length);
             CollectionAssert.Contains(found, stimulusZone);
-            CollectionAssert.Contains(found, occupancyZone);
             CollectionAssert.Contains(found, guidanceZone);
+            CollectionAssert.Contains(found, occupancyZone);
+            CollectionAssert.Contains(found, occupancyGuidanceZone);
         }
 
         /// <summary>Verifies that the zone scan adds nothing for a component that is not resettable.</summary>
@@ -1085,7 +1189,7 @@ namespace SL.Tests.EditMode
         public void FindResettableZones_SceneWithANonResettableZone_LeavesTheCountUnchanged()
         {
             IResettable[] baseline = (IResettable[])PrivateAccess.InvokeStatic(typeof(Task), "FindResettableZones");
-            CreateComponent<GuidanceZone>("GuidanceRegion");
+            CreateComponent<BoxCollider>("NonResettableZone");
 
             IResettable[] found = (IResettable[])PrivateAccess.InvokeStatic(typeof(Task), "FindResettableZones");
 
@@ -1137,6 +1241,15 @@ namespace SL.Tests.EditMode
             template.vrEnvironment.segmentsPerCorridor = 1;
             template.Trial("Long").WithTransitions(new Dictionary<string, float> { { "Short", 1f } });
             template.Trial("Short").WithTransitions(new Dictionary<string, float> { { "Short", 1f } });
+            return template;
+        }
+
+        /// <summary>Builds the two-trial template whose corridor depth overruns the corridor map limit.</summary>
+        /// <returns>The template builder.</returns>
+        private static TemplateYaml BuildDeepTemplate()
+        {
+            TemplateYaml template = BuildPairTemplate();
+            template.vrEnvironment.segmentsPerCorridor = ExcessiveCorridorDepth;
             return template;
         }
 
@@ -1324,6 +1437,32 @@ namespace SL.Tests.EditMode
         private static void MoveActorPastFirstSegment(Task task, ActorObject actor)
         {
             SetActorZ(actor, FirstSegmentLength(task) + 0.5f);
+        }
+
+        /// <summary>Drives one frame of Update the way the player loop does, skipping a disabled component.</summary>
+        /// <remarks>
+        /// Reflection reaches Update regardless of the enabled flag, so a test that pins a terminal failure path
+        /// consults the flag itself to reproduce the frame the engine would skip.
+        /// </remarks>
+        /// <param name="task">The task whose Update callback to drive.</param>
+        private static void InvokeUpdateWhileEnabled(Task task)
+        {
+            if (task.enabled)
+            {
+                PrivateAccess.Invoke(task, "Update");
+            }
+        }
+
+        /// <summary>Builds the reflection argument array the transition sampler writes its trial name into.</summary>
+        /// <remarks>
+        /// Reflection assigns an out parameter back into the very array it was handed, so the sampled name is read
+        /// from the array's last slot once the call returns.
+        /// </remarks>
+        /// <param name="transitions">The distribution handed to the sampler as its first argument.</param>
+        /// <returns>The argument array carrying the distribution, the generator, and the trial name slot.</returns>
+        private static object[] SamplerArguments(Dictionary<string, float> transitions)
+        {
+            return new object[] { transitions, new System.Random(SamplerSeed), null };
         }
 
         /// <summary>Encodes a slice of a segment sequence as a base-trial-count corridor key.</summary>

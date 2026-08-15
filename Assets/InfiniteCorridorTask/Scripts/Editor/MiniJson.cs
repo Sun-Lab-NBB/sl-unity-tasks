@@ -2,6 +2,7 @@
 /// Provides the MiniJson class for minimal JSON serialization and deserialization used by the MCP bridge.
 /// </summary>
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
@@ -10,21 +11,28 @@ namespace SL.Tasks
 {
     /// <summary>
     /// Provides a minimal JSON serializer and deserializer for MCP bridge communication.
-    /// Handles dictionaries, lists, strings, numbers, booleans, and null values.
+    /// Handles dictionaries, sequences, strings, numbers, booleans, and null values.
     /// </summary>
     public static class MiniJson
     {
         /// <summary>Deserializes a JSON string into a dictionary.</summary>
         /// <param name="json">The JSON string to parse.</param>
         /// <returns>A dictionary of string keys to object values.</returns>
+        /// <exception cref="ArgumentNullException">The <paramref name="json"/> argument is null.</exception>
         public static Dictionary<string, object> Deserialize(string json)
         {
+            if (json == null)
+            {
+                string message = "Unable to deserialize the JSON payload. It must be a string, but it is null.";
+                throw new ArgumentNullException(nameof(json), message);
+            }
+
             return Parse(json);
         }
 
         /// <summary>
-        /// Serializes a dictionary, list, string, number, boolean, or null value to a JSON string; any other value is
-        /// serialized as its quoted ToString() representation.
+        /// Serializes a dictionary, sequence, string, number, boolean, or null value to a JSON string, and serializes
+        /// any other value as its quoted ToString representation.
         /// </summary>
         /// <param name="obj">The object to serialize.</param>
         /// <returns>A JSON string representation.</returns>
@@ -90,49 +98,13 @@ namespace SL.Tasks
                 return builder.ToString();
             }
 
-            if (obj is IEnumerable<object> enumerable)
+            // The non-generic interface covers a sequence of a value type, which no IEnumerable<T> check matches
+            // because covariance is limited to reference types.
+            if (obj is IEnumerable sequence)
             {
                 StringBuilder builder = new StringBuilder("[");
                 bool first = true;
-                foreach (object item in enumerable)
-                {
-                    if (!first)
-                    {
-                        builder.Append(",");
-                    }
-
-                    builder.Append(Serialize(item));
-                    first = false;
-                }
-
-                builder.Append("]");
-                return builder.ToString();
-            }
-
-            if (obj is IEnumerable<string> stringEnumerable)
-            {
-                StringBuilder builder = new StringBuilder("[");
-                bool first = true;
-                foreach (string item in stringEnumerable)
-                {
-                    if (!first)
-                    {
-                        builder.Append(",");
-                    }
-
-                    builder.Append(Serialize(item));
-                    first = false;
-                }
-
-                builder.Append("]");
-                return builder.ToString();
-            }
-
-            if (obj is IEnumerable<Dictionary<string, object>> dictionaryEnumerable)
-            {
-                StringBuilder builder = new StringBuilder("[");
-                bool first = true;
-                foreach (Dictionary<string, object> item in dictionaryEnumerable)
+                foreach (object item in sequence)
                 {
                     if (!first)
                     {
@@ -150,17 +122,59 @@ namespace SL.Tasks
             return $"\"{EscapeString(obj.ToString())}\"";
         }
 
-        /// <summary>Escapes special characters in a string for JSON encoding.</summary>
+        /// <summary>
+        /// Escapes the backslash, the quote, and every character below 0x20, emitting the six-character unicode form
+        /// for the control characters that carry no shorter escape.
+        /// </summary>
         /// <param name="value">The string to escape.</param>
         /// <returns>The escaped string safe for JSON inclusion.</returns>
         private static string EscapeString(string value)
         {
-            return value
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\n", "\\n")
-                .Replace("\r", "\\r")
-                .Replace("\t", "\\t");
+            StringBuilder builder = new StringBuilder(value.Length);
+
+            foreach (char character in value)
+            {
+                switch (character)
+                {
+                    case '\\':
+                        builder.Append("\\\\");
+                        break;
+                    case '"':
+                        builder.Append("\\\"");
+                        break;
+                    case '\b':
+                        builder.Append("\\b");
+                        break;
+                    case '\f':
+                        builder.Append("\\f");
+                        break;
+                    case '\n':
+                        builder.Append("\\n");
+                        break;
+                    case '\r':
+                        builder.Append("\\r");
+                        break;
+                    case '\t':
+                        builder.Append("\\t");
+                        break;
+                    default:
+                        // A raw control character inside a quoted string is rejected by the strict Python reader on
+                        // the other end of the bridge.
+                        if (character < ' ')
+                        {
+                            builder.Append("\\u");
+                            builder.Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                        }
+                        else
+                        {
+                            builder.Append(character);
+                        }
+
+                        break;
+                }
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>Parses a JSON string into a dictionary using a recursive-descent parser.</summary>

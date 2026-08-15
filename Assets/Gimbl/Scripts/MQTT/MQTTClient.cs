@@ -35,6 +35,12 @@ namespace Gimbl
         /// </remarks>
         private const int ConnectTimeoutMilliseconds = 10000;
 
+        /// <summary>The lowest port number a broker connection can be opened on.</summary>
+        private const int MinimumBrokerPort = 1;
+
+        /// <summary>The highest port number a broker connection can be opened on.</summary>
+        private const int MaximumBrokerPort = 65535;
+
         /// <summary>The IP address of the MQTT broker.</summary>
         /// <remarks>
         /// The initializer matches the loopback fallback applied by <see cref="Awake"/> and by
@@ -96,14 +102,16 @@ namespace Gimbl
 #endif
 
             // Falls back to localhost defaults so a fresh project always attempts a connection. The
-            // Task Parameters window applies the same fallback when its UI is opened; mirroring it here
-            // ensures users who have not yet visited that window still get a working broker setup when
-            // mosquitto (or another local broker) is running on standard ports.
+            // Task Parameters window applies the same fallback when its UI is opened, and mirroring it
+            // here ensures users who have not yet visited that window still get a working broker setup
+            // when mosquitto (or another local broker) is running on standard ports. The port fallback
+            // covers the whole out-of-range span, because a port outside it reaches the options builder
+            // as a value no socket can bind.
             if (string.IsNullOrEmpty(ipAddress))
             {
                 ipAddress = "127.0.0.1";
             }
-            if (port == 0)
+            if (port < MinimumBrokerPort || port > MaximumBrokerPort)
             {
                 port = 1883;
             }
@@ -120,9 +128,13 @@ namespace Gimbl
         }
 
         /// <summary>Sends session stop message and cleans up subscriptions on application quit.</summary>
+        /// <remarks>
+        /// The stop broadcast is conditional on the channel existing, because a quit reached before
+        /// <see cref="Start"/> created it must still run every cleanup step below the broadcast.
+        /// </remarks>
         private void OnApplicationQuit()
         {
-            _stopChannel.Send();
+            _stopChannel?.Send();
 
             if (_channelList.Count > 0 && IsConnected())
             {
@@ -157,11 +169,14 @@ namespace Gimbl
         /// Duplicates the cleanup performed by <see cref="OnApplicationQuit"/> because the two lifecycle
         /// callbacks do not always both fire. A scene transition that destroys this component without
         /// quitting the application reaches only <c>OnDestroy</c>; a process exit that bypasses scene
-        /// teardown reaches only <c>OnApplicationQuit</c>. The duplicated handler unhook and disposal
-        /// ensure the underlying <see cref="IMqttClient"/> is released in either path.
+        /// teardown reaches only <c>OnApplicationQuit</c>. The duplicated routing reset, handler unhook,
+        /// and disposal ensure the underlying <see cref="IMqttClient"/> and every routed channel are
+        /// released in either path.
         /// </remarks>
         private void OnDestroy()
         {
+            _channelList = new List<Channel>();
+
             if (client != null && _messageReceivedHandler != null)
             {
                 client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
@@ -177,9 +192,24 @@ namespace Gimbl
         }
 
         /// <summary>Establishes a connection to the MQTT broker.</summary>
+        /// <remarks>
+        /// Any handle an earlier call left installed is unhooked and disposed before the replacement is built,
+        /// so a component that connects on every enable releases one broker handle per disable rather than
+        /// accumulating them for the lifetime of the client.
+        /// </remarks>
         /// <param name="verbose">Determines whether to log successful connection to the console.</param>
         public void Connect(bool verbose)
         {
+            if (client != null)
+            {
+                if (_messageReceivedHandler != null)
+                {
+                    client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
+                }
+                client.Dispose();
+                client = null;
+            }
+
             MqttFactory factory = new MqttFactory();
             client = factory.CreateMqttClient();
 
@@ -297,6 +327,28 @@ namespace Gimbl
                         Debug.LogError(message);
                     }
                 });
+        }
+
+        /// <summary>Removes a channel from the routing list, so a destroyed listener stops receiving messages.
+        /// </summary>
+        /// <remarks>
+        /// A channel that outlives its owner keeps receiving every publish on its topic, and a typed channel keeps
+        /// deserializing each payload, so a component that builds channels in Start releases them in OnDestroy. The
+        /// broker-side subscription is left in place, because several channels may share one topic and the broker
+        /// filter is per topic rather than per channel.
+        /// </remarks>
+        /// <param name="channel">The channel to stop routing messages to.</param>
+        public void Unsubscribe(MQTTChannel channel)
+        {
+            if (channel == null)
+            {
+                return;
+            }
+
+            lock (_channelList)
+            {
+                _channelList.RemoveAll(entry => ReferenceEquals(entry.mqttChannel, channel));
+            }
         }
 
         /// <summary>Publishes a message to the specified topic.</summary>

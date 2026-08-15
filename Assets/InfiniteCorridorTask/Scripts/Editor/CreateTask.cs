@@ -244,7 +244,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Confirms the template's segments are short enough for the default track length to fill one corridor.
+        /// Confirms the template declares positive segment lengths short enough for the default track length to fill
+        /// one corridor.
         /// </summary>
         /// <remarks>
         /// A generated task prefab always starts at <see cref="Task.DefaultTrackLength"/>, so a template whose
@@ -252,11 +253,24 @@ namespace SL.Tasks
         /// first Play Mode entry. Reporting it here surfaces the problem while the operator is still generating.
         /// </remarks>
         /// <param name="template">The loaded task template.</param>
-        /// <returns>An error message when the default track length cannot fill a corridor, otherwise null.</returns>
+        /// <returns>
+        /// An error message when a segment length is not positive or the default track length cannot fill a corridor,
+        /// otherwise null.
+        /// </returns>
         private static string ValidateTrackLengthCoversCorridor(TaskTemplate template)
         {
             float longestSegmentUnity = template.GetSegmentLengthsUnity().Max();
             int depth = template.vrEnvironment.segmentsPerCorridor;
+
+            // Guards the division below, which turns a non-positive longest segment into an infinite segment count
+            // that clears every corridor depth and lets an unbuildable template through.
+            if (longestSegmentUnity <= 0f)
+            {
+                return $"Template '{template.templateName}' declares a longest segment of {longestSegmentUnity} Unity "
+                    + "units, where every segment length must be positive. Give each trial a cue sequence whose cue "
+                    + "lengths sum above zero before generating.";
+            }
+
             int worstCaseSegmentCount = Mathf.FloorToInt(Task.DefaultTrackLength / longestSegmentUnity);
 
             if (worstCaseSegmentCount >= depth)
@@ -601,12 +615,12 @@ namespace SL.Tasks
                     }
                     else
                     {
-                        // For the first segment, sets showBoundary from the trial's visibility setting.
+                        // For the first segment, applies the visibility the segment's own trial declares.
                         StimulusTriggerZone stimulusTriggerZone =
                             instance.GetComponentInChildren<StimulusTriggerZone>();
                         if (stimulusTriggerZone != null)
                         {
-                            stimulusTriggerZone.showBoundary = trials[segment].showStimulusCollisionBoundary;
+                            ApplyBoundaryVisibility(stimulusTriggerZone, trials[segment].showStimulusCollisionBoundary);
                         }
                     }
 
@@ -848,9 +862,18 @@ namespace SL.Tasks
                 // A cue prefab references its material by GUID, so a material deleted from under a surviving prefab
                 // leaves that prefab rendering untextured. Skipping requires both assets, and a missing material
                 // rebuilds the prefab alongside it so the new material is the one the renderers point at.
-                if (AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null && cueMaterial != null)
+                bool cuePrefabExists = AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null;
+                if (cuePrefabExists && cueMaterial != null)
                 {
                     continue;
+                }
+
+                // Retires the surviving prefab so the rebuild below writes a fresh asset. SaveAsPrefabAsset merges
+                // into an asset already occupying the path whose root carries the same name, and that merge keeps
+                // the matched wall renderers on their deleted material, so both walls reach disk with none at all.
+                if (cuePrefabExists)
+                {
+                    AssetDatabase.DeleteAsset(cuePrefabPath);
                 }
 
                 float lengthUnity = cue.LengthUnity(cmPerUnit);
@@ -1065,6 +1088,19 @@ namespace SL.Tasks
                         showBoundary: trial.showStimulusCollisionBoundary
                     );
                 }
+                else
+                {
+                    // Refuses the trial rather than saving a zoneless segment, which reports success and then never
+                    // publishes a stimulus. ConfigLoader gates the literal set, so this is reached by a literal
+                    // added there without a matching branch here.
+                    string message =
+                        $"BuildSegmentPrefabs: Unable to place a trigger zone for trial '{trialName}'. The "
+                        + "trigger_type must be one of interaction, collision, occupancy_disarm, occupancy_arm, or "
+                        + $"occupancy_trigger, but the template declares '{trial.triggerType}'.";
+                    Debug.LogError(message);
+                    UnityEngine.Object.DestroyImmediate(segmentGameObject);
+                    return false;
+                }
 
                 PrefabUtility.SaveAsPrefabAsset(segmentGameObject, segmentPrefabPath);
                 UnityEngine.Object.DestroyImmediate(segmentGameObject);
@@ -1127,7 +1163,7 @@ namespace SL.Tasks
             if (stimulusZone != null)
             {
                 stimulusZone.triggerMode = TriggerMode.Interaction;
-                stimulusZone.showBoundary = showBoundary;
+                ApplyBoundaryVisibility(stimulusZone, showBoundary);
                 stimulusZone.trialName = trialName;
             }
         }
@@ -1183,7 +1219,7 @@ namespace SL.Tasks
             if (stimulusZone != null)
             {
                 stimulusZone.triggerMode = TriggerMode.Collision;
-                stimulusZone.showBoundary = showBoundary;
+                ApplyBoundaryVisibility(stimulusZone, showBoundary);
                 stimulusZone.trialName = trialName;
             }
         }
@@ -1259,7 +1295,7 @@ namespace SL.Tasks
             if (stimulusZone != null)
             {
                 stimulusZone.triggerMode = triggerMode;
-                stimulusZone.showBoundary = showBoundary;
+                ApplyBoundaryVisibility(stimulusZone, showBoundary);
                 stimulusZone.trialName = trialName;
             }
         }
@@ -1278,6 +1314,26 @@ namespace SL.Tasks
             {
                 rootCollider.size = new Vector3(1, 1, zoneSizeUnity);
                 rootCollider.center = Vector3.zero;
+            }
+        }
+
+        /// <summary>
+        /// Writes a trial's boundary visibility onto a stimulus trigger zone and onto the boundary quad renderer
+        /// sharing its GameObject.
+        /// </summary>
+        /// <remarks>
+        /// Both hand-authored zone prefabs ship that renderer enabled and <see cref="StimulusTriggerZone"/> only
+        /// reconciles it from <c>Start</c>, so a generated asset whose renderer is left alone draws the boundary
+        /// across the whole corridor cross-section in the Scene view no matter what its trial declares.
+        /// </remarks>
+        /// <param name="stimulusZone">The stimulus trigger zone the visibility is written to.</param>
+        /// <param name="showBoundary">Determines whether the zone boundary is visible.</param>
+        private static void ApplyBoundaryVisibility(StimulusTriggerZone stimulusZone, bool showBoundary)
+        {
+            stimulusZone.showBoundary = showBoundary;
+            if (stimulusZone.TryGetComponent(out MeshRenderer boundaryRenderer))
+            {
+                boundaryRenderer.enabled = showBoundary;
             }
         }
 

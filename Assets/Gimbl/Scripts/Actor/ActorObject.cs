@@ -121,6 +121,14 @@ namespace Gimbl
                 }
 
                 int[] displays = availableDisplays.Except(usedDisplays).ToArray();
+                if (displays.Length == 0)
+                {
+                    string displayMessage =
+                        $"Unable to assign an unclaimed display to the tracking camera of actor '{gameObject.name}'. "
+                        + $"Each of the {availableDisplays.Count} displays a tracking camera can render to is already "
+                        + "claimed, so this camera shares display 7 with the camera already rendering there.";
+                    Debug.LogWarning(displayMessage);
+                }
                 int nextDisplay = displays.Length > 0 ? displays[0] : 7;
 
                 GameObject cameraObject = new GameObject("Actor View");

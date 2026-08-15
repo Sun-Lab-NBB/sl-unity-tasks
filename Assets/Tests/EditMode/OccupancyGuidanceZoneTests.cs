@@ -14,10 +14,10 @@ namespace SL.Tests.EditMode
     /// <summary>Verifies the behavior of the OccupancyGuidanceZone class.</summary>
     /// <remarks>
     /// Covers the two Start resolution guards, the collaborators and the Delay channel a successful Start establishes,
-    /// the three gates deciding whether a zone entry requests the brake, the per-lap latch OnTriggerExit leaves
-    /// standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by replacing the parent
-    /// OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so an Edit Mode run pins every
-    /// boundary of the clamped subtraction without waiting on wall-clock time.
+    /// the collaborator guard and the three gates deciding whether a zone entry requests the brake, the per-lap latch
+    /// OnTriggerExit leaves standing, and the ResetState re-arm. The remaining-duration arithmetic is driven by
+    /// replacing the parent OccupancyZone's stopwatch with a stopped one carrying an arranged tick count, so an Edit
+    /// Mode run pins every boundary of the clamped subtraction without waiting on wall-clock time.
     /// </remarks>
     [TestFixture]
     public class OccupancyGuidanceZoneTests
@@ -254,6 +254,75 @@ namespace SL.Tests.EditMode
                 Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
                 Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
                 Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
+            }
+        }
+
+        /// <summary>Verifies that an entry before Start marks the zone without firing the brake.</summary>
+        [Test]
+        public void OnTriggerEnter_BeforeStart_SetsInZoneWithoutFiringBrake()
+        {
+            ZoneRigOptions options = ZoneRigOptions.Occupancy(TriggerMode.OccupancyTrigger, 1000f);
+            using (ZoneRig rig = ZoneRig.Create(options))
+            {
+                rig.EnterOccupancyGuidanceZone();
+
+                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
+                Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
+                Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
+            }
+        }
+
+        /// <summary>Verifies that an entry with an unresolved Task marks the zone without firing the brake.</summary>
+        [Test]
+        public void OnTriggerEnter_TaskUnresolved_SetsInZoneWithoutFiringBrake()
+        {
+            using (ZoneRig rig = CreateStartedRig(1000f))
+            {
+                PrivateAccess.SetField(rig.OccupancyGuidanceZone, TaskFieldName, null);
+
+                rig.EnterOccupancyGuidanceZone();
+
+                Assert.IsTrue(rig.OccupancyGuidanceZone.inZone);
+                Assert.IsFalse(rig.OccupancyGuidanceZone.BrakeTriggered);
+                Assert.AreEqual(0, rig.Mqtt.CountOn(MQTTTopics.Delay));
+            }
+        }
+
+        /// <summary>Verifies that an entry after a failed Start marks the zone without firing the brake.</summary>
+        [Test]
+        public void OnTriggerEnter_ReEnabledAfterAFailedStart_SetsInZoneWithoutFiringBrake()
+        {
+            GameObject rootObject = new GameObject("ParentlessRig");
+            try
+            {
+                using (MqttTestHarness harness = MqttTestHarness.Create())
+                {
+                    GameObject taskObject = new GameObject("Task");
+                    taskObject.transform.SetParent(rootObject.transform);
+                    taskObject.AddComponent<Task>();
+
+                    GameObject zoneObject = new GameObject("StrandedGuidanceZone");
+                    zoneObject.transform.SetParent(rootObject.transform);
+                    OccupancyGuidanceZone zone = zoneObject.AddComponent<OccupancyGuidanceZone>();
+                    LogAssert.Expect(
+                        LogType.Error,
+                        new Regex(@"OccupancyGuidanceZone \(StrandedGuidanceZone\): No parent OccupancyZone found\.")
+                    );
+                    PrivateAccess.Invoke(zone, "Start");
+
+                    // Re-enabling the component restores the trigger callbacks Unity withholds from a disabled one,
+                    // and Unity runs Start once, so the entry lands on the parent reference the failure left unset.
+                    zone.enabled = true;
+                    PrivateAccess.Invoke(zone, "OnTriggerEnter", new object[] { null });
+
+                    Assert.IsTrue(zone.inZone);
+                    Assert.IsFalse(zone.BrakeTriggered);
+                    Assert.AreEqual(0, harness.CountOn(MQTTTopics.Delay));
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 

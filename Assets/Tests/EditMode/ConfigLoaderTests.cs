@@ -281,6 +281,33 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("No trial structures defined", exception.Message);
         }
 
+        /// <summary>Verifies that LoadTemplate rejects a cues list holding an empty entry.</summary>
+        [Test]
+        public void LoadTemplate_EmptyCueEntry_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.includeCuesSection = false;
+            template.trailingRawText = "cues: [null]";
+            string path = _workspace.WriteTemplate("EmptyCueEntry", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("The cue entry at index 0 is empty", exception.Message);
+        }
+
+        /// <summary>Verifies that the empty cue entry message reports the offending list index.</summary>
+        [Test]
+        public void LoadTemplate_EmptyCueEntryAfterValidCues_ReportsItsIndex()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.includeCuesSection = false;
+            template.trailingRawText =
+                "cues: [{name: \"A\", code: 1, length_cm: 30, texture: \"Gray Cue 2x1.png\"}, null]";
+            string path = _workspace.WriteTemplate("SecondCueEntryEmpty", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("The cue entry at index 1 is empty", exception.Message);
+        }
+
         /// <summary>Verifies that LoadTemplate rejects a cue entry that omits its name key.</summary>
         [Test]
         public void LoadTemplate_CueMissingName_ThrowsInvalidData()
@@ -303,6 +330,55 @@ namespace SL.Tests.EditMode
 
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("A cue entry is missing the required 'name' field", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects a cue name carrying a space.</summary>
+        [Test]
+        public void LoadTemplate_CueNameWithSpace_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Cue("A").name = "A B";
+            template.Trial("AB").cueSequence = new List<string> { "A B", "B" };
+            template.Trial("BA").cueSequence = new List<string> { "B", "A B" };
+            string path = _workspace.WriteTemplate("SpacedCueName", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Cue name 'A B' is invalid", exception.Message);
+            StringAssert.Contains("letters, digits, and underscores", exception.Message);
+        }
+
+        /// <summary>Verifies that a spaced cue name is rejected as a name rather than a duplicate sequence.</summary>
+        [Test]
+        public void LoadTemplate_SpacedCueNamesCollidingInSequenceSignature_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.cues.Clear();
+            template.cues.Add(CueYaml.Named("A B", 1));
+            template.cues.Add(CueYaml.Named("C", 2));
+            template.cues.Add(CueYaml.Named("A", 3));
+            template.cues.Add(CueYaml.Named("B C", 4));
+            template.Trial("AB").cueSequence = new List<string> { "A B", "C" };
+            template.Trial("BA").cueSequence = new List<string> { "A", "B C" };
+            string path = _workspace.WriteTemplate("CollidingSignatures", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Cue name 'A B' is invalid", exception.Message);
+            StringAssert.DoesNotContain("identical cue sequence", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate accepts a cue name mixing letters, digits, and underscores.</summary>
+        [Test]
+        public void LoadTemplate_AlphanumericCueName_Loads()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Cue("A").name = "Cue_01";
+            template.Trial("AB").cueSequence = new List<string> { "Cue_01", "B" };
+            template.Trial("BA").cueSequence = new List<string> { "B", "Cue_01" };
+            string path = _workspace.WriteTemplate("NamedCue", template);
+
+            TaskTemplate loaded = ConfigLoader.LoadTemplate(path);
+
+            Assert.AreEqual("Cue_01", loaded.cues[0].name);
         }
 
         /// <summary>Verifies that LoadTemplate rejects a cue code below the byte range.</summary>
@@ -351,7 +427,7 @@ namespace SL.Tests.EditMode
 
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("Cue 'A' has invalid length 0", exception.Message);
-            StringAssert.Contains("Must be positive.", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
         }
 
         /// <summary>Verifies that LoadTemplate rejects a negative cue length.</summary>
@@ -364,6 +440,32 @@ namespace SL.Tests.EditMode
 
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("Cue 'A' has invalid length -5", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects a NaN cue length.</summary>
+        [Test]
+        public void LoadTemplate_NaNCueLength_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Cue("A").lengthCm = float.NaN;
+            string path = _workspace.WriteTemplate("NanLength", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Cue 'A' has invalid length", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects an infinite cue length.</summary>
+        [Test]
+        public void LoadTemplate_InfiniteCueLength_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Cue("A").lengthCm = float.PositiveInfinity;
+            string path = _workspace.WriteTemplate("InfiniteLength", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Cue 'A' has invalid length", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
         }
 
         /// <summary>Verifies that LoadTemplate accepts a fractional cue length just above zero.</summary>
@@ -414,6 +516,20 @@ namespace SL.Tests.EditMode
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("Cue 'A' references texture 'Absent Cue.png'", exception.Message);
             StringAssert.Contains("no file found at", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects a trial_structures entry whose trial body is empty.</summary>
+        [Test]
+        public void LoadTemplate_EmptyTrialStructureEntry_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.includeTrialStructuresSection = false;
+            template.trailingRawText = "trial_structures: {AB: null}";
+            string path = _workspace.WriteTemplate("EmptyTrialEntry", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Trial 'AB' is empty", exception.Message);
+            StringAssert.Contains("must define a trial structure", exception.Message);
         }
 
         /// <summary>Verifies that LoadTemplate rejects a trial name carrying a hyphen.</summary>
@@ -645,7 +761,7 @@ namespace SL.Tests.EditMode
 
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("Trial 'AB' has invalid occupancy_duration_ms 0", exception.Message);
-            StringAssert.Contains("Must be positive.", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
         }
 
         /// <summary>Verifies that LoadTemplate rejects a negative occupancy duration.</summary>
@@ -658,6 +774,32 @@ namespace SL.Tests.EditMode
 
             InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
             StringAssert.Contains("Trial 'AB' has invalid occupancy_duration_ms -50", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects a NaN occupancy duration.</summary>
+        [Test]
+        public void LoadTemplate_NaNOccupancyDuration_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Trial("AB").WithTrigger("occupancy_arm", float.NaN);
+            string path = _workspace.WriteTemplate("NanDuration", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Trial 'AB' has invalid occupancy_duration_ms", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
+        }
+
+        /// <summary>Verifies that LoadTemplate rejects an infinite occupancy duration.</summary>
+        [Test]
+        public void LoadTemplate_InfiniteOccupancyDuration_ThrowsInvalidData()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.Trial("AB").WithTrigger("occupancy_trigger", float.PositiveInfinity);
+            string path = _workspace.WriteTemplate("InfiniteDuration", template);
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => ConfigLoader.LoadTemplate(path));
+            StringAssert.Contains("Trial 'AB' has invalid occupancy_duration_ms", exception.Message);
+            StringAssert.Contains("Must be positive and finite.", exception.Message);
         }
 
         /// <summary>Verifies that LoadTemplate accepts a fractional occupancy duration just above zero.</summary>
@@ -809,6 +951,33 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual(0.5005f, loaded.trialStructures["AB"].transitions["AB"]);
             Assert.AreEqual(0.5f, loaded.trialStructures["AB"].transitions["BA"]);
+        }
+
+        /// <summary>Verifies that a transition sum drifting only under single-precision accumulation loads.</summary>
+        [Test]
+        public void LoadTemplate_TransitionSumDriftingOnlyInSinglePrecision_Loads()
+        {
+            TemplateYaml template = TemplateYaml.Minimal();
+            template.trials.Add(TrialYaml.Named("AA", "A", "A"));
+            template.trials.Add(TrialYaml.Named("BB", "B", "B"));
+
+            // Each 2.9e-8 weight falls below half a unit in the last place of the running sum, so a single-precision
+            // accumulator absorbs all three and lands 0.0000000467 outside the tolerance, while the exact sum sits
+            // 0.0000000403 inside it.
+            Dictionary<string, float> distribution = new Dictionary<string, float>
+            {
+                { "AB", 0.99899995f },
+                { "BA", 2.9e-8f },
+                { "AA", 2.9e-8f },
+                { "BB", 2.9e-8f },
+            };
+            template.Trial("AB").WithTransitions(distribution);
+            string path = _workspace.WriteTemplate("DriftingSum", template);
+
+            TaskTemplate loaded = ConfigLoader.LoadTemplate(path);
+
+            Assert.AreEqual(4, loaded.trialStructures["AB"].transitions.Count);
+            Assert.AreEqual(0.99899995f, loaded.trialStructures["AB"].transitions["AB"]);
         }
 
         /// <summary>Verifies that a transition sum of 0.998 falls outside the 0.001 tolerance.</summary>

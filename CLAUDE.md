@@ -184,9 +184,9 @@ by `sollertia-experiment`.
   trial's `trigger_type`. Every mode publishes one `StimulusMessage { trialName, delivered, cause }` per trial on the
   `Stimulus` topic and adds no MQTT topics, where `cause` is `behavior` or `guidance`. `OccupancyZone` exposes a
   generic `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches the
-  `StimulusTriggerZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the corridor advance
-  drives every per-lap reset, so a standalone `IResettable` needs its own `FindObjectsByType` line there. See
-  `/zone-prefabs`.
+  `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
+  corridor advance drives every per-lap reset, so a standalone `IResettable` needs its own `FindObjectsByType` line
+  there. See `/zone-prefabs`.
 - **CreateTask pipeline**: `CreateTask.CreateFromTemplate` runs a cross-template cue-texture preflight, regenerates
   every segment prefab the template owns, reuses cue prefabs keyed by `(name, lengthCm)`, and places the zones. All
   five `trigger_type` literals dispatch onto the two hand-authored zone prefabs. See `/task-generator`.

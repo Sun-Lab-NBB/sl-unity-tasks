@@ -412,9 +412,10 @@ namespace SL.Tests.EditMode
             Assert.AreNotEqual(0, trackingCamera.targetDisplay);
         }
 
-        /// <summary>Verifies that the tracking camera falls back to display seven when all eight are used.</summary>
+        /// <summary>Verifies that the tracking camera warns and shares display seven when all eight are used.
+        /// </summary>
         [Test]
-        public void InitiateActor_TrackCameraEnabledAndEveryDisplayUsed_FallsBackToDisplaySeven()
+        public void InitiateActor_TrackCameraEnabledAndEveryDisplayUsed_WarnsAndFallsBackToDisplaySeven()
         {
             EnsureActorsRoot();
             for (int displayIndex = 0; displayIndex <= HighestDisplayIndex; displayIndex++)
@@ -422,6 +423,10 @@ namespace SL.Tests.EditMode
                 OccupyTrackCameraDisplay(displayIndex);
             }
             ActorObject actor = NewActor("Actor");
+            LogAssert.Expect(
+                LogType.Warning,
+                new Regex("Unable to assign an unclaimed display to the tracking camera of actor 'Actor'\\.")
+            );
 
             actor.InitiateActor("None", trackCamera: true);
 

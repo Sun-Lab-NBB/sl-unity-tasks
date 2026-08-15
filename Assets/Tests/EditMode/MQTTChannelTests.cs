@@ -337,9 +337,9 @@ namespace SL.Tests.EditMode
         /// <summary>Verifies that an empty payload reaches the typed event as a null message.</summary>
         /// <remarks>
         /// JsonUtility returns null for a null or empty string instead of raising a parse error, so this payload
-        /// takes neither the deserialization path nor the failure path. The production route into it is the
-        /// inherited parameterless Send, whose null payload the publish loopback converts to an empty string, so a
-        /// typed listener on such a topic hands its subscribers a null message rather than a default instance.
+        /// takes neither the deserialization path nor the failure path. A base MQTTChannel publishing a trigger
+        /// message on a topic a typed channel also listens on produces exactly this payload, because the publish
+        /// loopback converts the null payload to an empty string.
         /// </remarks>
         [Test]
         public void ReceivedMessage_TypedChannelWithEmptyPayload_InvokesTheTypedEventWithANullMessage()
@@ -400,28 +400,41 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a listener failure is reported as a deserialization failure with its cause.
+        /// <summary>Verifies that an exception a listener raises propagates with its own type and message.
         /// </summary>
         /// <remarks>
-        /// The typed event is invoked inside the try block, so an exception thrown by a subscriber is caught by
-        /// the deserialization handler and re-reported under the deserialization message. This test pins the
-        /// behavior the code has rather than the behavior the message describes.
+        /// The typed event is invoked below the try block, so a subscriber failure reaches the caller as itself
+        /// rather than as a deserialization failure that misnames the JSON parser as the culprit.
         /// </remarks>
         [Test]
-        public void ReceivedMessage_TypedChannelWithThrowingListener_PreservesTheListenerExceptionAsTheCause()
+        public void ReceivedMessage_TypedChannelWithThrowingListener_PropagatesTheListenerException()
         {
             using (MqttTestHarness harness = MqttTestHarness.Create())
             {
                 MQTTChannel<ProbeMessage> channel = new MQTTChannel<ProbeMessage>(ProbeTopic, isListener: false);
                 channel.receivedEvent.AddListener(message => throw new NotSupportedException("listener failed"));
 
-                InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+                NotSupportedException exception = Assert.Throws<NotSupportedException>(() =>
                     channel.ReceivedMessage(ProbeJson)
                 );
 
-                StringAssert.Contains("Failed to deserialize message", exception.Message);
-                Assert.IsInstanceOf<NotSupportedException>(exception.InnerException);
-                Assert.AreEqual("listener failed", exception.InnerException.Message);
+                Assert.AreEqual("listener failed", exception.Message);
+            }
+        }
+
+        /// <summary>Verifies that a listener failure carries no deserialization wording.</summary>
+        [Test]
+        public void ReceivedMessage_TypedChannelWithThrowingListener_ReportsNoDeserializationFailure()
+        {
+            using (MqttTestHarness harness = MqttTestHarness.Create())
+            {
+                MQTTChannel<ProbeMessage> channel = new MQTTChannel<ProbeMessage>(ProbeTopic, isListener: false);
+                channel.receivedEvent.AddListener(message => throw new NotSupportedException("listener failed"));
+
+                Exception exception = Assert.Catch<Exception>(() => channel.ReceivedMessage(ProbeJson));
+
+                Assert.IsNotInstanceOf<InvalidOperationException>(exception);
+                StringAssert.DoesNotContain("Failed to deserialize message", exception.Message);
             }
         }
 
@@ -504,19 +517,49 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the inherited parameterless Send publishes an empty payload.</summary>
+        /// <summary>Verifies that the parameterless Send on a typed channel rejects the call.</summary>
         [Test]
-        public void Send_TypedChannelParameterlessOverload_PublishesAnEmptyPayload()
+        public void Send_TypedChannelParameterlessOverload_ThrowsNotSupported()
         {
             using (MqttTestHarness harness = MqttTestHarness.Create())
             {
                 MQTTChannel<ProbeMessage> channel = new MQTTChannel<ProbeMessage>(MQTTTopics.Delay, isListener: false);
 
-                channel.Send();
+                NotSupportedException exception = Assert.Throws<NotSupportedException>(() => channel.Send());
 
-                Assert.AreEqual(1, harness.CountOn(MQTTTopics.Delay));
-                Assert.AreEqual(string.Empty, harness.LastPayloadOn(MQTTTopics.Delay));
+                StringAssert.Contains("must publish through its Send(TMessage) overload", exception.Message);
             }
+        }
+
+        /// <summary>Verifies that the rejected parameterless Send publishes nothing on the channel's topic.
+        /// </summary>
+        [Test]
+        public void Send_TypedChannelParameterlessOverload_PublishesNothing()
+        {
+            using (MqttTestHarness harness = MqttTestHarness.Create())
+            {
+                MQTTChannel<ProbeMessage> channel = new MQTTChannel<ProbeMessage>(MQTTTopics.Delay, isListener: false);
+
+                Assert.Throws<NotSupportedException>(() => channel.Send());
+
+                Assert.AreEqual(0, harness.CountOn(MQTTTopics.Delay));
+            }
+        }
+
+        /// <summary>Verifies that the typed channel declares its own parameterless Send rather than inheriting one.
+        /// </summary>
+        [Test]
+        public void Send_TypedChannelParameterlessOverload_IsDeclaredByTheTypedChannel()
+        {
+            MethodInfo method = typeof(MQTTChannel<ProbeMessage>).GetMethod(
+                "Send",
+                BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly,
+                null,
+                Type.EmptyTypes,
+                null
+            );
+
+            Assert.IsNotNull(method);
         }
 
         /// <summary>Returns the routing records the client currently delivers received messages to.</summary>

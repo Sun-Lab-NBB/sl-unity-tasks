@@ -72,19 +72,32 @@ namespace SL.Tests.EditMode
             _logMessages.Clear();
         }
 
-        /// <summary>Verifies that Start allocates the occupancy stopwatch in a stopped, zeroed state.</summary>
+        /// <summary>Verifies that the occupancy stopwatch is stopped and zeroed before Start runs.</summary>
         [Test]
-        public void Start_UnstartedZone_AllocatesTheStoppedOccupancyTimer()
+        public void OccupancyZone_UnstartedZone_AlreadyCarriesTheStoppedOccupancyTimer()
         {
             using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
             {
-                Assert.IsNull(OccupancyTimer(rig));
+                Stopwatch timer = OccupancyTimer(rig);
+
+                Assert.IsNotNull(timer);
+                Assert.IsFalse(timer.IsRunning);
+                Assert.AreEqual(0L, rig.OccupancyElapsedMilliseconds());
+            }
+        }
+
+        /// <summary>Verifies that Start keeps the stopwatch the construction of the zone allocated.</summary>
+        [Test]
+        public void Start_UnstartedZone_KeepsTheStoppedOccupancyTimer()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
+            {
+                Stopwatch timerBeforeStart = OccupancyTimer(rig);
 
                 rig.StartComponents();
 
-                Stopwatch timer = OccupancyTimer(rig);
-                Assert.IsNotNull(timer);
-                Assert.IsFalse(timer.IsRunning);
+                Assert.AreSame(timerBeforeStart, OccupancyTimer(rig));
+                Assert.IsFalse(timerBeforeStart.IsRunning);
                 Assert.AreEqual(0L, rig.OccupancyElapsedMilliseconds());
             }
         }
@@ -107,13 +120,73 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that ResetState requires the timer that Start allocates.</summary>
+        /// <summary>Verifies that a per-lap reset arriving before Start restores the defaults.</summary>
         [Test]
-        public void ResetState_BeforeStart_ThrowsNullReferenceException()
+        public void ResetState_BeforeStart_RestoresThePerLapDefaults()
         {
             using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
             {
-                Assert.Throws<NullReferenceException>(() => rig.OccupancyZone.ResetState());
+                rig.OccupancyZone.isActive = false;
+                rig.OccupancyZone.occupancyMet = true;
+                rig.OccupancyZone.inZone = true;
+
+                rig.OccupancyZone.ResetState();
+
+                Assert.IsTrue(rig.OccupancyZone.isActive);
+                Assert.IsFalse(rig.OccupancyZone.occupancyMet);
+                Assert.IsFalse(rig.OccupancyZone.inZone);
+                Assert.AreEqual(0L, rig.OccupancyElapsedMilliseconds());
+            }
+        }
+
+        /// <summary>Verifies that entering before Start records the occupancy and starts the timer.</summary>
+        [Test]
+        public void OnTriggerEnter_BeforeStart_MarksInZoneAndStartsTheTimer()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
+            {
+                rig.EnterOccupancyZone();
+
+                Assert.IsTrue(rig.OccupancyZone.inZone);
+                Assert.IsTrue(OccupancyTimer(rig).IsRunning);
+            }
+        }
+
+        /// <summary>Verifies that exiting before Start clears the occupancy and stops the timer.</summary>
+        [Test]
+        public void OnTriggerExit_BeforeStart_ClearsInZoneAndStopsTheTimer()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
+            {
+                rig.EnterOccupancyZone();
+
+                rig.ExitOccupancyZone();
+
+                Assert.IsFalse(rig.OccupancyZone.inZone);
+                Assert.IsFalse(OccupancyTimer(rig).IsRunning);
+            }
+        }
+
+        /// <summary>Verifies that a frame arriving before Start leaves the requirement unmet.</summary>
+        [Test]
+        public void Update_BeforeStart_LeavesTheRequirementUnmet()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyTrigger, 0f)))
+            {
+                rig.TickOccupancyZone();
+
+                Assert.IsFalse(rig.OccupancyZone.occupancyMet);
+                Assert.IsFalse(OccupancyTimer(rig).IsRunning);
+            }
+        }
+
+        /// <summary>Verifies that the elapsed reading before Start reports zero.</summary>
+        [Test]
+        public void GetElapsedMilliseconds_BeforeStart_ReturnsZero()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
+            {
+                Assert.AreEqual(0L, rig.OccupancyElapsedMilliseconds());
             }
         }
 
@@ -130,6 +203,7 @@ namespace SL.Tests.EditMode
                 Assert.IsTrue(zone.isActive);
                 Assert.IsFalse(zone.inZone);
                 Assert.IsFalse(zone.occupancyMet);
+                Assert.IsNotNull(PrivateAccess.GetField<Stopwatch>(zone, OccupancyTimerFieldName));
             }
             finally
             {
@@ -243,9 +317,9 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that exiting a deactivated zone leaves the occupancy state untouched.</summary>
+        /// <summary>Verifies that exiting a zone deactivated while occupied still clears the occupancy.</summary>
         [Test]
-        public void OnTriggerExit_InactiveZone_LeavesTheZoneStateUnchanged()
+        public void OnTriggerExit_ZoneDeactivatedWhileOccupied_ClearsInZoneAndLeavesTheTimerRunning()
         {
             using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
             {
@@ -255,8 +329,25 @@ namespace SL.Tests.EditMode
 
                 rig.ExitOccupancyZone();
 
-                Assert.IsTrue(rig.OccupancyZone.inZone);
+                Assert.IsFalse(rig.OccupancyZone.inZone);
                 Assert.IsTrue(OccupancyTimer(rig).IsRunning);
+                Assert.AreEqual(0, CountLogMessages(FailedLogMessage));
+            }
+        }
+
+        /// <summary>Verifies that a deactivated zone the animal never entered stays unoccupied on an exit.</summary>
+        [Test]
+        public void OnTriggerExit_InactiveAndUnoccupiedZone_ReportsNoFailure()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm)))
+            {
+                rig.StartComponents();
+                rig.OccupancyZone.isActive = false;
+
+                rig.ExitOccupancyZone();
+
+                Assert.IsFalse(rig.OccupancyZone.inZone);
+                Assert.IsFalse(OccupancyTimer(rig).IsRunning);
                 Assert.AreEqual(0, CountLogMessages(FailedLogMessage));
             }
         }
@@ -356,6 +447,44 @@ namespace SL.Tests.EditMode
                 Assert.IsTrue(rig.OccupancyZone.occupancyMet);
                 Assert.IsFalse(timer.IsRunning);
                 Assert.GreaterOrEqual(rig.OccupancyElapsedMilliseconds(), AboveBoundaryMilliseconds);
+            }
+        }
+
+        /// <summary>Verifies that the met path stops the timer before it logs the outcome.</summary>
+        [Test]
+        public void Update_RequirementMet_StopsTheTimerBeforeItLogsTheOutcome()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Occupancy(TriggerMode.OccupancyTrigger, 0f)))
+            {
+                rig.StartComponents();
+                rig.EnterOccupancyZone();
+                Stopwatch timer = OccupancyTimer(rig);
+
+                // Samples the timer from the log callback, which Unity raises synchronously out of the logging call
+                // itself, so the sample reports whether the met path had already frozen the reading the guidance zone
+                // reads. A running timer at that moment folds the logging cost into the retained reading.
+                bool timerRanWhileLogging = true;
+                Application.LogCallback sampleTimer = (condition, stackTrace, type) =>
+                {
+                    if (string.Equals(condition, MetLogMessage, StringComparison.Ordinal))
+                    {
+                        timerRanWhileLogging = timer.IsRunning;
+                    }
+                };
+
+                Application.logMessageReceived += sampleTimer;
+                try
+                {
+                    LogAssert.Expect(LogType.Log, MetLogMessage);
+                    rig.TickOccupancyZone();
+                }
+                finally
+                {
+                    Application.logMessageReceived -= sampleTimer;
+                }
+
+                Assert.IsTrue(rig.OccupancyZone.occupancyMet);
+                Assert.IsFalse(timerRanWhileLogging);
             }
         }
 

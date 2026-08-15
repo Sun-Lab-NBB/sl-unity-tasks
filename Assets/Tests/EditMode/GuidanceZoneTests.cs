@@ -8,8 +8,9 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the GuidanceZone class.</summary>
     /// <remarks>
-    /// The zone is a two-line state machine over inZone, so the fixture pins each transition and then pins the two
-    /// consequences that matter to the parent StimulusTriggerZone.
+    /// The zone is a two-line state machine over inZone, so the fixture pins each transition and then pins the
+    /// consequences that matter to the parent StimulusTriggerZone. The closing tests pin the per-lap reset, because a
+    /// corridor teleport carries the actor out of the collider without an exit callback.
     /// </remarks>
     [TestFixture]
     public class GuidanceZoneTests
@@ -117,21 +118,30 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that GuidanceZone carries no per-lap reset hook for Task to drive.</summary>
+        /// <summary>Verifies that GuidanceZone carries the per-lap reset hook Task drives.</summary>
         [Test]
-        public void GuidanceZone_TypeContract_DoesNotImplementIResettable()
+        public void GuidanceZone_TypeContract_ImplementsIResettable()
         {
-            Assert.IsFalse(typeof(IResettable).IsAssignableFrom(typeof(GuidanceZone)));
+            Assert.IsTrue(typeof(IResettable).IsAssignableFrom(typeof(GuidanceZone)));
         }
 
-        /// <summary>Verifies that the corridor reset enumeration skips the guidance zone and leaves it occupied.
-        /// </summary>
-        /// <remarks>
-        /// The flag survives the advance because GuidanceZone implements no per-lap reset hook, so Task's reset
-        /// enumeration never reaches it.
-        /// </remarks>
+        /// <summary>Verifies that ResetState clears the occupancy flag a teleport left latched.</summary>
         [Test]
-        public void ResetState_CorridorAdvance_LeavesTheGuidanceZoneOccupancyLatched()
+        public void ResetState_OccupiedZone_ClearsTheOccupancyFlag()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Interaction()))
+            {
+                rig.EnterGuidanceZone();
+
+                rig.GuidanceZone.ResetState();
+
+                Assert.IsFalse(rig.GuidanceZone.inZone);
+            }
+        }
+
+        /// <summary>Verifies that the corridor reset enumeration reaches the guidance zone and clears it.</summary>
+        [Test]
+        public void ResetState_CorridorAdvance_ClearsTheGuidanceZoneOccupancy()
         {
             using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Interaction()))
             {
@@ -143,11 +153,38 @@ namespace SL.Tests.EditMode
                 IResettable[] resettables = (IResettable[])
                     PrivateAccess.InvokeStatic(typeof(Task), "FindResettableZones");
                 CollectionAssert.Contains(resettables, rig.StimulusZone);
-                CollectionAssert.DoesNotContain(resettables, rig.GuidanceZone);
+                CollectionAssert.Contains(resettables, rig.GuidanceZone);
                 rig.StimulusZone.ResetState();
+                rig.GuidanceZone.ResetState();
 
                 Assert.IsTrue(rig.StimulusZone.isActive);
-                Assert.IsTrue(rig.GuidanceZone.inZone);
+                Assert.IsFalse(rig.GuidanceZone.inZone);
+            }
+        }
+
+        /// <summary>Verifies that a reset guidance zone leaves the next lap's entry frame unresolved.</summary>
+        /// <remarks>
+        /// A latched flag would resolve the following lap on the frame the actor enters the parent trigger zone,
+        /// before the animal ever reaches the guidance region again.
+        /// </remarks>
+        [Test]
+        public void ResetState_FollowingLap_LeavesTheGuidanceFallbackSilentOnTheEntryFrame()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Interaction()))
+            {
+                rig.StartComponents();
+                rig.EnterStimulusZone();
+                rig.EnterGuidanceZone();
+                rig.Tick();
+                Assert.AreEqual(1, rig.StimulusOutcomes().Count);
+
+                rig.StimulusZone.ResetState();
+                rig.GuidanceZone.ResetState();
+                rig.EnterStimulusZone();
+                rig.Tick();
+
+                Assert.AreEqual(1, rig.StimulusOutcomes().Count);
+                Assert.IsTrue(rig.StimulusZone.isActive);
             }
         }
     }

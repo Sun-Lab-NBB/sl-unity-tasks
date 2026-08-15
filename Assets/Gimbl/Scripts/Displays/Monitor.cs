@@ -39,9 +39,13 @@ namespace Gimbl
         /// <summary>The bare displayplacer executable name, resolved through PATH.</summary>
         private const string DisplayPlacerExecutableName = "displayplacer";
 
-        /// <summary>The pre-compiled regex matching xrandr `WxH+L+T` connected-monitor lines.</summary>
+        /// <summary>
+        /// The pre-compiled regex matching xrandr `WxH+L+T` connected-monitor lines. Both offsets accept a leading
+        /// minus, matching the displayplacer pattern, because xrandr reports a display left of or above the origin
+        /// with a negative offset.
+        /// </summary>
         private static readonly Regex LinuxMonitorRegex = new Regex(
-            @"(\d+)x(\d+)\+(\d+)\+(\d+)",
+            @"(\d+)x(\d+)\+(-?\d+)\+(-?\d+)",
             RegexOptions.Compiled
         );
 

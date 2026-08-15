@@ -65,15 +65,20 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, matches.Count);
         }
 
-        /// <summary>Verifies that the Linux pattern drops a monitor whose offsets carry a minus sign.</summary>
+        /// <summary>Verifies that the Linux pattern keeps a monitor whose offsets carry a minus sign.</summary>
         [Test]
-        public void LinuxMonitorRegex_NegativeOffsets_MatchNothing()
+        public void LinuxMonitorRegex_NegativeOffsets_ExtractsTheSignedOrigin()
         {
-            string output = "DP-1 connected 1920x1080+-1920+0 (normal left inverted right) 527mm x 296mm";
+            string output = JoinLines(
+                "DP-1 connected 1920x1080+-1920+0 (normal left inverted right) 527mm x 296mm",
+                "HDMI-1 connected primary 2560x1440+0+-360 (normal left inverted right) 597mm x 336mm"
+            );
 
             MatchCollection matches = LinuxPattern().Matches(output);
 
-            Assert.AreEqual(0, matches.Count);
+            Assert.AreEqual(2, matches.Count);
+            AssertGeometry(matches[0], width: 1920, height: 1080, left: -1920, top: 0);
+            AssertGeometry(matches[1], width: 2560, height: 1440, left: 0, top: -360);
         }
 
         /// <summary>Verifies that the macOS pattern pairs each resolution with the origin of its own block.</summary>
@@ -289,6 +294,29 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual(1.0f, result[0].pixelsPerPoint, 1e-6f);
             Assert.AreEqual(EntityId.None, result[0].cameraEntityId);
+        }
+
+        /// <summary>Verifies that a monitor placed left of and above the origin keeps its signed offsets.</summary>
+        [Test]
+        public void EnumerateViaSubprocess_NegativeOffsets_RecordsTheSignedOrigin()
+        {
+            RequireEchoExecutable();
+            List<Monitor> result = new List<Monitor>();
+
+            PrivateAccess.InvokeStatic(
+                typeof(Monitor),
+                "EnumerateViaSubprocess",
+                EchoExecutablePath,
+                "1920x1080+-1920+-360",
+                LinuxPattern(),
+                result
+            );
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual(1920, result[0].width);
+            Assert.AreEqual(1080, result[0].height);
+            Assert.AreEqual(-1920, result[0].left);
+            Assert.AreEqual(-360, result[0].top);
         }
 
         /// <summary>Verifies that a dimension too large for a 32-bit integer drops only that match.</summary>

@@ -620,7 +620,10 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Write(Section("mqtt", "port", "eighteen"));
 
-            StringAssert.Contains("Invalid port 'eighteen'. Must be a whole number.", ErrorOf(response));
+            StringAssert.Contains(
+                "Invalid port 'eighteen'. Must be a whole number between 0 and 65535.",
+                ErrorOf(response)
+            );
         }
 
         /// <summary>Verifies that a port outside the 32-bit integer range is rejected.</summary>
@@ -632,6 +635,39 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = Write(Section("mqtt", "port", 3000000000L));
 
             StringAssert.Contains("Invalid port '3000000000'", ErrorOf(response));
+        }
+
+        /// <summary>Verifies that a port outside the broker port range leaves the client and the preference alone.
+        /// </summary>
+        [TestCase(-1L)]
+        [TestCase(65536L)]
+        public void WriteTaskParameters_PortOutsideTheBrokerRange_ReturnsTheInvalidPortError(long port)
+        {
+            MQTTClient client = CreateClient();
+            EditorPrefs.SetInt(PortPreferenceKey, 1883);
+
+            Dictionary<string, object> response = Write(Section("mqtt", "port", port));
+
+            StringAssert.Contains(
+                $"Invalid port '{port}'. Must be a whole number between 0 and 65535.",
+                ErrorOf(response)
+            );
+            Assert.AreEqual(1883, client.port);
+            Assert.AreEqual(1883, EditorPrefs.GetInt(PortPreferenceKey));
+        }
+
+        /// <summary>Verifies that both ends of the broker port range are accepted and written.</summary>
+        [TestCase(0L)]
+        [TestCase(65535L)]
+        public void WriteTaskParameters_PortsAtBothRangeEnds_WritesTheClientAndThePreference(long port)
+        {
+            MQTTClient client = CreateClient();
+
+            Dictionary<string, object> response = Write(Section("mqtt", "port", port));
+
+            AssertSucceeded(response);
+            Assert.AreEqual((int)port, client.port);
+            Assert.AreEqual((int)port, EditorPrefs.GetInt(PortPreferenceKey));
         }
 
         /// <summary>Verifies that the mqtt section writes both the client fields and the editor preferences.</summary>
@@ -892,17 +928,33 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("Left View", Rows(Nested(response, "state")["camera_mapping"])[0]["camera"]);
         }
 
-        /// <summary>Verifies that a row carrying no monitor key is skipped rather than rejected.</summary>
+        /// <summary>Verifies that a row carrying a camera but no monitor is reported rather than dropped.</summary>
+        /// <remarks>
+        /// Such a row names no monitor to assign the camera to, so applying it is impossible. Reporting it tells the
+        /// caller the assignment never happened, where skipping it would answer with success and change nothing.
+        /// </remarks>
         [Test]
-        public void WriteTaskParameters_RowWithoutMonitor_IsSkipped()
+        public void WriteTaskParameters_RowWithoutMonitor_ReturnsTheMissingMonitorError()
         {
-            CreateCamera("Left View");
-            Dictionary<string, object> row = new Dictionary<string, object> { { "camera", "Ghost View" } };
+            Camera camera = CreateCamera("Left View");
+            _syntheticMonitors[0].cameraEntityId = camera.GetEntityId();
+            Dictionary<string, object> row = new Dictionary<string, object> { { "camera", "Left View" } };
 
             Dictionary<string, object> response = Write(CameraMapping(row));
 
-            AssertSucceeded(response);
-            Assert.AreEqual("None", Rows(Nested(response, "state")["camera_mapping"])[0]["camera"]);
+            string error = ErrorOf(response);
+            StringAssert.Contains("Invalid camera_mapping row.", error);
+            StringAssert.Contains("'monitor'", error);
+            Assert.AreEqual("Left View", Rows(Nested(Read(), "state")["camera_mapping"])[0]["camera"]);
+        }
+
+        /// <summary>Verifies that a row carrying neither key is reported the same way.</summary>
+        [Test]
+        public void WriteTaskParameters_EmptyCameraMappingRow_ReturnsTheMissingMonitorError()
+        {
+            Dictionary<string, object> response = Write(CameraMapping(new Dictionary<string, object>()));
+
+            StringAssert.Contains("Invalid camera_mapping row.", ErrorOf(response));
         }
 
         /// <summary>Verifies that a camera mapping entry that is not an object is skipped.</summary>
@@ -921,6 +973,61 @@ namespace SL.Tests.EditMode
 
             AssertSucceeded(response);
             Assert.AreEqual(2, Rows(Nested(response, "state")["camera_mapping"]).Count);
+        }
+
+        /// <summary>Verifies that a camera mapping list whose rows assign nothing leaves the scene clean.</summary>
+        /// <remarks>
+        /// A dirty scene is the Editor's prompt to save, and the same branch rewrites the per-scene companion asset,
+        /// so a request that changed no assignment has to leave both untouched.
+        /// </remarks>
+        [Test]
+        public void WriteTaskParameters_CameraMappingRowsAssigningNothing_LeavesTheSceneClean()
+        {
+            Camera camera = CreateCamera("Left View");
+            _syntheticMonitors[0].cameraEntityId = camera.GetEntityId();
+            Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 1L } };
+            ClearActiveSceneDirtiness();
+
+            AssertSucceeded(Write(CameraMapping(row)));
+
+            Assert.IsFalse(
+                SceneManager.GetActiveScene().isDirty,
+                "A row carrying no camera assigns nothing, so the write must not dirty the scene."
+            );
+        }
+
+        /// <summary>Verifies that an empty camera mapping list leaves the scene clean.</summary>
+        [Test]
+        public void WriteTaskParameters_EmptyCameraMappingList_LeavesTheSceneClean()
+        {
+            ClearActiveSceneDirtiness();
+
+            AssertSucceeded(Write(CameraMapping()));
+
+            Assert.IsFalse(
+                SceneManager.GetActiveScene().isDirty,
+                "An empty list assigns nothing, so the write must not dirty the scene."
+            );
+        }
+
+        /// <summary>Verifies that a camera mapping row that assigns a camera dirties the scene.</summary>
+        [Test]
+        public void WriteTaskParameters_CameraMappingRowThatAssigns_DirtiesTheScene()
+        {
+            CreateCamera("Left View");
+            Dictionary<string, object> row = new Dictionary<string, object>
+            {
+                { "monitor", 1L },
+                { "camera", "Left View" },
+            };
+            ClearActiveSceneDirtiness();
+
+            AssertSucceeded(Write(CameraMapping(row)));
+
+            Assert.IsTrue(
+                SceneManager.GetActiveScene().isDirty,
+                "An applied assignment changes the scene, so the write must dirty it."
+            );
         }
 
         /// <summary>Verifies that a camera mapping value that is not a list is ignored outright.</summary>
@@ -1332,6 +1439,22 @@ namespace SL.Tests.EditMode
         /// <param name="tool">The tool name to dispatch.</param>
         /// <param name="arguments">The tool arguments.</param>
         /// <returns>The parsed response payload.</returns>
+        /// <summary>Clears the active scene's dirty flag, so a later assertion observes this test's writes alone.
+        /// </summary>
+        /// <remarks>
+        /// EditorSceneManager.ClearSceneDirtiness is internal, so the fixture reaches it the same way it reaches
+        /// every other non-public member it drives. Saving the scene would clear the flag too, and it would also
+        /// write the fixture's throwaway objects to disk.
+        /// </remarks>
+        private static void ClearActiveSceneDirtiness()
+        {
+            PrivateAccess.InvokeStatic(
+                typeof(EditorSceneManager),
+                "ClearSceneDirtiness",
+                SceneManager.GetActiveScene()
+            );
+        }
+
         private static Dictionary<string, object> Dispatch(string tool, Dictionary<string, object> arguments)
         {
             string json = (string)PrivateAccess.InvokeStatic(typeof(McpBridge), "Dispatch", tool, arguments);

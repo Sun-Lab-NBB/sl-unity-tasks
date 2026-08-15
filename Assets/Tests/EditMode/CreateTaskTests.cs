@@ -298,6 +298,19 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("at most 2 segments where segments_per_corridor requires 3", error);
         }
 
+        /// <summary>Verifies that a template whose segments carry no length reports a positive length error.</summary>
+        [Test]
+        public void ValidateTrackLengthCoversCorridor_ZeroLengthSegments_ReturnsPositiveLengthError()
+        {
+            TaskTemplate template = BuildInMemoryTemplate("ZZTest_ZeroLength", CmPerUnityUnit, 1, "Padding", 0f);
+
+            string error = ValidateTrackLengthCoversCorridor(template);
+
+            Assert.IsNotNull(error);
+            StringAssert.Contains("Template 'ZZTest_ZeroLength' declares a longest segment of 0 Unity units", error);
+            StringAssert.Contains("every segment length must be positive", error);
+        }
+
         /// <summary>Verifies that the hand-authored asset check passes when every required asset is present.</summary>
         [Test]
         public void ValidateHandAuthoredAssets_EveryRequiredAssetPresent_ReturnsNull()
@@ -548,16 +561,11 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that the rebuilt cue prefab points its wall renderers at the rebuilt material.</summary>
         /// <remarks>
-        /// Ignored because the pipeline does not currently satisfy this contract. BuildCuePrefabs states that a
-        /// missing material rebuilds the prefab alongside it "so the new material is the one the renderers point at".
-        /// The rebuild does run, but the rewritten prefab reaches disk with both wall renderers holding a null
-        /// material. Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes
-        /// include the Materials folder, so an operator who removes a cue material without also removing its cue
-        /// prefab regenerates a corridor whose cue walls render untextured. Remove the Ignore attribute once the
-        /// rebuild rewrites the material reference.
+        /// Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes include
+        /// the Materials folder, so an operator can leave a cue prefab standing over a material that no longer
+        /// exists, and the regeneration repairing that state has to land the new material on both wall renderers.
         /// </remarks>
         [Test]
-        [Ignore("Known defect: the rebuilt cue prefab reaches disk with null wall materials.")]
         public void CreateFromTemplate_CuePrefabSurvivesWithoutItsMaterial_RelinksTheRebuiltMaterial()
         {
             WriteSingleTrialTemplate("ZZTest_Relink", FirstTextureName);
@@ -959,6 +967,80 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(FirstTrialName, zone.trialName);
         }
 
+        /// <summary>Verifies that an interaction trial hiding its boundary disables the zone's boundary renderer.
+        /// </summary>
+        [Test]
+        public void CreateFromTemplate_InteractionTrialHidesTheBoundary_DisablesTheBoundaryRenderer()
+        {
+            WriteTemplate(
+                "ZZTest_InteractionHidden",
+                SingleTrialTemplate("interaction", showBoundary: false, occupancyDurationMs: null)
+            );
+
+            Generate("ZZTest_InteractionHidden");
+
+            Assert.IsFalse(BoundaryRenderer("ZZTest_InteractionHidden").enabled);
+        }
+
+        /// <summary>Verifies that a collision trial hiding its boundary disables the zone's boundary renderer.
+        /// </summary>
+        [Test]
+        public void CreateFromTemplate_CollisionTrialHidesTheBoundary_DisablesTheBoundaryRenderer()
+        {
+            WriteTemplate(
+                "ZZTest_CollisionHidden",
+                SingleTrialTemplate("collision", showBoundary: false, occupancyDurationMs: null)
+            );
+
+            Generate("ZZTest_CollisionHidden");
+
+            Assert.IsFalse(BoundaryRenderer("ZZTest_CollisionHidden").enabled);
+        }
+
+        /// <summary>Verifies that an occupancy trial hiding its boundary disables the zone's boundary renderer.
+        /// </summary>
+        [Test]
+        public void CreateFromTemplate_OccupancyTrialHidesTheBoundary_DisablesTheBoundaryRenderer()
+        {
+            WriteTemplate(
+                "ZZTest_OccupancyHidden",
+                SingleTrialTemplate("occupancy_disarm", showBoundary: false, occupancyDurationMs: OccupancyDurationMs)
+            );
+
+            Generate("ZZTest_OccupancyHidden");
+
+            Assert.IsFalse(BoundaryRenderer("ZZTest_OccupancyHidden").enabled);
+        }
+
+        /// <summary>Verifies that a trial showing its boundary leaves the zone's boundary renderer enabled.</summary>
+        [Test]
+        public void CreateFromTemplate_TrialShowsTheBoundary_EnablesTheBoundaryRenderer()
+        {
+            WriteTemplate(
+                "ZZTest_BoundaryShown",
+                SingleTrialTemplate("collision", showBoundary: true, occupancyDurationMs: null)
+            );
+
+            Generate("ZZTest_BoundaryShown");
+
+            Assert.IsTrue(BoundaryRenderer("ZZTest_BoundaryShown").enabled);
+        }
+
+        /// <summary>Verifies that a trigger type no placement branch handles fails without writing a segment.</summary>
+        [Test]
+        public void BuildSegmentPrefabs_UnrecognizedTriggerType_FailsWithoutWritingTheSegment()
+        {
+            WriteSingleTrialTemplate("ZZTest_KnownMode", FirstTextureName);
+            Assert.AreEqual(SuccessMessage("ZZTest_KnownMode"), Generate("ZZTest_KnownMode"));
+            TaskTemplate template = InMemoryTriggerTypeTemplate("ZZTest_UnknownMode", "teleport");
+            LogAssert.Expect(LogType.Error, new Regex("The trigger_type must be one of"));
+
+            bool built = BuildSegmentPrefabs(template);
+
+            Assert.IsFalse(built);
+            Assert.IsNull(LoadAsset<GameObject>($"{PrefabsFolder}/ZZTest_UnknownMode-T1.prefab"));
+        }
+
         /// <summary>Verifies that generation reports the path the task prefab was written to.</summary>
         [Test]
         public void CreateFromTemplate_ValidTemplate_ReturnsTheSuccessMessageNamingTheSavePath()
@@ -1100,6 +1182,27 @@ namespace SL.Tests.EditMode
             );
         }
 
+        /// <summary>Verifies that the first segment's boundary renderer follows its own trial's visibility.</summary>
+        [Test]
+        public void CreateFromTemplate_Corridor_SyncsTheFirstSegmentBoundaryRendererWithItsTrial()
+        {
+            WriteTemplate("ZZTest_RendererVisibility", TwoTrialTemplate());
+
+            Generate("ZZTest_RendererVisibility");
+
+            GameObject task = LoadAsset<GameObject>($"{TasksFolder}/ZZTest_RendererVisibility.prefab");
+            StimulusTriggerZone hiddenZone = task
+                .transform.Find("Corridor01")
+                .GetChild(0)
+                .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
+            StimulusTriggerZone shownZone = task
+                .transform.Find("Corridor10")
+                .GetChild(0)
+                .GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
+            Assert.IsFalse(hiddenZone.GetComponent<MeshRenderer>().enabled, "hidden trial boundary renderer");
+            Assert.IsTrue(shownZone.GetComponent<MeshRenderer>().enabled, "shown trial boundary renderer");
+        }
+
         /// <summary>Verifies that the generated task component stores its configuration path and requirement.</summary>
         [Test]
         public void CreateFromTemplate_ValidTemplate_StoresTheConfigPathAndRequiresInteraction()
@@ -1237,6 +1340,14 @@ namespace SL.Tests.EditMode
                 PrivateAccess.InvokeStatic(typeof(CreateTask), "ResolveOccupancyTriggerMode", triggerType);
         }
 
+        /// <summary>Invokes the private segment build for the supplied template.</summary>
+        /// <param name="template">The template whose trials are built into segment prefabs.</param>
+        /// <returns>True when every segment prefab was written, false otherwise.</returns>
+        private static bool BuildSegmentPrefabs(TaskTemplate template)
+        {
+            return (bool)PrivateAccess.InvokeStatic(typeof(CreateTask), "BuildSegmentPrefabs", template);
+        }
+
         /// <summary>Builds an in-memory template carrying one single-cue trial per supplied cue length.</summary>
         /// <param name="templateName">The template name the generated segment names are derived from.</param>
         /// <param name="cmPerUnityUnit">The centimeters-per-Unity-unit conversion factor.</param>
@@ -1290,6 +1401,50 @@ namespace SL.Tests.EditMode
             }
 
             return template;
+        }
+
+        /// <summary>
+        /// Builds an in-memory template whose single trial declares the supplied trigger type over the first test
+        /// cue, so a literal ConfigLoader rejects still reaches the segment build.
+        /// </summary>
+        /// <param name="templateName">The template name the generated segment name is derived from.</param>
+        /// <param name="triggerType">The trigger type literal the trial declares.</param>
+        /// <returns>The assembled template, which never touches the filesystem.</returns>
+        private static TaskTemplate InMemoryTriggerTypeTemplate(string templateName, string triggerType)
+        {
+            return new TaskTemplate
+            {
+                templateName = templateName,
+                cues = new List<Cue>
+                {
+                    new Cue
+                    {
+                        name = FirstCueName,
+                        code = FirstCueCode,
+                        lengthCm = FirstCueLengthCm,
+                        texture = FirstTextureName,
+                    },
+                },
+                vrEnvironment = new VREnvironment
+                {
+                    corridorSpacingCm = CorridorSpacingCm,
+                    segmentsPerCorridor = 1,
+                    paddingPrefabName = "Padding",
+                    cmPerUnityUnit = CmPerUnityUnit,
+                    cueOffsetCm = 0f,
+                },
+                trialStructures = new Dictionary<string, TrialStructure>
+                {
+                    [FirstTrialName] = new TrialStructure
+                    {
+                        cueSequence = new List<string> { FirstCueName },
+                        stimulusTriggerZoneStartCm = ZoneStartCm,
+                        stimulusTriggerZoneEndCm = ZoneEndCm,
+                        stimulusLocationCm = StimulusLocationCm,
+                        triggerType = triggerType,
+                    },
+                },
+            };
         }
 
         /// <summary>Creates a template document carrying the shared corridor geometry and no cues or trials.</summary>
@@ -1504,6 +1659,20 @@ namespace SL.Tests.EditMode
                 .GetComponentInChildren<MeshRenderer>(includeInactive: true);
             Assert.IsNotNull(renderer, "The first cue instance carries no wall renderer.");
             return renderer.sharedMaterial;
+        }
+
+        /// <summary>Returns the boundary renderer of the trigger zone a generated single-trial segment carries.
+        /// </summary>
+        /// <param name="templateName">The owning template name.</param>
+        /// <returns>The MeshRenderer sharing the trigger zone root's GameObject.</returns>
+        private static MeshRenderer BoundaryRenderer(string templateName)
+        {
+            GameObject segment = LoadSegment(templateName, FirstTrialName);
+            StimulusTriggerZone zone = segment.GetComponentInChildren<StimulusTriggerZone>(includeInactive: true);
+            Assert.IsNotNull(zone, "The generated segment carries no stimulus trigger zone.");
+            MeshRenderer boundaryRenderer = zone.GetComponent<MeshRenderer>();
+            Assert.IsNotNull(boundaryRenderer, "The generated trigger zone carries no boundary renderer.");
+            return boundaryRenderer;
         }
 
         /// <summary>Asserts that every component of a generated vector matches the expected value.</summary>

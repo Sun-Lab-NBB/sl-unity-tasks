@@ -39,6 +39,9 @@ namespace SL.Tests.EditMode
         /// <summary>The Configurations basename of a template that exists in the project.</summary>
         private const string ExistingTemplateName = "MF_Reward_Base";
 
+        /// <summary>The Configurations basename of a template the project ships no scene or task prefab for.</summary>
+        private const string UnbuiltTemplateName = "SSO_Connection_Base";
+
         /// <summary>The project-relative asset paths created by the running test, removed during teardown.</summary>
         private readonly List<string> _createdAssets = new List<string>();
 
@@ -511,6 +514,32 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(scenePath, SceneManager.GetActiveScene().path);
         }
 
+        /// <summary>Verifies that open_scene rejects a file the AssetDatabase holds no scene for.</summary>
+        /// <remarks>
+        /// The probe file sits at the project root, outside Assets, so the file system resolves the relative path
+        /// against the Editor's working directory while the AssetDatabase holds nothing for it. Resolving the
+        /// argument through the AssetDatabase is what makes the answer independent of that working directory.
+        /// </remarks>
+        [Test]
+        public void OpenScene_FileOutsideTheAssetDatabase_ReportsTheSceneAsNotFound()
+        {
+            string probeName = "ZZTest_WorkingDirectoryProbe.unity";
+            string probePath = Path.Combine(Directory.GetParent(Application.dataPath).FullName, probeName);
+            File.WriteAllText(probePath, string.Empty);
+
+            try
+            {
+                Dictionary<string, object> response = CallTool("open_scene", Arguments("scene_path", probeName));
+
+                Assert.AreEqual(false, response["success"]);
+                Assert.AreEqual($"Scene not found at: {probeName}", response["error"]);
+            }
+            finally
+            {
+                File.Delete(probePath);
+            }
+        }
+
         /// <summary>Verifies that a clean active scene needs no unsaved-changes policy.</summary>
         [Test]
         public void HandleUnsavedChanges_CleanActiveScene_ReturnsNoError()
@@ -679,9 +708,16 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Verifies that an unsafe, misplaced, or protected path is not deletable.</summary>
+        /// <remarks>
+        /// The four bare allowed roots are covered because the prefix loop accepts every path that starts with a
+        /// root, so the directory target itself is refused by the trailing-separator rejection alone.
+        /// </remarks>
         [TestCase("Assets/InfiniteCorridorTask/Cues/../../../Packages/manifest.json")]
         [TestCase("/Assets/InfiniteCorridorTask/Cues/ZZTest_Rooted.prefab")]
+        [TestCase("Assets/InfiniteCorridorTask/Tasks/")]
+        [TestCase("Assets/InfiniteCorridorTask/Prefabs/")]
         [TestCase("Assets/InfiniteCorridorTask/Cues/")]
+        [TestCase("Assets/InfiniteCorridorTask/Materials/")]
         [TestCase("Assets/InfiniteCorridorTask/Cuesx/ZZTest_Neighbor.prefab")]
         [TestCase("Assets/InfiniteCorridorTask/Textures/ZZTest_Texture.png")]
         [TestCase("Assets/Scenes/ExperimentTemplate.unity")]
@@ -749,6 +785,42 @@ namespace SL.Tests.EditMode
             );
         }
 
+        /// <summary>Verifies that a task prefab in the protected set is refused by the delete_task guard.</summary>
+        /// <remarks>
+        /// The project ships no hand-authored asset under Tasks, so the task prefab half of the guard answers only
+        /// once one lands there. Installing that future state for the length of one call is what keeps the half a
+        /// live defense rather than an unreachable branch.
+        /// </remarks>
+        [Test]
+        public void DeleteTask_TaskPrefabInTheProtectedSet_RefusesWithoutDeletingAnything()
+        {
+            string prefabPath = CreatePrefabAsset(
+                "Assets/InfiniteCorridorTask/Tasks/ZZTest_Guarded.prefab",
+                "ZZTest_Guarded"
+            );
+            HashSet<string> protectedPaths = PrivateAccess.GetStaticField<HashSet<string>>(
+                typeof(McpBridge),
+                "DeleteProtectedPaths"
+            );
+            protectedPaths.Add(prefabPath);
+
+            try
+            {
+                Dictionary<string, object> response = CallTool(
+                    "delete_task",
+                    Arguments("template_name", "ZZTest_Guarded")
+                );
+
+                Assert.AreEqual(false, response["success"]);
+                StringAssert.StartsWith("Refusing to delete task 'ZZTest_Guarded'.", (string)response["error"]);
+                Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(prefabPath));
+            }
+            finally
+            {
+                protectedPaths.Remove(prefabPath);
+            }
+        }
+
         /// <summary>Verifies that delete_task reports a template that owns no generated artifact.</summary>
         [Test]
         public void DeleteTask_TemplateWithoutArtifacts_ReportsThatNothingWasFound()
@@ -788,6 +860,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("ZZTest_Cascade", response["template_name"]);
             Assert.AreEqual(true, response["deleted"]);
             Assert.AreEqual(companionPath, response["companion_deleted"]);
+            Assert.IsFalse(response.ContainsKey("companion_delete_failed"));
             CollectionAssert.AreEqual(
                 new List<string> { scenePath, taskPath, segmentPath },
                 Strings(response["deleted_paths"])
@@ -808,37 +881,32 @@ namespace SL.Tests.EditMode
 
             CollectionAssert.AreEqual(new List<string> { scenePath }, Strings(response["deleted_paths"]));
             Assert.IsFalse(response.ContainsKey("companion_deleted"));
+            Assert.IsFalse(response.ContainsKey("companion_delete_failed"));
         }
 
         /// <summary>Verifies that the companion cascade ignores a path outside the Scenes folder.</summary>
         [Test]
-        public void TryDeleteScenePerSceneCompanions_PathOutsideScenesFolder_ReturnsNull()
+        public void TryDeleteScenePerSceneCompanions_PathOutsideScenesFolder_ReturnsNullWithoutAnError()
         {
             string companionPath = CreateCompanionAsset("ZZTest_Outside");
 
-            object deleted = PrivateAccess.InvokeStatic(
-                typeof(McpBridge),
-                "TryDeleteScenePerSceneCompanions",
-                "Assets/Gimbl/ZZTest_Outside.unity"
-            );
+            string deleted = RunCompanionCascade("Assets/Gimbl/ZZTest_Outside.unity", out string error);
 
             Assert.IsNull(deleted);
+            Assert.IsNull(error);
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(companionPath));
         }
 
         /// <summary>Verifies that the companion cascade ignores a path without the scene extension.</summary>
         [Test]
-        public void TryDeleteScenePerSceneCompanions_PathWithoutSceneExtension_ReturnsNull()
+        public void TryDeleteScenePerSceneCompanions_PathWithoutSceneExtension_ReturnsNullWithoutAnError()
         {
             string companionPath = CreateCompanionAsset("ZZTest_Extension");
 
-            object deleted = PrivateAccess.InvokeStatic(
-                typeof(McpBridge),
-                "TryDeleteScenePerSceneCompanions",
-                "Assets/Scenes/ZZTest_Extension.prefab"
-            );
+            string deleted = RunCompanionCascade("Assets/Scenes/ZZTest_Extension.prefab", out string error);
 
             Assert.IsNull(deleted);
+            Assert.IsNull(error);
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(companionPath));
         }
 
@@ -848,13 +916,13 @@ namespace SL.Tests.EditMode
         {
             string foreignCompanion = CreateCompanionAsset("ZZTest_ForeignScene");
 
-            object deleted = PrivateAccess.InvokeStatic(
-                typeof(McpBridge),
-                "TryDeleteScenePerSceneCompanions",
-                "Assets/Scenes/ZZTest_NoCompanion.unity"
-            );
+            string deleted = RunCompanionCascade("Assets/Scenes/ZZTest_NoCompanion.unity", out string error);
 
             Assert.IsNull(deleted);
+            Assert.IsNull(
+                error,
+                "A scene that owns no companion has nothing to orphan, so the cascade reports no failure."
+            );
             Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(foreignCompanion));
         }
 
@@ -864,13 +932,10 @@ namespace SL.Tests.EditMode
         {
             string companionPath = CreateCompanionAsset("ZZTest_Companion");
 
-            object deleted = PrivateAccess.InvokeStatic(
-                typeof(McpBridge),
-                "TryDeleteScenePerSceneCompanions",
-                "Assets/Scenes/ZZTest_Companion.unity"
-            );
+            string deleted = RunCompanionCascade("Assets/Scenes/ZZTest_Companion.unity", out string error);
 
             Assert.AreEqual("Assets/VRSettings/Displays/ZZTest_Companion-savedFullScreenViews.asset", deleted);
+            Assert.IsNull(error);
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(companionPath));
         }
 
@@ -909,6 +974,38 @@ namespace SL.Tests.EditMode
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(prefabPath));
         }
 
+        /// <summary>Verifies that create_task sees the existing scene from an unrelated working directory.</summary>
+        /// <remarks>
+        /// The refusal resolves the scene through the AssetDatabase, which anchors a project-relative path to the
+        /// project root. A file system probe would instead resolve it against the process working directory and
+        /// report the scene as absent, generating the prefab and the scene over the one already there.
+        /// </remarks>
+        [Test]
+        public void CreateTask_SceneCheckedFromAnotherWorkingDirectory_StillRefusesToClobberIt()
+        {
+            string scenePath = CreateSceneAsset($"Assets/Scenes/{UnbuiltTemplateName}.unity");
+            string prefabPath = $"Assets/InfiniteCorridorTask/Tasks/{UnbuiltTemplateName}.prefab";
+            string workingDirectory = Directory.GetCurrentDirectory();
+            Dictionary<string, object> response;
+
+            Directory.SetCurrentDirectory(Path.GetTempPath());
+            try
+            {
+                response = CallTool("create_task", Arguments("template_name", UnbuiltTemplateName));
+            }
+            finally
+            {
+                Directory.SetCurrentDirectory(workingDirectory);
+            }
+
+            Assert.AreEqual(false, response["success"]);
+            Assert.AreEqual(
+                $"Scene already exists at: {scenePath}. Call delete_task first to regenerate.",
+                response["error"]
+            );
+            Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(prefabPath));
+        }
+
         /// <summary>Dispatches a bridge tool call and deserializes the JSON response envelope.</summary>
         /// <param name="tool">The tool name handed to the dispatcher.</param>
         /// <param name="arguments">The tool arguments handed to the dispatcher.</param>
@@ -925,6 +1022,23 @@ namespace SL.Tests.EditMode
         private static Dictionary<string, object> CallTool(string tool)
         {
             return CallTool(tool, new Dictionary<string, object>());
+        }
+
+        /// <summary>Runs the per-scene companion cascade and reports both values it answers with.</summary>
+        /// <param name="scenePath">The project-relative scene path handed to the cascade.</param>
+        /// <param name="error">The orphaned companion message, or null when the cascade reported none.</param>
+        /// <returns>The companion path the cascade deleted, or null when it deleted none.</returns>
+        private static string RunCompanionCascade(string scenePath, out string error)
+        {
+            // Holds the argument array the invocation writes the out parameter back into.
+            object[] arguments = new object[] { scenePath, null };
+            object deleted = PrivateAccess.InvokeStatic(
+                typeof(McpBridge),
+                "TryDeleteScenePerSceneCompanions",
+                arguments
+            );
+            error = (string)arguments[1];
+            return (string)deleted;
         }
 
         /// <summary>Builds a single-entry tool argument dictionary.</summary>

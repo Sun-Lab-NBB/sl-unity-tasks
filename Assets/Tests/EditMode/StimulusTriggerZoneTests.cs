@@ -343,14 +343,37 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the guidance fallback fires from the guidance child zone alone.</summary>
+        /// <summary>Verifies that the guidance child zone alone leaves the trial unresolved.</summary>
+        /// <remarks>
+        /// The guidance region sits inside the trigger zone, so a guidance entry the parent trigger never saw reports
+        /// a mis-sized parent collider rather than a delivery the animal earned.
+        /// </remarks>
         [Test]
-        public void Update_GuidanceEnabledAndOnlyGuidanceZoneEntered_PublishesGuidanceCause()
+        public void Update_GuidanceEnabledAndOnlyGuidanceZoneEntered_PublishesNoOutcome()
         {
             using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Interaction()))
             {
                 rig.StartComponents();
                 rig.EnterGuidanceZone();
+                rig.Tick();
+
+                Assert.AreEqual(0, rig.StimulusOutcomes().Count);
+                Assert.IsTrue(rig.StimulusZone.isActive);
+            }
+        }
+
+        /// <summary>Verifies that a guidance entry preceding the parent entry delivers on the parent entry.</summary>
+        [Test]
+        public void Update_GuidanceEntryBeforeTheParentEntry_PublishesGuidanceCauseOnTheParentEntry()
+        {
+            using (ZoneRig rig = ZoneRig.Create(ZoneRigOptions.Interaction()))
+            {
+                rig.StartComponents();
+                rig.EnterGuidanceZone();
+                rig.Tick();
+                Assert.AreEqual(0, rig.StimulusOutcomes().Count);
+
+                rig.EnterStimulusZone();
                 rig.Tick();
 
                 List<StimulusTriggerZone.StimulusMessage> outcomes = rig.StimulusOutcomes();
@@ -734,9 +757,10 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an interaction-mode exit with no matching entry still resolves the trial.</summary>
+        /// <summary>Verifies that an interaction-mode exit with no matching entry leaves the trial unresolved.
+        /// </summary>
         [Test]
-        public void OnTriggerExit_WithoutAMatchingEntry_PublishesOmittedBehaviorOutcome()
+        public void OnTriggerExit_WithoutAMatchingEntry_PublishesNoOutcome()
         {
             ZoneRigOptions options = ZoneRigOptions.Interaction();
             options.requireInteraction = true;
@@ -746,11 +770,30 @@ namespace SL.Tests.EditMode
 
                 rig.ExitStimulusZone();
 
+                Assert.AreEqual(0, rig.StimulusOutcomes().Count);
+                Assert.IsTrue(rig.StimulusZone.isActive);
+            }
+        }
+
+        /// <summary>Verifies that an exit with no matching entry leaves the following entry free to resolve.</summary>
+        [Test]
+        public void OnTriggerExit_WithoutAMatchingEntryThenAGenuineEntry_PublishesTheGenuineOutcomeOnly()
+        {
+            ZoneRigOptions options = ZoneRigOptions.Interaction();
+            options.requireInteraction = true;
+            using (ZoneRig rig = ZoneRig.Create(options))
+            {
+                rig.StartComponents();
+                rig.ExitStimulusZone();
+
+                rig.EnterStimulusZone();
+                rig.RaiseInteraction();
+                rig.Tick();
+
                 List<StimulusTriggerZone.StimulusMessage> outcomes = rig.StimulusOutcomes();
                 Assert.AreEqual(1, outcomes.Count);
-                Assert.IsFalse(outcomes[0].delivered);
+                Assert.IsTrue(outcomes[0].delivered);
                 Assert.AreEqual("behavior", outcomes[0].cause);
-                Assert.IsFalse(rig.StimulusZone.isActive);
             }
         }
 
@@ -980,7 +1023,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the runtime assembly declares exactly the three expected IResettable types.</summary>
+        /// <summary>Verifies that the runtime assembly declares exactly the four expected IResettable types.</summary>
         [Test]
         public void IResettable_RuntimeAssembly_DeclaresExactlyTheRegisteredImplementers()
         {
@@ -994,7 +1037,13 @@ namespace SL.Tests.EditMode
             }
             implementers.Sort(StringComparer.Ordinal);
 
-            string[] expected = new string[] { "OccupancyGuidanceZone", "OccupancyZone", "StimulusTriggerZone" };
+            string[] expected = new string[]
+            {
+                "GuidanceZone",
+                "OccupancyGuidanceZone",
+                "OccupancyZone",
+                "StimulusTriggerZone",
+            };
             CollectionAssert.AreEqual(expected, implementers);
         }
 

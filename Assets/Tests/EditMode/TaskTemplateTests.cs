@@ -3,6 +3,7 @@
 /// </summary>
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using SL.Config;
 
@@ -65,37 +66,64 @@ namespace SL.Tests.EditMode
             Assert.AreEqual((byte)255, codes["C"]);
         }
 
-        /// <summary>Verifies that a code one past the byte maximum wraps to zero instead of throwing.</summary>
+        /// <summary>Verifies that a code one past the byte maximum throws instead of resolving to zero.</summary>
         [Test]
-        public void GetCueNameToCode_CodeAboveByteMaximum_WrapsAroundToZero()
+        public void GetCueNameToCode_CodeAboveByteMaximum_ThrowsInvalidData()
         {
             _template.cues[0].code = 256;
 
-            Dictionary<string, byte> codes = _template.GetCueNameToCode();
-
-            Assert.AreEqual((byte)0, codes["A"]);
+            Assert.Throws<InvalidDataException>(() => _template.GetCueNameToCode());
         }
 
-        /// <summary>Verifies that a code far above the byte maximum truncates to its low-order byte.</summary>
+        /// <summary>
+        /// Verifies that a code far above the byte maximum throws instead of resolving to its low-order byte.
+        /// </summary>
         [Test]
-        public void GetCueNameToCode_CodeFarAboveByteMaximum_TruncatesToLowOrderByte()
+        public void GetCueNameToCode_CodeFarAboveByteMaximum_ThrowsInvalidData()
         {
             _template.cues[0].code = 513;
 
-            Dictionary<string, byte> codes = _template.GetCueNameToCode();
-
-            Assert.AreEqual((byte)1, codes["A"]);
+            Assert.Throws<InvalidDataException>(() => _template.GetCueNameToCode());
         }
 
-        /// <summary>Verifies that a code one below the byte minimum wraps to the byte maximum.</summary>
+        /// <summary>
+        /// Verifies that a code one below the byte minimum throws instead of resolving to the byte maximum.
+        /// </summary>
         [Test]
-        public void GetCueNameToCode_CodeBelowByteMinimum_WrapsAroundToByteMaximum()
+        public void GetCueNameToCode_CodeBelowByteMinimum_ThrowsInvalidData()
         {
             _template.cues[0].code = -1;
 
+            Assert.Throws<InvalidDataException>(() => _template.GetCueNameToCode());
+        }
+
+        /// <summary>Verifies that the out-of-range code report names the offending cue and its declared code.</summary>
+        [Test]
+        public void GetCueNameToCode_CodeAboveByteMaximum_ReportsTheCueNameAndCode()
+        {
+            _template.cues[1].code = 300;
+
+            InvalidDataException exception = Assert.Throws<InvalidDataException>(() => _template.GetCueNameToCode());
+
+            StringAssert.Contains("'B'", exception.Message);
+            StringAssert.Contains("300", exception.Message);
+        }
+
+        /// <summary>
+        /// Verifies that an out-of-range code leaves the code cache unset, so a corrected code maps every cue.
+        /// </summary>
+        [Test]
+        public void GetCueNameToCode_CodeCorrectedAfterAThrow_MapsEveryCueName()
+        {
+            _template.cues[0].code = 256;
+            Assert.Throws<InvalidDataException>(() => _template.GetCueNameToCode());
+            Assert.IsNull(PrivateAccess.GetField<Dictionary<string, byte>>(_template, "_cueNameToCodeCache"));
+
+            _template.cues[0].code = 7;
             Dictionary<string, byte> codes = _template.GetCueNameToCode();
 
-            Assert.AreEqual((byte)255, codes["A"]);
+            Assert.AreEqual(3, codes.Count);
+            Assert.AreEqual((byte)7, codes["A"]);
         }
 
         /// <summary>
@@ -488,6 +516,21 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
+        /// Verifies that the unknown-trial report names the requested trial, the template, and the declared trials.
+        /// </summary>
+        [Test]
+        public void GetTrialLengthUnity_UnknownTrialName_ReportsTheTrialAndTemplateNames()
+        {
+            KeyNotFoundException exception = Assert.Throws<KeyNotFoundException>(() =>
+                _template.GetTrialLengthUnity("ZZ")
+            );
+
+            StringAssert.Contains("'ZZ'", exception.Message);
+            StringAssert.Contains("ReferenceTemplate", exception.Message);
+            StringAssert.Contains("AB, BC, CA", exception.Message);
+        }
+
+        /// <summary>
         /// Verifies that GetTrialLengthUnity rejects a null trial name rather than returning a length.
         /// </summary>
         [Test]
@@ -617,7 +660,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Builds one cue definition.</summary>
         /// <param name="cueName">The cue name used as the lookup key.</param>
-        /// <param name="cueCode">The cue code cast to a byte by the code map getter.</param>
+        /// <param name="cueCode">The cue code the code map getter range-checks and converts to a byte.</param>
         /// <param name="lengthCm">The cue length in centimeters.</param>
         /// <returns>The constructed cue.</returns>
         private static Cue NewCue(string cueName, int cueCode, float lengthCm)

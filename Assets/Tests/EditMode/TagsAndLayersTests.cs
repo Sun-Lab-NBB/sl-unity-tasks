@@ -23,7 +23,7 @@ namespace SL.Tests.EditMode
         private const int FirstWritableLayerSlot = 8;
 
         /// <summary>The exclusive upper bound on the layer slots the layer writer examines.</summary>
-        private const int LayerSlotBound = 31;
+        private const int LayerSlotBound = 32;
 
         /// <summary>The project path of the TagManager asset both the class under test and the tests open.</summary>
         private const string TagManagerPath = "ProjectSettings/TagManager.asset";
@@ -182,14 +182,40 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("All allowed layers have been filled.", exception.Message);
         }
 
-        /// <summary>Verifies that the slot above the examined bound stays empty once every slot below is full.
+        /// <summary>Verifies that the highest layer slot is filled once every writable slot below it is taken.
         /// </summary>
         [Test]
-        public void AddLayer_EveryWritableSlotFilled_LeavesTheSlotAboveTheBoundEmpty()
+        public void AddLayer_OnlyTheHighestSlotEmpty_FillsTheHighestSlot()
         {
-            FillEveryWritableLayerSlot();
+            string layerName = $"{TestPrefix}LayerHighest";
+            int highestSlot = LayerSlotBound - 1;
+            FillWritableLayerSlotsBelow(highestSlot);
+            Assert.AreEqual(highestSlot, FirstEmptyLayerSlot());
 
-            Assert.AreEqual(string.Empty, LayerAt(LayerSlotBound));
+            bool added = TagsAndLayers.AddLayer(layerName);
+
+            Assert.IsTrue(added);
+            Assert.AreEqual(layerName, LayerAt(highestSlot));
+            Assert.AreEqual(1, CountLayers(layerName));
+        }
+
+        /// <summary>Verifies that a search bound past the stored entries stops at the last one it holds.</summary>
+        [Test]
+        public void PropertyExists_EndBeyondTheStoredEntries_StopsAtTheLastStoredEntry()
+        {
+            SerializedProperty tags = OpenTagManager().FindProperty("tags");
+
+            bool exists = (bool)
+                PrivateAccess.InvokeStatic(
+                    typeof(TagsAndLayers),
+                    "PropertyExists",
+                    tags,
+                    0,
+                    tags.arraySize + 8,
+                    $"{TestPrefix}AbsentTag"
+                );
+
+            Assert.IsFalse(exists);
         }
 
         /// <summary>Opens the project's TagManager asset as a serialized object.</summary>
@@ -275,9 +301,16 @@ namespace SL.Tests.EditMode
         /// <summary>Fills every empty writable layer slot with a removable prefixed placeholder name.</summary>
         private static void FillEveryWritableLayerSlot()
         {
+            FillWritableLayerSlotsBelow(LayerSlotBound);
+        }
+
+        /// <summary>Fills every empty writable layer slot below the specified bound with a placeholder name.</summary>
+        /// <param name="exclusiveBound">The exclusive upper bound on the slots that receive a placeholder.</param>
+        private static void FillWritableLayerSlotsBelow(int exclusiveBound)
+        {
             SerializedObject tagManager = OpenTagManager();
             SerializedProperty layers = tagManager.FindProperty("layers");
-            for (int index = FirstWritableLayerSlot; index < LayerSlotBound; index++)
+            for (int index = FirstWritableLayerSlot; index < exclusiveBound; index++)
             {
                 SerializedProperty slot = layers.GetArrayElementAtIndex(index);
                 if (string.IsNullOrEmpty(slot.stringValue))

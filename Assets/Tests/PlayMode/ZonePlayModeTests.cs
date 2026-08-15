@@ -1,7 +1,6 @@
 /// <summary>
 /// Verifies the behavior of the trigger zone hierarchy under the real Unity player loop.
 /// </summary>
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -11,6 +10,7 @@ using NUnit.Framework;
 using SL.Tasks;
 using UnityEngine;
 using UnityEngine.TestTools;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace SL.Tests.PlayMode
 {
@@ -566,29 +566,40 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(0, _rig.Mqtt.CountOn(MQTTTopics.Delay));
         }
 
-        /// <summary>Verifies that Unity allocates the occupancy stopwatch before the first Update reads it.</summary>
+        /// <summary>Verifies that the occupancy stopwatch is stopped and zeroed through the first Update.</summary>
         [UnityTest]
-        public IEnumerator Start_UnityDrivenLifecycle_AllocatesTheOccupancyTimerBeforeTheFirstUpdate()
+        public IEnumerator Start_UnityDrivenLifecycle_KeepsTheOccupancyTimerStoppedThroughTheFirstUpdate()
         {
             BuildRig(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm, ShortOccupancyMilliseconds));
-            Assert.IsNull(PrivateAccess.GetField<object>(_rig.OccupancyZone, "_occupancyTimer"));
+            Stopwatch occupancyTimer = PrivateAccess.GetField<Stopwatch>(_rig.OccupancyZone, "_occupancyTimer");
+            Assert.IsNotNull(occupancyTimer);
 
             yield return null;
 
-            Assert.IsNotNull(PrivateAccess.GetField<object>(_rig.OccupancyZone, "_occupancyTimer"));
+            Assert.IsFalse(occupancyTimer.IsRunning);
             Assert.AreEqual(0L, _rig.OccupancyElapsedMilliseconds());
             Assert.IsTrue(_rig.OccupancyZone.isActive);
             Assert.IsFalse(_rig.OccupancyZone.occupancyMet);
             Assert.IsFalse(_rig.OccupancyZone.inZone);
         }
 
-        /// <summary>Verifies that a per-lap reset arriving before Unity runs Start finds no stopwatch.</summary>
+        /// <summary>Verifies that a per-lap reset arriving before Unity runs Start restores the defaults.</summary>
         [UnityTest]
-        public IEnumerator ResetState_BeforeUnityRunsStart_ThrowsBecauseTheTimerIsUnallocated()
+        public IEnumerator ResetState_BeforeUnityRunsStart_RestoresThePerLapDefaults()
         {
             BuildRig(ZoneRigOptions.Occupancy(TriggerMode.OccupancyArm, ShortOccupancyMilliseconds));
 
-            Assert.Throws<NullReferenceException>(() => _rig.OccupancyZone.ResetState());
+            // Diverges each field from its default, so the assertions observe the reset restoring them rather than
+            // restating the values the rig already left in place.
+            _rig.OccupancyZone.isActive = false;
+            _rig.OccupancyZone.occupancyMet = true;
+            _rig.OccupancyZone.inZone = true;
+
+            Assert.DoesNotThrow(() => _rig.OccupancyZone.ResetState());
+
+            Assert.IsTrue(_rig.OccupancyZone.isActive);
+            Assert.IsFalse(_rig.OccupancyZone.occupancyMet);
+            Assert.IsFalse(_rig.OccupancyZone.inZone);
 
             yield return null;
 

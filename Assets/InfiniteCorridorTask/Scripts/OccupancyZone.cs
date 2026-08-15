@@ -43,16 +43,19 @@ namespace SL.Tasks
         public bool isActive = true;
 
         /// <summary>The high-precision stopwatch for accurate millisecond timing.</summary>
-        private Stopwatch _occupancyTimer;
-
-        /// <summary>Initializes the occupancy timer and establishes the first lap's state.</summary>
         /// <remarks>
-        /// The reset runs from this component's own Start so the timer exists before <see cref="ResetState"/> reaches
-        /// it, which an external caller ordering the two across components is unable to guarantee.
+        /// The field initializer allocates the stopwatch, so every callback and every external caller reaches a usable
+        /// timer from the moment the component is constructed rather than from the moment Unity runs Start.
+        /// </remarks>
+        private readonly Stopwatch _occupancyTimer = new Stopwatch();
+
+        /// <summary>Establishes the first lap's state.</summary>
+        /// <remarks>
+        /// The first lap runs through the same reset path every later lap uses, so a serialized value can never leave
+        /// this zone's startup state diverging from its per-lap default.
         /// </remarks>
         private void Start()
         {
-            _occupancyTimer = new Stopwatch();
             ResetState();
         }
 
@@ -88,14 +91,19 @@ namespace SL.Tasks
         }
 
         /// <summary>Stops the timer and checks the result when the animal exits the zone collider.</summary>
-        /// <remarks>An exit before the required duration elapses leaves <see cref="occupancyMet"/> false.</remarks>
+        /// <remarks>
+        /// The occupancy flag clears ahead of the activity guard, so a zone deactivated while the animal stood inside
+        /// it records the departure. An exit before the required duration elapses leaves <see cref="occupancyMet"/>
+        /// false.
+        /// </remarks>
         /// <param name="other">The object that exited the trigger zone.</param>
         private void OnTriggerExit(Collider other)
         {
+            inZone = false;
+
             if (!isActive)
                 return;
 
-            inZone = false;
             _occupancyTimer.Stop();
 
             if (!occupancyMet)
@@ -121,11 +129,16 @@ namespace SL.Tasks
         }
 
         /// <summary>Marks the occupancy requirement as met once the animal has occupied the zone long enough.</summary>
+        /// <remarks>
+        /// The timer stops ahead of the logging call, so the retained reading measures occupancy alone.
+        /// <see cref="OccupancyGuidanceZone"/> subtracts that reading from the configured duration to size the
+        /// remaining brake delay.
+        /// </remarks>
         private void OnOccupancyMet()
         {
-            Debug.Log("OccupancyZone: Occupancy requirement met.");
-            occupancyMet = true;
             _occupancyTimer.Stop();
+            occupancyMet = true;
+            Debug.Log("OccupancyZone: Occupancy requirement met.");
         }
 
         /// <summary>Logs a message when the animal leaves the zone before meeting the occupancy requirement.</summary>

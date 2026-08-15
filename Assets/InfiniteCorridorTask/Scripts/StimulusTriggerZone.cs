@@ -150,13 +150,15 @@ namespace SL.Tasks
         /// <param name="other">The collider that exited the trigger zone.</param>
         private void OnTriggerExit(Collider other)
         {
+            bool wasInZone = _inZone;
             _inZone = false;
 
             // Resolves an interaction trial on the boundary crossing from whether the animal engaged the sensor
             // inside the zone. Physics runs before Update, so an interaction recorded after this zone's last Update
             // reaches here unconsumed and still delivers. The isActive guard keeps the contract at one message per
-            // trial by skipping a trial some delivery path already resolved.
-            if (isActive && triggerMode == TriggerMode.Interaction)
+            // trial by skipping a trial some delivery path already resolved, and the wasInZone guard limits the
+            // resolution to a crossing that a matching entry preceded.
+            if (isActive && wasInZone && triggerMode == TriggerMode.Interaction)
             {
                 TriggerStimulus(delivered: _interactionDetectedInZone, cause: BehaviorCause);
             }
@@ -191,9 +193,10 @@ namespace SL.Tasks
         /// <summary>Handles interaction mode behavior.</summary>
         /// <remarks>
         /// When guidance is disabled, the animal must engage an interaction sensor in the zone. When guidance is
-        /// enabled with a <see cref="GuidanceZone"/>, the animal can interact in the zone or reach the guidance zone.
-        /// When guidance is enabled without a guidance zone, the stimulus triggers on zone entry. A lap where the
-        /// animal leaves the zone without interacting resolves as an omitted stimulus on the boundary crossing.
+        /// enabled with a <see cref="GuidanceZone"/>, the animal can interact in the zone or reach the guidance zone
+        /// nested inside it. When guidance is enabled without a guidance zone, the stimulus triggers on zone entry. A
+        /// lap where the animal enters and then leaves the zone without interacting resolves as an omitted stimulus on
+        /// the boundary crossing.
         /// </remarks>
         private void UpdateInteractionMode()
         {
@@ -211,8 +214,10 @@ namespace SL.Tasks
                 {
                     TriggerStimulus(delivered: true, cause: BehaviorCause);
                 }
-                // Delivers via the guidance fallback when the animal reaches the guidance zone instead.
-                else if (_guidanceZone.inZone)
+                // Delivers via the guidance fallback when the animal reaches the guidance region nested inside this
+                // zone. Requiring both flags keeps a mis-sized parent collider from resolving the trial without the
+                // animal crossing this zone's own boundary.
+                else if (_inZone && _guidanceZone.inZone)
                 {
                     TriggerStimulus(delivered: true, cause: GuidanceCause);
                 }

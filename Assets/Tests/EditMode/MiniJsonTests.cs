@@ -17,6 +17,9 @@ namespace SL.Tests.EditMode
         /// <summary>The nesting depth used by the deeply nested object and array tests.</summary>
         private const int NestingDepth = 40;
 
+        /// <summary>The number of control characters JSON forbids raw inside a quoted string.</summary>
+        private const int ControlCharacterCount = 0x20;
+
         /// <summary>The ambient culture captured before each test, restored once the test completes.</summary>
         private CultureInfo _originalCulture;
 
@@ -83,15 +86,58 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("\"a\\nb\\rc\\td\"", MiniJson.Serialize("a\nb\rc\td"));
         }
 
-        /// <summary>Verifies that Serialize emits the backspace and form feed characters unescaped.</summary>
+        /// <summary>Verifies that Serialize escapes the backspace and form feed characters.</summary>
         [Test]
-        public void Serialize_StringWithBackspaceAndFormFeed_LeavesThemUnescaped()
+        public void Serialize_StringWithBackspaceAndFormFeed_EscapesBothCharacters()
         {
-            string serialized = MiniJson.Serialize("a\bb\fc");
+            Assert.AreEqual("\"a\\bb\\fc\"", MiniJson.Serialize("a\bb\fc"));
+        }
 
-            Assert.AreEqual("\"a\bb\fc\"", serialized);
-            StringAssert.DoesNotContain("\\b", serialized);
-            StringAssert.DoesNotContain("\\f", serialized);
+        /// <summary>Verifies that Serialize escapes a control character carrying no shorter escape.</summary>
+        [Test]
+        public void Serialize_StringWithControlCharacter_EmitsUnicodeEscape()
+        {
+            Assert.AreEqual("\"a\\u0001b\"", MiniJson.Serialize("a\u0001b"));
+        }
+
+        /// <summary>Verifies that Serialize writes the hexadecimal digits of a unicode escape in lower case.</summary>
+        [Test]
+        public void Serialize_StringWithHighControlCharacter_WritesLowercaseHexadecimalDigits()
+        {
+            Assert.AreEqual("\"\\u001f\"", MiniJson.Serialize("\u001F"));
+        }
+
+        /// <summary>Verifies that Serialize escapes an embedded null character rather than emitting it raw.</summary>
+        [Test]
+        public void Serialize_StringWithNullCharacter_EmitsUnicodeEscape()
+        {
+            Assert.AreEqual("\"x\\u0000y\"", MiniJson.Serialize("x\0y"));
+        }
+
+        /// <summary>Verifies that Serialize leaves no raw control character anywhere in the emitted text.</summary>
+        [Test]
+        public void Serialize_EveryControlCharacter_EmitsNoRawControlCharacter()
+        {
+            string serialized = MiniJson.Serialize(BuildControlCharacterText());
+
+            // The code point is compared as an integer, because a char comparison resolves through NUnit's
+            // general-purpose comparer and does not reliably order two characters by their numeric value.
+            for (int index = 0; index < serialized.Length; index++)
+            {
+                int codePoint = serialized[index];
+                Assert.GreaterOrEqual(
+                    codePoint,
+                    ControlCharacterCount,
+                    $"A raw control character U+{codePoint:X4} reached the output at index {index}."
+                );
+            }
+        }
+
+        /// <summary>Verifies that Serialize preserves the delete character, which JSON allows raw.</summary>
+        [Test]
+        public void Serialize_StringWithDeleteCharacter_LeavesCharacterUnescaped()
+        {
+            Assert.AreEqual("\"a\u007Fb\"", MiniJson.Serialize("a\u007Fb"));
         }
 
         /// <summary>Verifies that Serialize emits a forward slash unescaped.</summary>
@@ -308,15 +354,29 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("[true,false]", MiniJson.Serialize(new object[] { true, false }));
         }
 
-        /// <summary>Verifies that Serialize falls back to quoted text for a sequence of a value type.</summary>
+        /// <summary>Verifies that Serialize renders a list of a value type as a JSON array.</summary>
         [Test]
-        public void Serialize_IntegerList_FallsBackToQuotedText()
+        public void Serialize_IntegerList_ReturnsJsonArray()
         {
-            string serialized = MiniJson.Serialize(new List<int> { 1, 2 });
+            Assert.AreEqual("[1,2]", MiniJson.Serialize(new List<int> { 1, 2 }));
+        }
 
-            Assert.AreNotEqual("[1,2]", serialized);
-            StringAssert.StartsWith("\"System.Collections.Generic.List", serialized);
-            StringAssert.EndsWith("\"", serialized);
+        /// <summary>Verifies that Serialize renders an array of a value type as a JSON array.</summary>
+        [Test]
+        public void Serialize_FloatArray_ReturnsJsonArray()
+        {
+            Assert.AreEqual("[1.5,-2]", MiniJson.Serialize(new float[] { 1.5f, -2f }));
+        }
+
+        /// <summary>Verifies that Serialize renders a queue of a value type as a JSON array in queue order.</summary>
+        [Test]
+        public void Serialize_QueueOfLongs_ReturnsJsonArray()
+        {
+            Queue<long> queue = new Queue<long>();
+            queue.Enqueue(7L);
+            queue.Enqueue(-8L);
+
+            Assert.AreEqual("[7,-8]", MiniJson.Serialize(queue));
         }
 
         /// <summary>Verifies that Serialize composes dictionaries and lists into one nested document.</summary>
@@ -350,11 +410,13 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("{\"a\":0.5}", MiniJson.Serialize(new Dictionary<string, float> { { "a", 0.5f } }));
         }
 
-        /// <summary>Verifies that Deserialize dereferences a null input and throws.</summary>
+        /// <summary>Verifies that Deserialize rejects a null input and names the offending argument.</summary>
         [Test]
-        public void Deserialize_NullInput_ThrowsNullReference()
+        public void Deserialize_NullInput_ThrowsArgumentNull()
         {
-            Assert.Throws<NullReferenceException>(() => MiniJson.Deserialize(null));
+            ArgumentNullException exception = Assert.Throws<ArgumentNullException>(() => MiniJson.Deserialize(null));
+
+            Assert.AreEqual("json", exception.ParamName);
         }
 
         /// <summary>Verifies that Deserialize returns an empty dictionary for an empty input string.</summary>
@@ -1102,6 +1164,38 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("line\none\\two\ttab\rreturn/slash", parsed["a\"b"]);
         }
 
+        /// <summary>Verifies that a serialized control character string parses back into the original text.</summary>
+        [Test]
+        public void RoundTrip_EveryControlCharacter_PreservesText()
+        {
+            string text = BuildControlCharacterText();
+            Dictionary<string, object> payload = new Dictionary<string, object> { { "a", text } };
+
+            Dictionary<string, object> parsed = MiniJson.Deserialize(MiniJson.Serialize(payload));
+
+            Assert.AreEqual(1, parsed.Count);
+            Assert.AreEqual(text, parsed["a"]);
+        }
+
+        /// <summary>Verifies that a serialized value-type sequence parses back into a list of equal values.</summary>
+        [Test]
+        public void RoundTrip_IntegerList_PreservesEveryElement()
+        {
+            Dictionary<string, object> payload = new Dictionary<string, object>
+            {
+                {
+                    "a",
+                    new List<int> { 1, 2 }
+                },
+            };
+
+            List<object> values = (List<object>)MiniJson.Deserialize(MiniJson.Serialize(payload))["a"];
+
+            Assert.AreEqual(2, values.Count);
+            Assert.AreEqual(1L, values[0]);
+            Assert.AreEqual(2L, values[1]);
+        }
+
         /// <summary>Verifies that a serialized 32-bit integer parses back as a 64-bit integer.</summary>
         [Test]
         public void RoundTrip_IntegerValue_WidensToLong()
@@ -1153,6 +1247,19 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(2, parsed.Count);
             Assert.AreEqual(0, ((Dictionary<string, object>)parsed["object"]).Count);
             Assert.AreEqual(0, ((List<object>)parsed["array"]).Count);
+        }
+
+        /// <summary>Builds a string holding every control character JSON forbids raw, in code point order.</summary>
+        /// <returns>The text the control character tests serialize.</returns>
+        private static string BuildControlCharacterText()
+        {
+            StringBuilder builder = new StringBuilder(ControlCharacterCount);
+            for (int codePoint = 0; codePoint < ControlCharacterCount; codePoint++)
+            {
+                builder.Append((char)codePoint);
+            }
+
+            return builder.ToString();
         }
 
         /// <summary>Installs a culture whose decimal separator is a comma rather than a full stop.</summary>

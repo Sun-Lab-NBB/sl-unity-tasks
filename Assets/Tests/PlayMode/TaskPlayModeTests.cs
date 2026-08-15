@@ -413,15 +413,20 @@ namespace SL.Tests.PlayMode
         {
             CreateTask(RelativeConfigPath(PairTemplateName), PairTrackLength, PairSeed, Vector3.zero);
             CreateZoneHierarchy();
+
+            // Both zones start their per-lap state cleared, so the flags are driven away from that state first.
+            // Each Start restores its own zone through ResetState, which is what the assertions below observe.
             _stimulusZone.isActive = false;
-            Assert.IsNull(PrivateAccess.GetField<object>(_occupancyZone, "_occupancyTimer"));
+            _occupancyZone.isActive = false;
+            _occupancyZone.occupancyMet = true;
 
             yield return null;
 
             Assert.IsTrue(_stimulusZone.isActive);
             Assert.IsTrue(_stimulusZone.enabled);
             Assert.IsTrue(_occupancyGuidanceZone.enabled);
-            Assert.IsNotNull(PrivateAccess.GetField<object>(_occupancyZone, "_occupancyTimer"));
+            Assert.IsTrue(_occupancyZone.isActive);
+            Assert.IsFalse(_occupancyZone.occupancyMet);
             Assert.AreEqual(0L, OccupancyElapsedMilliseconds());
             IResettable[] resettables = PrivateAccess.GetField<IResettable[]>(_task, "_resettables");
             Assert.AreEqual(3, resettables.Length);
@@ -466,10 +471,31 @@ namespace SL.Tests.PlayMode
 
             Assert.AreEqual(1000f, _actor.transform.position.z, PositionTolerance);
             Assert.AreEqual(0, CurrentSegmentIndex());
+            Assert.IsFalse(_task.enabled);
+        }
 
-            // The key stays out of range, so every later frame would report the same error. Disabling the component
-            // stops the loop before the fixture teardown reaches the next frame.
-            _task.enabled = false;
+        /// <summary>Verifies that an out-of-bounds corridor key is reported once across the frames that follow.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Update_CorridorKeyOutsideTheMapAcrossFrames_ReportsOneErrorAndDisablesTheTask()
+        {
+            CreateTask(RelativeConfigPath(PairTemplateName), PairTrackLength, PairSeed, Vector3.zero);
+
+            yield return null;
+
+            PrivateAccess.SetField(_task, "_currentCorridorKey", CorridorMapLength());
+            _actor.transform.position = new Vector3(0f, 0f, 1000f);
+            LogAssert.Expect(LogType.Error, new Regex("Corridor key '4' out of bounds"));
+
+            // The first of these frames reports the error, and the rest run against the disabled component. A second
+            // report arrives as an unexpected error, which fails the run.
+            for (int frame = 0; frame < 4; frame++)
+            {
+                yield return null;
+            }
+
+            Assert.IsFalse(_task.enabled);
+            LogAssert.NoUnexpectedReceived();
         }
 
         /// <summary>Verifies that running past the generated sequence reports an error and holds the actor.</summary>
@@ -493,9 +519,37 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(departureZ, _actor.transform.position.z, PositionTolerance);
             Assert.AreEqual(departureX, _actor.transform.position.x, PositionTolerance);
             Assert.AreEqual(sequence.Length - PairDepth + 1, CurrentSegmentIndex());
+            Assert.IsFalse(_task.enabled);
+        }
 
-            // The actor is still past the boundary, so every later frame would report the same error.
-            _task.enabled = false;
+        /// <summary>Verifies that an exhausted segment sequence is reported once across the frames that follow.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator Update_SequenceExhaustedAcrossFrames_ReportsOneErrorAndDisablesTheTask()
+        {
+            CreateTask(RelativeConfigPath(PairTemplateName), PairTrackLength, PairSeed, Vector3.zero);
+
+            yield return null;
+
+            int[] sequence = SegmentSequence();
+            float firstSegmentLength = SegmentLengths()[sequence[0]];
+            PrivateAccess.SetField(_task, "_currentSegmentIndex", sequence.Length - PairDepth);
+            _actor.transform.position = new Vector3(
+                _actor.transform.position.x,
+                0f,
+                firstSegmentLength + AdvanceOvershoot
+            );
+            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+
+            // The actor stays past the boundary, so a component that keeps receiving Update reports the same error
+            // again on each of the later frames, and the second report fails the run as an unexpected error.
+            for (int frame = 0; frame < 4; frame++)
+            {
+                yield return null;
+            }
+
+            Assert.IsFalse(_task.enabled);
+            LogAssert.NoUnexpectedReceived();
         }
 
         /// <summary>Verifies that the last reachable segment index still completes one corridor advance.</summary>

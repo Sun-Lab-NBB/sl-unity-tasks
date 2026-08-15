@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
-using UnityEngine;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
@@ -17,7 +16,7 @@ namespace SL.Config
     public static class ConfigLoader
     {
         /// <summary>The tolerance for validating that trial transition probabilities sum to 1.0.</summary>
-        private const float ProbabilitySumTolerance = 0.001f;
+        private const double ProbabilitySumTolerance = 0.001;
 
         /// <summary>
         /// Matches the template and trial names that are safe to embed in generated segment prefab filenames.
@@ -101,16 +100,37 @@ namespace SL.Config
                 throw new InvalidDataException("No trial structures defined in template.");
             }
 
-            // Validates each cue's code range and uniqueness, name uniqueness, positive length, and texture
-            // presence/existence.
+            // Validates each cue's name pattern and uniqueness, code range and uniqueness, positive finite length, and
+            // texture presence and existence.
             HashSet<int> seenCodes = new HashSet<int>();
             HashSet<string> seenNames = new HashSet<string>();
 
-            foreach (Cue cue in template.cues)
+            for (int cueIndex = 0; cueIndex < template.cues.Count; cueIndex++)
             {
+                Cue cue = template.cues[cueIndex];
+
+                if (cue == null)
+                {
+                    throw new InvalidDataException(
+                        $"The cue entry at index {cueIndex} is empty. Every entry of the cues list must define a cue."
+                    );
+                }
+
                 if (string.IsNullOrEmpty(cue.name))
                 {
                     throw new InvalidDataException("A cue entry is missing the required 'name' field.");
+                }
+
+                // Cue names reach the generated cue prefab and material filenames verbatim, and the duplicate-sequence
+                // signature below joins them with a space, so a name carrying a space or a separator corrupts an asset
+                // path or makes two distinct sequences compare equal.
+                if (!SegmentNameComponentPattern.IsMatch(cue.name))
+                {
+                    string message =
+                        $"Cue name '{cue.name}' is invalid. Cue names must contain only ASCII letters, digits, and "
+                        + "underscores, because they are embedded in generated cue asset filenames and joined into "
+                        + "the per-trial cue sequence signature.";
+                    throw new InvalidDataException(message);
                 }
 
                 if (cue.code < 0 || cue.code > 255)
@@ -128,10 +148,10 @@ namespace SL.Config
                     throw new InvalidDataException($"Duplicate cue name '{cue.name}' found.");
                 }
 
-                if (cue.lengthCm <= 0)
+                if (!float.IsFinite(cue.lengthCm) || cue.lengthCm <= 0f)
                 {
                     throw new InvalidDataException(
-                        $"Cue '{cue.name}' has invalid length {cue.lengthCm}. Must be positive."
+                        $"Cue '{cue.name}' has invalid length {cue.lengthCm}. Must be positive and finite."
                     );
                 }
 
@@ -156,6 +176,13 @@ namespace SL.Config
             {
                 string trialName = trialEntry.Key;
                 TrialStructure trial = trialEntry.Value;
+
+                if (trial == null)
+                {
+                    throw new InvalidDataException(
+                        $"Trial '{trialName}' is empty. Every trial_structures entry must define a trial structure."
+                    );
+                }
 
                 // Trial names are concatenated into segment prefab filenames (``TemplateName-TrialName.prefab``), so
                 // operator-controlled punctuation, whitespace, or path separators would corrupt the generated
@@ -200,9 +227,10 @@ namespace SL.Config
                     throw new InvalidDataException(message);
                 }
 
-                // Occupancy trigger modes read occupancy_duration_ms at runtime, so it is required for them.
-                // Non-occupancy modes ignore the field, so its value there is irrelevant. This mirrors the
-                // sollertia-shared-assets TrialStructure gate so the Python record and the Unity runtime agree.
+                // Occupancy trigger modes read occupancy_duration_ms at runtime, so it is required for them. A
+                // non-occupancy mode ignores the field at runtime and still holds any value it carries to the same
+                // positive finite range, so a trial keeps its duration when its trigger type changes. This mirrors
+                // the sollertia-shared-assets TrialStructure gate so the Python record and the Unity runtime agree.
                 bool isOccupancy =
                     string.Equals(trial.triggerType, "occupancy_disarm", StringComparison.Ordinal)
                     || string.Equals(trial.triggerType, "occupancy_arm", StringComparison.Ordinal)
@@ -216,11 +244,14 @@ namespace SL.Config
                     );
                 }
 
-                if (trial.occupancyDurationMs.HasValue && trial.occupancyDurationMs.Value <= 0f)
+                if (
+                    trial.occupancyDurationMs.HasValue
+                    && (!float.IsFinite(trial.occupancyDurationMs.Value) || trial.occupancyDurationMs.Value <= 0f)
+                )
                 {
                     throw new InvalidDataException(
                         $"Trial '{trialName}' has invalid occupancy_duration_ms {trial.occupancyDurationMs.Value}. "
-                            + "Must be positive."
+                            + "Must be positive and finite."
                     );
                 }
             }
@@ -254,7 +285,9 @@ namespace SL.Config
                     continue;
                 }
 
-                float probabilitySum = 0f;
+                // Accumulates in double so a template listing many transition targets does not walk the running sum
+                // into the tolerance through repeated single-precision rounding.
+                double probabilitySum = 0d;
                 foreach (KeyValuePair<string, float> transition in trial.transitions)
                 {
                     if (!template.trialStructures.ContainsKey(transition.Key))
@@ -277,7 +310,7 @@ namespace SL.Config
                     probabilitySum += transition.Value;
                 }
 
-                if (Mathf.Abs(probabilitySum - 1.0f) > ProbabilitySumTolerance)
+                if (Math.Abs(probabilitySum - 1.0) > ProbabilitySumTolerance)
                 {
                     throw new InvalidDataException(
                         $"Trial '{trialName}' transition probabilities sum to {probabilitySum}, must be 1.0."

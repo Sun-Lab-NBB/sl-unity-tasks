@@ -413,16 +413,35 @@ namespace SL.Tests.PlayMode
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             host.SetActive(true);
-            System.IDisposable firstHandle = client.client;
+            object firstHandle = client.client;
 
             host.SetActive(false);
             host.SetActive(true);
 
             Assert.IsNotNull(client.client);
             Assert.AreNotSame(firstHandle, client.client);
+        }
 
-            // Connect overwrites the previous handle without disposing it, so the first one is released here.
-            firstHandle.Dispose();
+        /// <summary>Verifies that re-enabling the connector disposes the handle the first attempt left behind.
+        /// </summary>
+        [Test]
+        public void OnEnable_ConnectorReEnabled_DisposesTheHandleFromTheEarlierAttempt()
+        {
+            MQTTClient client = CreateSuspendedClient("MQTT Client");
+            client.ipAddress = UnreachableBrokerAddress;
+            client.port = UnreachableBrokerPort;
+            GameObject host = CreateDormantHost("MQTT Connector");
+            host.AddComponent<MQTTConnectorObject>();
+            LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
+            LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
+            host.SetActive(true);
+            object firstHandle = client.client;
+            Assert.IsFalse(IsHandleDisposed(firstHandle));
+
+            host.SetActive(false);
+            host.SetActive(true);
+
+            Assert.IsTrue(IsHandleDisposed(firstHandle));
         }
 
         /// <summary>Verifies that the player loop's Start call subscribes the spawner's two channels.</summary>
@@ -444,7 +463,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(registrationsBeforeStart + 2, RegisteredChannelCount(_harness.Client));
         }
 
-        /// <summary>Verifies that an interaction only arms the spawner, leaving the canvas untouched that frame.
+        /// <summary>Verifies that an interaction only records a pending lick, leaving the canvas untouched that frame.
         /// </summary>
         [UnityTest]
         public IEnumerator Update_WithinTheFrameThatPublishesAnInteraction_SpawnsNothing()
@@ -455,7 +474,7 @@ namespace SL.Tests.PlayMode
 
             _harness.PublishTrigger(MQTTTopics.Interaction);
 
-            Assert.IsTrue(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
+            Assert.AreEqual(1, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
@@ -474,7 +493,7 @@ namespace SL.Tests.PlayMode
             Transform indicator = _canvas.transform.GetChild(0);
             Assert.IsNotNull(indicator.GetComponent<LickMessage>());
             Assert.IsNull(indicator.GetComponent<StimulusMessage>());
-            Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
         }
 
         /// <summary>Verifies that the frame after a delivered stimulus spawns exactly one stimulus indicator.</summary>
@@ -492,7 +511,7 @@ namespace SL.Tests.PlayMode
             Transform indicator = _canvas.transform.GetChild(0);
             Assert.IsNotNull(indicator.GetComponent<StimulusMessage>());
             Assert.IsNull(indicator.GetComponent<LickMessage>());
-            Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showStimulus"));
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingStimulusCount"));
         }
 
         /// <summary>Verifies that an omitted stimulus outcome spawns no indicator on the following frame.</summary>
@@ -507,7 +526,7 @@ namespace SL.Tests.PlayMode
             yield return null;
 
             Assert.AreEqual(0, _canvas.transform.childCount);
-            Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showStimulus"));
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingStimulusCount"));
         }
 
         /// <summary>Verifies that a lick and a delivered stimulus in one frame spawn the lick indicator first.
@@ -526,6 +545,25 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(2, _canvas.transform.childCount);
             Assert.IsNotNull(_canvas.transform.GetChild(0).GetComponent<LickMessage>());
             Assert.IsNotNull(_canvas.transform.GetChild(1).GetComponent<StimulusMessage>());
+        }
+
+        /// <summary>Verifies that three interactions inside a single frame spawn one lick indicator each.</summary>
+        [UnityTest]
+        public IEnumerator Update_ThreeInteractionsWithinOneFrame_SpawnsOneIndicatorPerInteraction()
+        {
+            BuildSpawnerRig();
+            yield return null;
+            yield return null;
+            _harness.PublishTrigger(MQTTTopics.Interaction);
+            _harness.PublishTrigger(MQTTTopics.Interaction);
+            _harness.PublishTrigger(MQTTTopics.Interaction);
+            Assert.AreEqual(3, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
+
+            yield return null;
+
+            Assert.AreEqual(3, _canvas.transform.childCount);
+            Assert.IsNotNull(_canvas.transform.GetChild(2).GetComponent<LickMessage>());
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
         }
 
         /// <summary>Verifies that interactions on two consecutive frames spawn one indicator each.</summary>
@@ -557,7 +595,7 @@ namespace SL.Tests.PlayMode
             yield return null;
 
             Assert.AreEqual(0, _canvas.transform.childCount);
-            Assert.IsTrue(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
+            Assert.AreEqual(1, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
         }
 
         /// <summary>Verifies that re-enabling the spawner spawns the indicator armed while it was disabled.</summary>
@@ -590,7 +628,7 @@ namespace SL.Tests.PlayMode
             _harness.PublishTrigger(MQTTTopics.Interaction);
             yield return null;
 
-            Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showLick"));
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingLickCount"));
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
@@ -606,7 +644,7 @@ namespace SL.Tests.PlayMode
             PublishStimulus(delivered: true);
             yield return null;
 
-            Assert.IsFalse(PrivateAccess.GetField<bool>(_spawner, "_showStimulus"));
+            Assert.AreEqual(0, PrivateAccess.GetField<int>(_spawner, "_pendingStimulusCount"));
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
@@ -714,6 +752,19 @@ namespace SL.Tests.PlayMode
         private static int RegisteredChannelCount(MQTTClient client)
         {
             return PrivateAccess.GetField<IList>(client, "_channelList").Count;
+        }
+
+        /// <summary>Determines whether a broker handle has already been disposed.</summary>
+        /// <remarks>
+        /// MQTTnet carries its disposal flag on the protected IsDisposed property of the internal base class every
+        /// client derives from, and the IMqttClient interface surfaces no such member, so the getter is reached
+        /// through reflection.
+        /// </remarks>
+        /// <param name="handle">The broker handle to inspect.</param>
+        /// <returns>True when the handle reports itself disposed, false otherwise.</returns>
+        private static bool IsHandleDisposed(object handle)
+        {
+            return (bool)PrivateAccess.Invoke(handle, "get_IsDisposed");
         }
 
         /// <summary>Records every payload routed to its topic together with the frame it arrived on.</summary>

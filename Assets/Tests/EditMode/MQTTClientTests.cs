@@ -18,8 +18,8 @@ namespace SL.Tests.EditMode
     /// <remarks>
     /// No test contacts a broker. The singleton installation, the EditorPrefs load with its loopback fallback, the
     /// routing list, and the in-process publish fallback all resolve without a connection, so the lifecycle callbacks
-    /// this fixture covers, Awake and OnDestroy, are driven directly through PrivateAccess. Start runs under the player
-    /// loop in the Play Mode suite, and OnApplicationQuit is left uncovered.
+    /// this fixture covers, Awake, OnDestroy, and OnApplicationQuit, are driven directly through PrivateAccess. Start
+    /// runs under the player loop in the Play Mode suite.
     /// </remarks>
     [TestFixture]
     public class MQTTClientTests
@@ -243,10 +243,22 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1, client.port);
         }
 
-        /// <summary>Verifies that Awake preserves a negative stored port, because only zero selects the fallback.
-        /// </summary>
+        /// <summary>Verifies that Awake preserves the highest port a socket can bind.</summary>
         [Test]
-        public void Awake_NegativePortPreference_PreservesStoredPort()
+        public void Awake_HighestValidPortPreference_PreservesStoredPort()
+        {
+            EditorPrefs.SetString(AddressPreferenceKey, "10.1.2.3");
+            EditorPrefs.SetInt(PortPreferenceKey, 65535);
+            MQTTClient client = CreateClient("MQTT Client");
+
+            PrivateAccess.Invoke(client, "Awake");
+
+            Assert.AreEqual(65535, client.port);
+        }
+
+        /// <summary>Verifies that Awake replaces a negative stored port with the standard port.</summary>
+        [Test]
+        public void Awake_NegativePortPreference_FallsBackToStandardPort()
         {
             EditorPrefs.SetString(AddressPreferenceKey, "10.1.2.3");
             EditorPrefs.SetInt(PortPreferenceKey, -1);
@@ -254,7 +266,45 @@ namespace SL.Tests.EditMode
 
             PrivateAccess.Invoke(client, "Awake");
 
-            Assert.AreEqual(-1, client.port);
+            Assert.AreEqual(1883, client.port);
+        }
+
+        /// <summary>Verifies that Awake replaces a stored port above the bindable range with the standard port.
+        /// </summary>
+        [Test]
+        public void Awake_PortPreferenceAboveTheBindableRange_FallsBackToStandardPort()
+        {
+            EditorPrefs.SetString(AddressPreferenceKey, "10.1.2.3");
+            EditorPrefs.SetInt(PortPreferenceKey, 65536);
+            MQTTClient client = CreateClient("MQTT Client");
+
+            PrivateAccess.Invoke(client, "Awake");
+
+            Assert.AreEqual(1883, client.port);
+        }
+
+        /// <summary>Verifies that a stored port out of range leaves the stored address in place.</summary>
+        [Test]
+        public void Awake_NegativePortPreference_PreservesStoredAddress()
+        {
+            EditorPrefs.SetString(AddressPreferenceKey, "10.1.2.3");
+            EditorPrefs.SetInt(PortPreferenceKey, -1);
+            MQTTClient client = CreateClient("MQTT Client");
+
+            PrivateAccess.Invoke(client, "Awake");
+
+            Assert.AreEqual("10.1.2.3", client.ipAddress);
+        }
+
+        /// <summary>Verifies that the port bounds span the whole range a broker socket can bind.</summary>
+        [Test]
+        public void BrokerPortBounds_Constants_SpanTheBindablePortRange()
+        {
+            int minimumPort = PrivateAccess.GetStaticField<int>(typeof(MQTTClient), "MinimumBrokerPort");
+            int maximumPort = PrivateAccess.GetStaticField<int>(typeof(MQTTClient), "MaximumBrokerPort");
+
+            Assert.AreEqual(1, minimumPort);
+            Assert.AreEqual(65535, maximumPort);
         }
 
         /// <summary>Verifies that the connection attempt budget is ten seconds.</summary>
@@ -504,6 +554,102 @@ namespace SL.Tests.EditMode
             PrivateAccess.Invoke(destroyedClient, "OnDestroy");
 
             Assert.AreSame(installedClient, MQTTClient.Instance);
+        }
+
+        /// <summary>Verifies that OnDestroy empties the routing list, matching the application quit path.</summary>
+        [Test]
+        public void OnDestroy_SubscribedChannel_ClearsTheRoutingList()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+            RecordingChannel channel = new RecordingChannel(MQTTTopics.Motion);
+            IList channelsBefore = PrivateAccess.GetField<IList>(client, "_channelList");
+            Assert.AreSame(channel, PrivateAccess.GetField<MQTTChannel>(channelsBefore[0], "mqttChannel"));
+
+            PrivateAccess.Invoke(client, "OnDestroy");
+
+            Assert.AreEqual(0, PrivateAccess.GetField<IList>(client, "_channelList").Count);
+        }
+
+        /// <summary>Verifies that a channel subscribed before OnDestroy receives no later publish.</summary>
+        [Test]
+        public void OnDestroy_SubscribedChannel_StopsRoutingLaterPublishes()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+            RecordingChannel channel = new RecordingChannel(MQTTTopics.Motion);
+            PrivateAccess.Invoke(client, "OnDestroy");
+
+            client.Publish(MQTTTopics.Motion, Encoding.UTF8.GetBytes("body"));
+
+            Assert.AreEqual(0, channel.Payloads.Count);
+        }
+
+        /// <summary>Verifies that a quit reached before the session channels exist raises no exception.</summary>
+        [Test]
+        public void OnApplicationQuit_SessionChannelsNotYetCreated_CompletesWithoutThrowing()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+
+            Assert.DoesNotThrow(() => PrivateAccess.Invoke(client, "OnApplicationQuit"));
+        }
+
+        /// <summary>Verifies that a quit reached before Start still clears the singleton the client installed.
+        /// </summary>
+        [Test]
+        public void OnApplicationQuit_SessionChannelsNotYetCreated_ClearsSingleton()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+
+            PrivateAccess.Invoke(client, "OnApplicationQuit");
+
+            Assert.IsNull(MQTTClient.Instance);
+        }
+
+        /// <summary>Verifies that a quit reached before Start still releases the underlying client handle.
+        /// </summary>
+        [Test]
+        public void OnApplicationQuit_SessionChannelsNotYetCreated_ClearsClientHandle()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+            client.client = new MqttFactory().CreateMqttClient();
+
+            PrivateAccess.Invoke(client, "OnApplicationQuit");
+
+            Assert.IsNull(client.client);
+        }
+
+        /// <summary>Verifies that a quit reached before Start still empties the routing list.</summary>
+        [Test]
+        public void OnApplicationQuit_SessionChannelsNotYetCreated_ClearsTheRoutingList()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+            RecordingChannel channel = new RecordingChannel(MQTTTopics.Motion);
+            IList channelsBefore = PrivateAccess.GetField<IList>(client, "_channelList");
+            Assert.AreSame(channel, PrivateAccess.GetField<MQTTChannel>(channelsBefore[0], "mqttChannel"));
+
+            PrivateAccess.Invoke(client, "OnApplicationQuit");
+
+            Assert.AreEqual(0, PrivateAccess.GetField<IList>(client, "_channelList").Count);
+        }
+
+        /// <summary>Verifies that a quit reached after Start broadcasts one empty session stop message.</summary>
+        [Test]
+        public void OnApplicationQuit_StopChannelCreated_PublishesOneEmptySessionStopMessage()
+        {
+            MQTTClient client = CreateClient("MQTT Client");
+            InstallSingleton(client);
+            RecordingChannel listener = new RecordingChannel(MQTTTopics.SessionStop);
+            PrivateAccess.SetField(client, "_stopChannel", new MQTTChannel(MQTTTopics.SessionStop, isListener: false));
+
+            PrivateAccess.Invoke(client, "OnApplicationQuit");
+
+            Assert.AreEqual(1, listener.Payloads.Count);
+            Assert.AreEqual(string.Empty, listener.Payloads[0]);
         }
 
         /// <summary>Creates a client component on a fresh host object registered for teardown.</summary>

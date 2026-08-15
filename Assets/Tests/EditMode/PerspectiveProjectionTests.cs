@@ -3,6 +3,7 @@
 /// </summary>
 using System;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using Gimbl;
 using NUnit.Framework;
 using UnityEngine;
@@ -310,14 +311,10 @@ namespace SL.Tests.EditMode
             AssertMatrixApproximatelyEquals(expected, _camera.worldToCameraMatrix, "worldToCameraMatrix");
         }
 
-        /// <summary>Verifies that a mesh named neither Plane nor Quad degenerates the projection matrix.</summary>
-        /// <remarks>
-        /// The mesh type switch has no default arm, so the three screen corners stay at the origin and the
-        /// eye-to-screen distance collapses to zero, which makes every frustum edge distance non-finite. Unity may
-        /// report the degenerate matrices it is handed, so log failures are ignored for the duration of the act.
-        /// </remarks>
+        /// <summary>Verifies that a mesh named neither Plane nor Quad warns and leaves the camera matrix alone.
+        /// </summary>
         [Test]
-        public void UpdateView_UnrecognizedMeshName_ProducesNonFiniteProjectionMatrix()
+        public void UpdateView_UnrecognizedMeshName_WarnsAndLeavesProjectionMatrixUnchanged()
         {
             _projectionObject.transform.position = Vector3.zero;
             _projection.projectionScreen = CreateScreen(
@@ -326,45 +323,53 @@ namespace SL.Tests.EditMode
                 Quaternion.identity,
                 Vector3.one
             );
+            _camera.projectionMatrix = Matrix4x4.identity;
+            LogAssert.Expect(LogType.Warning, new Regex("must be named Plane or Quad, but it is named 'Cube'"));
 
-            bool previousIgnoreSetting = LogAssert.ignoreFailingMessages;
-            try
-            {
-                LogAssert.ignoreFailingMessages = true;
-                _projection.UpdateView();
-            }
-            finally
-            {
-                LogAssert.ignoreFailingMessages = previousIgnoreSetting;
-            }
+            _projection.UpdateView();
 
             Assert.AreEqual("Cube", PrivateAccess.GetField<string>(_projection, "_meshType"));
-            Assert.IsTrue(float.IsNaN(_camera.projectionMatrix[0, 0]), "projectionMatrix[0,0] must be NaN.");
-            Assert.IsTrue(float.IsNaN(_camera.projectionMatrix[1, 1]), "projectionMatrix[1,1] must be NaN.");
+            AssertMatrixApproximatelyEquals(Matrix4x4.identity, _camera.projectionMatrix, "projectionMatrix");
         }
 
-        /// <summary>Verifies that the resolved mesh type is cached across UpdateView calls.</summary>
+        /// <summary>Verifies that swapping the screen mesh between calls re-reads the mesh type.</summary>
         [Test]
-        public void UpdateView_CalledTwiceWithSwappedMesh_KeepsTheFirstResolvedMeshType()
+        public void UpdateView_CalledTwiceWithSwappedMesh_ResolvesTheSwappedMeshType()
         {
-            _projectionObject.transform.position = Vector3.zero;
-            GameObject screen = CreateQuadScreen();
+            _projectionObject.transform.position = new Vector3(0f, 1f, 1f);
+            GameObject screen = CreateCenteredScreen("Quad");
             _projection.projectionScreen = screen;
             _projection.UpdateView();
 
             screen.GetComponent<MeshFilter>().sharedMesh = CreateNamedMesh("Plane");
             _projection.UpdateView();
 
-            Assert.AreEqual("Quad", PrivateAccess.GetField<string>(_projection, "_meshType"));
-            Matrix4x4 expected = BuildExpectedProjection(
-                horizontalScale: 1f,
-                horizontalSkew: 0f,
-                verticalScale: 1f,
-                verticalSkew: 0f,
-                depthScale: -1.0202020f,
-                depthOffset: -2.0202020f
+            Assert.AreEqual("Plane", PrivateAccess.GetField<string>(_projection, "_meshType"));
+            AssertMatrixApproximatelyEquals(
+                BuildExpectedPlaneProjection(),
+                _camera.projectionMatrix,
+                "projectionMatrix"
             );
-            AssertMatrixApproximatelyEquals(expected, _camera.projectionMatrix, "projectionMatrix");
+        }
+
+        /// <summary>Verifies that replacing the projection screen re-reads the mesh type from the new screen.
+        /// </summary>
+        [Test]
+        public void UpdateView_ProjectionScreenReplaced_ResolvesTheNewScreenMeshType()
+        {
+            _projectionObject.transform.position = new Vector3(0f, 1f, 1f);
+            _projection.projectionScreen = CreateCenteredScreen("Quad");
+            _projection.UpdateView();
+
+            _projection.projectionScreen = CreateCenteredScreen("Plane");
+            _projection.UpdateView();
+
+            Assert.AreEqual("Plane", PrivateAccess.GetField<string>(_projection, "_meshType"));
+            AssertMatrixApproximatelyEquals(
+                BuildExpectedPlaneProjection(),
+                _camera.projectionMatrix,
+                "projectionMatrix"
+            );
         }
 
         /// <summary>Verifies that the automatic near clip plane trails the eye-to-screen distance.</summary>
@@ -589,6 +594,15 @@ namespace SL.Tests.EditMode
             return CreateScreen("Quad", new Vector3(0f, 0f, 1f), Quaternion.identity, new Vector3(2f, 2f, 1f));
         }
 
+        /// <summary>Builds a screen at the world origin whose scale suits the Plane and the Quad corner layout alike.
+        /// </summary>
+        /// <param name="meshName">The mesh name the projection reads to pick its corner layout.</param>
+        /// <returns>The projection screen GameObject.</returns>
+        private GameObject CreateCenteredScreen(string meshName)
+        {
+            return CreateScreen(meshName, Vector3.zero, Quaternion.identity, new Vector3(0.2f, 1f, 0.2f));
+        }
+
         /// <summary>Builds a deactivated projection screen carrying a mesh with the supplied name.</summary>
         /// <param name="meshName">The mesh name the projection reads to pick its corner layout.</param>
         /// <param name="position">The world position assigned to the screen transform.</param>
@@ -644,6 +658,23 @@ namespace SL.Tests.EditMode
             expected[2, 3] = depthOffset;
             expected[3, 2] = -1f;
             return expected;
+        }
+
+        /// <summary>
+        /// Builds the projection a centered plane screen produces for an eye one unit above its surface and one unit
+        /// along its up axis.
+        /// </summary>
+        /// <returns>The fully populated expected matrix.</returns>
+        private static Matrix4x4 BuildExpectedPlaneProjection()
+        {
+            return BuildExpectedProjection(
+                horizontalScale: 1f,
+                horizontalSkew: 0f,
+                verticalScale: 1f,
+                verticalSkew: -1f,
+                depthScale: -1.0202020f,
+                depthOffset: -2.0202020f
+            );
         }
 
         /// <summary>Asserts that every one of the sixteen matrix entries matches within the shared tolerance.</summary>
