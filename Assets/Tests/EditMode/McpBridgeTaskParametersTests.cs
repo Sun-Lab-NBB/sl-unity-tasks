@@ -1435,10 +1435,6 @@ namespace SL.Tests.EditMode
                 );
         }
 
-        /// <summary>Routes a tool call through the bridge dispatcher and parses its JSON answer.</summary>
-        /// <param name="tool">The tool name to dispatch.</param>
-        /// <param name="arguments">The tool arguments.</param>
-        /// <returns>The parsed response payload.</returns>
         /// <summary>Clears the active scene's dirty flag, so a later assertion observes this test's writes alone.
         /// </summary>
         /// <remarks>
@@ -1455,6 +1451,10 @@ namespace SL.Tests.EditMode
             );
         }
 
+        /// <summary>Routes a tool call through the bridge dispatcher and parses its JSON answer.</summary>
+        /// <param name="tool">The tool name to dispatch.</param>
+        /// <param name="arguments">The tool arguments.</param>
+        /// <returns>The parsed response payload.</returns>
         private static Dictionary<string, object> Dispatch(string tool, Dictionary<string, object> arguments)
         {
             string json = (string)PrivateAccess.InvokeStatic(typeof(McpBridge), "Dispatch", tool, arguments);

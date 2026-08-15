@@ -106,7 +106,7 @@ namespace SL.Tests
 
         /// <summary>Runs each zone's Start in an order Unity is able to produce.</summary>
         /// <remarks>
-        /// The occupancy zone starts first because its Start allocates the stopwatch that the occupancy guidance zone
+        /// The occupancy zone starts first because its Start clears the per-lap state the occupancy guidance zone
         /// reads, and the stimulus zone starts last because its Start resolves both child zones.
         /// </remarks>
         public void StartComponents()

@@ -40,8 +40,9 @@ namespace SL.Tasks
 
         /// <summary>The largest corridor map the runtime allocates, measured in segment combinations.</summary>
         /// <remarks>
-        /// Every entry pairs two floats, so this ceiling holds the map inside the two gigabyte limit the runtime
-        /// places on a single managed array.
+        /// Every entry pairs two floats, so the ceiling of 2^28 combinations puts the map at the two gigabyte bound
+        /// the runtime places on a single managed array. A template whose trial count raised to the corridor depth
+        /// exceeds the ceiling is rejected at startup, before any allocation is attempted.
         /// </remarks>
         private const int MaximumCorridorCount = 268435456;
 

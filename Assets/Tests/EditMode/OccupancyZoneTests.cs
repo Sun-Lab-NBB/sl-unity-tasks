@@ -642,7 +642,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the private stopwatch the occupancy zone times its laps with.</summary>
         /// <param name="rig">The rig whose occupancy zone to read.</param>
-        /// <returns>The stopwatch, or null before the zone's Start allocated it.</returns>
+        /// <returns>The stopwatch the field initializer allocated when the component was constructed.</returns>
         private static Stopwatch OccupancyTimer(ZoneRig rig)
         {
             return PrivateAccess.GetField<Stopwatch>(rig.OccupancyZone, OccupancyTimerFieldName);

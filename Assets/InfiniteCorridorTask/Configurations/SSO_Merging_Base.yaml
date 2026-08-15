@@ -47,9 +47,9 @@ vr_environment:
 trial_structures:
   AGFE:
     cue_sequence: ["A", "Gray", "G", "Gray", "F", "Gray", "E", "Gray"]
-    stimulus_trigger_zone_start_cm: 168.0
-    stimulus_trigger_zone_end_cm: 192.0
-    stimulus_location_cm: 188.0
+    stimulus_trigger_zone_start_cm: 248.0
+    stimulus_trigger_zone_end_cm: 272.0
+    stimulus_location_cm: 268.0
     show_stimulus_collision_boundary: false
     trigger_type: "interaction"
     occupancy_duration_ms: null

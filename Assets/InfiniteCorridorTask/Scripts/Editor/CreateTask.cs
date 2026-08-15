@@ -1301,9 +1301,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Resizes a zone GameObject's root <see cref="BoxCollider"/> to span the supplied length and
-        /// recenters it on the local origin. Used by both <see cref="PlaceInteractionZone"/> and
-        /// <see cref="PlaceOccupancyZone"/> to apply identical root-collider geometry.
+        /// Resizes a zone GameObject's root <see cref="BoxCollider"/> to span the supplied length and recenters it
+        /// on the local origin, so every generated trigger zone carries identical root-collider geometry.
         /// </summary>
         /// <param name="zone">The zone GameObject whose root BoxCollider is being adjusted.</param>
         /// <param name="zoneSizeUnity">The desired Z-axis length of the zone in Unity units.</param>
