@@ -30,7 +30,7 @@ namespace SL.Tests.EditMode
             _originalCulture = CultureInfo.CurrentCulture;
         }
 
-        /// <summary>Restores the ambient culture after each test, including the culture swapping tests.</summary>
+        /// <summary>Restores the ambient culture after each test.</summary>
         [TearDown]
         public void TearDown()
         {
@@ -1250,7 +1250,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Builds a string holding every control character JSON forbids raw, in code point order.</summary>
-        /// <returns>The text the control character tests serialize.</returns>
+        /// <returns>The characters U+0000 through U+001F in code point order.</returns>
         private static string BuildControlCharacterText()
         {
             StringBuilder builder = new StringBuilder(ControlCharacterCount);
@@ -1271,7 +1271,7 @@ namespace SL.Tests.EditMode
             CultureInfo.CurrentCulture = culture;
         }
 
-        /// <summary>A value of a type MiniJson does not recognize, whose text form needs escaping.</summary>
+        /// <summary>Defines a value of a type MiniJson does not recognize, whose text form needs escaping.</summary>
         private sealed class UnrecognizedValue
         {
             /// <summary>Returns a text form carrying a quote and a backslash.</summary>

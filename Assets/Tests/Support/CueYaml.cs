@@ -24,16 +24,11 @@ namespace SL.Tests
         public string texture = "Gray Cue 2x1.png";
 
         /// <summary>The literal YAML text emitted for a key, overriding whatever the typed field holds.</summary>
-        /// <remarks>
-        /// An entry reaches the ConfigLoader branches a well-typed value cannot express, such as a wrong-typed or
-        /// malformed scalar.
-        /// </remarks>
         public readonly Dictionary<string, string> rawOverrides = new Dictionary<string, string>();
 
         /// <summary>Creates a cue block with the supplied identity and the default length and texture.</summary>
-        /// <param name="cueName">The cue name.</param>
+        /// <param name="cueName">The name the cue_sequence entries reference.</param>
         /// <param name="cueCode">The cue byte code.</param>
-        /// <returns>The cue block builder.</returns>
         public static CueYaml Named(string cueName, int cueCode)
         {
             return new CueYaml { name = cueName, code = cueCode };

@@ -33,13 +33,12 @@ namespace SL.Tasks
         /// <summary>
         /// Determines whether the animal has met the occupancy requirement (occupied for the required duration). Once
         /// set, it latches the zone so Update and OnTriggerEnter short-circuit, limiting firing to once per lap until
-        /// the corridor advance clears it at lap start. The parent StimulusTriggerZone interprets it per trigger mode.
+        /// the corridor advance clears it at lap start.
         /// </summary>
         [HideInInspector]
         public bool occupancyMet = false;
 
-        /// <summary>Enables or disables occupancy tracking for this zone. Reset to true at each corridor advance.
-        /// </summary>
+        /// <summary>Determines whether this zone tracks occupancy. Reset to true at each corridor advance.</summary>
         public bool isActive = true;
 
         /// <summary>The high-precision stopwatch for accurate millisecond timing.</summary>
@@ -113,7 +112,6 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the occupancy zone state for a new lap.</summary>
-        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             isActive = true;
@@ -131,8 +129,6 @@ namespace SL.Tasks
         /// <summary>Marks the occupancy requirement as met once the animal has occupied the zone long enough.</summary>
         /// <remarks>
         /// The timer stops ahead of the logging call, so the retained reading measures occupancy alone.
-        /// <see cref="OccupancyGuidanceZone"/> subtracts that reading from the configured duration to size the
-        /// remaining brake delay.
         /// </remarks>
         private void OnOccupancyMet()
         {

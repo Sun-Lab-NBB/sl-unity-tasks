@@ -1,17 +1,15 @@
 /// <summary>
 /// Provides the PerspectiveProjection class for off-axis projection rendering.
 ///
-/// Calculates custom projection matrices for VR displays based on physical screen
-/// position relative to the camera, enabling accurate perspective for multi-monitor setups.
+/// Calculates custom projection matrices for VR displays based on physical screen position relative to the camera,
+/// enabling accurate perspective for multi-monitor setups.
 /// </summary>
 using UnityEngine;
 using UnityEngine.Serialization;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Handles off-axis perspective projection for VR displays.
-    /// </summary>
+    /// <summary>Handles off-axis perspective projection for VR displays.</summary>
     [ExecuteInEditMode]
     public class PerspectiveProjection : MonoBehaviour
     {
@@ -135,10 +133,9 @@ namespace Gimbl
             Vector3 eyeToLowerRight = screenLowerRight - eyePosition;
             Vector3 eyeToUpperLeft = screenUpperLeft - eyePosition;
 
-            // Detects whether the camera is on the back side of the projection screen and flips the
-            // screen axes so the projection matrix renders correctly. The axes are still unnormalized
-            // at this point; normalization happens after the flip so the geometric redefinition of the
-            // corners uses the original-length basis vectors.
+            // Detects whether the camera is on the back side of the projection screen and flips the screen axes so the
+            // projection matrix renders correctly. The axes are still unnormalized at this point. Normalization happens
+            // after the flip so the geometric redefinition of the corners uses the original-length basis vectors.
             if (Vector3.Dot(-Vector3.Cross(eyeToLowerLeft, eyeToUpperLeft), eyeToLowerRight) < 0.0)
             {
                 screenUpAxis = -screenUpAxis;
@@ -197,6 +194,14 @@ namespace Gimbl
         /// Builds the off-axis perspective projection matrix from the screen's edge distances at the
         /// near clip plane. Matrix layout matches the standard glFrustum convention.
         /// </summary>
+        /// <param name="screenRightAxis">The unit vector along the screen's horizontal edge in world space.</param>
+        /// <param name="screenUpAxis">The unit vector along the screen's vertical edge in world space.</param>
+        /// <param name="eyeToLowerLeft">The vector from the camera to the screen's lower-left corner.</param>
+        /// <param name="eyeToLowerRight">The vector from the camera to the screen's lower-right corner.</param>
+        /// <param name="eyeToUpperLeft">The vector from the camera to the screen's upper-left corner.</param>
+        /// <param name="nearClipDistance">The distance to the near clip plane in Unity units.</param>
+        /// <param name="farClipDistance">The distance to the far clip plane in Unity units.</param>
+        /// <param name="eyeToScreenDistance">The perpendicular distance from the camera to the screen plane.</param>
         private static Matrix4x4 BuildProjectionMatrix(
             Vector3 screenRightAxis,
             Vector3 screenUpAxis,
@@ -240,10 +245,13 @@ namespace Gimbl
         }
 
         /// <summary>
-        /// Composes the world-to-camera matrix from the screen-aligned rotation and the camera
-        /// translation. Equivalent to the original hand-rolled rotation * translation product; kept
-        /// explicit rather than swapped for <see cref="Matrix4x4.TRS"/> to preserve handedness.
+        /// Composes the world-to-camera matrix from the screen-aligned rotation and the camera translation, kept
+        /// explicit rather than built with <see cref="Matrix4x4.TRS"/> to preserve handedness.
         /// </summary>
+        /// <param name="screenRightAxis">The unit vector along the screen's horizontal edge in world space.</param>
+        /// <param name="screenUpAxis">The unit vector along the screen's vertical edge in world space.</param>
+        /// <param name="screenNormal">The vector pointing out of the screen surface in world space.</param>
+        /// <param name="eyePosition">The world-space position of the camera.</param>
         private static Matrix4x4 BuildViewMatrix(
             Vector3 screenRightAxis,
             Vector3 screenUpAxis,
@@ -300,6 +308,12 @@ namespace Gimbl
         /// frustum approximates the off-axis projection (Unity culls against the symmetric frustum, not
         /// the off-axis one applied above).
         /// </summary>
+        /// <param name="screenLowerLeft">The world-space position of the screen's lower-left corner.</param>
+        /// <param name="screenLowerRight">The world-space position of the screen's lower-right corner.</param>
+        /// <param name="screenUpperLeft">The world-space position of the screen's upper-left corner.</param>
+        /// <param name="screenUpAxis">The unit vector along the screen's vertical edge in world space.</param>
+        /// <param name="eyePosition">The world-space position of the camera.</param>
+        /// <param name="eyeToLowerLeft">The vector from the camera to the screen's lower-left corner.</param>
         private void EstimateViewFrustum(
             Vector3 screenLowerLeft,
             Vector3 screenLowerRight,
@@ -315,9 +329,9 @@ namespace Gimbl
 
             float screenDiagonalSum =
                 (screenLowerRight - screenLowerLeft).magnitude + (screenUpperLeft - screenLowerLeft).magnitude;
-            float fovRadians = Mathf.Atan(screenDiagonalSum / eyeToLowerLeft.magnitude);
+            float fieldOfViewRadians = Mathf.Atan(screenDiagonalSum / eyeToLowerLeft.magnitude);
             float aspectDivisor = _cameraComponent.aspect >= 1.0f ? 1.0f : _cameraComponent.aspect;
-            _cameraComponent.fieldOfView = Mathf.Rad2Deg * fovRadians / aspectDivisor;
+            _cameraComponent.fieldOfView = Mathf.Rad2Deg * fieldOfViewRadians / aspectDivisor;
         }
 
         /// <summary>Applies brightness adjustment to the rendered image.</summary>

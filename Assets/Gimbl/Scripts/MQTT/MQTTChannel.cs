@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the MQTTChannel classes for trigger-based and type-safe MQTT messaging.
 ///
-/// Includes the base MQTTChannel for simple trigger messages and the generic
-/// MQTTChannel&lt;TMessage&gt; for JSON-serialized typed messages.
+/// Includes the base MQTTChannel for simple trigger messages and the generic MQTTChannel&lt;TMessage&gt;
+/// for JSON-serialized typed messages.
 /// </summary>
 using System;
 using System.Text;
@@ -11,9 +11,7 @@ using UnityEngine.Events;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Handles simple trigger-based MQTT messaging without payload data.
-    /// </summary>
+    /// <summary>Handles simple trigger-based MQTT messaging without payload data.</summary>
     public class MQTTChannel
     {
         /// <summary>The MQTT topic string for this channel.</summary>
@@ -59,19 +57,17 @@ namespace Gimbl
         }
     }
 
-    /// <summary>
-    /// Handles typed MQTT messaging with JSON serialization for the payload.
-    /// </summary>
-    /// <typeparam name="TMessage">The type of the message payload to serialize and deserialize.</typeparam>
+    /// <summary>Handles typed MQTT messaging with JSON serialization for the payload.</summary>
     /// <remarks>
     /// The typed <see cref="receivedEvent"/> shadows the base <see cref="MQTTChannel.receivedEvent"/> via
     /// the <c>new</c> modifier because <see cref="UnityEngine.Events.UnityEvent"/> and
     /// <see cref="UnityEngine.Events.UnityEvent{T0}"/> are unrelated types with no shared parameterized
     /// contract. A virtual property cannot express both signatures, so the payload type would be lost
     /// under a clean override. Callers that need the deserialized payload must reference the channel as
-    /// <see cref="MQTTChannel{TMessage}"/>; a base <see cref="MQTTChannel"/> reference exposes only the
+    /// <see cref="MQTTChannel{TMessage}"/>. A base <see cref="MQTTChannel"/> reference exposes only the
     /// parameterless trigger event and will silently miss the typed callback.
     /// </remarks>
+    /// <typeparam name="TMessage">The type of the message payload to serialize and deserialize.</typeparam>
     public class MQTTChannel<TMessage> : MQTTChannel
     {
         /// <summary>The typed Unity event invoked when a message is received on this channel.</summary>

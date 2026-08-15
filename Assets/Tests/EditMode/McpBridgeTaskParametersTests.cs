@@ -259,7 +259,7 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> state = Nested(response, "state");
+            Dictionary<string, object> state = GetNestedObject(response, "state");
             Assert.IsNull(state["actor"]);
             Assert.IsNull(state["mqtt"]);
             Assert.IsNull(state["display"]);
@@ -272,9 +272,15 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> options = Nested(response, "options");
-            CollectionAssert.AreEqual(new[] { "None" }, Strings(Nested(options, "actor")["controller"]));
-            CollectionAssert.AreEqual(new[] { "None" }, Strings(Nested(options, "camera_mapping")["camera"]));
+            Dictionary<string, object> options = GetNestedObject(response, "options");
+            CollectionAssert.AreEqual(
+                new[] { "None" },
+                ReadStringList(GetNestedObject(options, "actor")["controller"])
+            );
+            CollectionAssert.AreEqual(
+                new[] { "None" },
+                ReadStringList(GetNestedObject(options, "camera_mapping")["camera"])
+            );
         }
 
         /// <summary>Verifies that the actor model is reported as the child name without its prefix.</summary>
@@ -286,7 +292,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Assert.AreEqual("Rodent", Nested(Nested(response, "state"), "actor")["model"]);
+            Assert.AreEqual("Rodent", GetNestedObject(GetNestedObject(response, "state"), "actor")["model"]);
         }
 
         /// <summary>Verifies that an actor whose children carry no model prefix reports the None model.</summary>
@@ -298,7 +304,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Assert.AreEqual("None", Nested(Nested(response, "state"), "actor")["model"]);
+            Assert.AreEqual("None", GetNestedObject(GetNestedObject(response, "state"), "actor")["model"]);
         }
 
         /// <summary>Verifies that the first model child wins when the actor carries more than one.</summary>
@@ -311,7 +317,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Assert.AreEqual("First", Nested(Nested(response, "state"), "actor")["model"]);
+            Assert.AreEqual("First", GetNestedObject(GetNestedObject(response, "state"), "actor")["model"]);
         }
 
         /// <summary>Verifies that an actor with no controller assigned reports the None controller.</summary>
@@ -323,7 +329,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Assert.AreEqual("None", Nested(Nested(response, "state"), "actor")["controller"]);
+            Assert.AreEqual("None", GetNestedObject(GetNestedObject(response, "state"), "actor")["controller"]);
         }
 
         /// <summary>Verifies that an assigned controller is reported by its GameObject name.</summary>
@@ -335,7 +341,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Assert.AreEqual("Simulated", Nested(Nested(response, "state"), "actor")["controller"]);
+            Assert.AreEqual("Simulated", GetNestedObject(GetNestedObject(response, "state"), "actor")["controller"]);
         }
 
         /// <summary>Verifies that the controller options lead with None and then list every scene controller.</summary>
@@ -347,7 +353,9 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            List<string> controllers = Strings(Nested(Nested(response, "options"), "actor")["controller"]);
+            List<string> controllers = ReadStringList(
+                GetNestedObject(GetNestedObject(response, "options"), "actor")["controller"]
+            );
             Assert.AreEqual(3, controllers.Count);
             Assert.AreEqual("None", controllers[0]);
             CollectionAssert.AreEquivalent(new[] { "None", "Simulated", "Treadmill" }, controllers);
@@ -362,7 +370,9 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            List<string> cameras = Strings(Nested(Nested(response, "options"), "camera_mapping")["camera"]);
+            List<string> cameras = ReadStringList(
+                GetNestedObject(GetNestedObject(response, "options"), "camera_mapping")["camera"]
+            );
             CollectionAssert.AreEqual(new[] { "None", "Left View" }, cameras);
         }
 
@@ -372,7 +382,9 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> response = Read();
 
-            List<string> models = Strings(Nested(Nested(response, "options"), "actor")["model"]);
+            List<string> models = ReadStringList(
+                GetNestedObject(GetNestedObject(response, "options"), "actor")["model"]
+            );
             CollectionAssert.AreEqual(new[] { "Rodent", "None" }, models);
         }
 
@@ -386,9 +398,9 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> mqtt = Nested(Nested(response, "state"), "mqtt");
+            Dictionary<string, object> mqtt = GetNestedObject(GetNestedObject(response, "state"), "mqtt");
             Assert.AreEqual("10.0.0.5", mqtt["ip"]);
-            Assert.AreEqual(1884d, NumberOf(mqtt["port"]));
+            Assert.AreEqual(1884d, ReadNumber(mqtt["port"]));
         }
 
         /// <summary>Verifies that a display with settings reports the settings brightness and VR height.</summary>
@@ -402,10 +414,10 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> state = Nested(Nested(response, "state"), "display");
-            Assert.AreEqual(12.5d, NumberOf(state["current_brightness"]));
-            Assert.AreEqual(42.5d, NumberOf(state["brightness"]));
-            Assert.AreEqual(0.75d, NumberOf(state["height_in_vr"]));
+            Dictionary<string, object> state = GetNestedObject(GetNestedObject(response, "state"), "display");
+            Assert.AreEqual(12.5d, ReadNumber(state["current_brightness"]));
+            Assert.AreEqual(42.5d, ReadNumber(state["brightness"]));
+            Assert.AreEqual(0.75d, ReadNumber(state["height_in_vr"]));
         }
 
         /// <summary>Verifies that a display without settings reports the documented fallback values.</summary>
@@ -417,10 +429,10 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> state = Nested(Nested(response, "state"), "display");
-            Assert.AreEqual(12.5d, NumberOf(state["current_brightness"]));
-            Assert.AreEqual(100d, NumberOf(state["brightness"]));
-            Assert.AreEqual(0d, NumberOf(state["height_in_vr"]));
+            Dictionary<string, object> state = GetNestedObject(GetNestedObject(response, "state"), "display");
+            Assert.AreEqual(12.5d, ReadNumber(state["current_brightness"]));
+            Assert.AreEqual(100d, ReadNumber(state["brightness"]));
+            Assert.AreEqual(0d, ReadNumber(state["height_in_vr"]));
 
             // Destroyed inside the test body because the Parameters window dereferences display.settings
             // whenever it repaints, which a settings-less display outliving this method would fault on.
@@ -439,11 +451,11 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> state = Nested(Nested(response, "state"), "task");
+            Dictionary<string, object> state = GetNestedObject(GetNestedObject(response, "state"), "task");
             Assert.AreEqual(true, state["require_interaction"]);
             Assert.AreEqual(false, state["require_wait"]);
-            Assert.AreEqual(1234.5d, NumberOf(state["track_length"]));
-            Assert.AreEqual(7d, NumberOf(state["track_seed"]));
+            Assert.AreEqual(1234.5d, ReadNumber(state["track_length"]));
+            Assert.AreEqual(7d, ReadNumber(state["track_seed"]));
         }
 
         /// <summary>Verifies that the camera mapping reports one one-based row per detected monitor.</summary>
@@ -452,14 +464,14 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> response = Read();
 
-            List<Dictionary<string, object>> rows = Rows(Nested(response, "state")["camera_mapping"]);
+            List<Dictionary<string, object>> rows = ReadRowList(GetNestedObject(response, "state")["camera_mapping"]);
             Assert.AreEqual(2, rows.Count);
-            Assert.AreEqual(1d, NumberOf(rows[0]["monitor"]));
-            Assert.AreEqual(0d, NumberOf(rows[0]["left"]));
-            Assert.AreEqual(0d, NumberOf(rows[0]["top"]));
+            Assert.AreEqual(1d, ReadNumber(rows[0]["monitor"]));
+            Assert.AreEqual(0d, ReadNumber(rows[0]["left"]));
+            Assert.AreEqual(0d, ReadNumber(rows[0]["top"]));
             Assert.AreEqual("None", rows[0]["camera"]);
-            Assert.AreEqual(2d, NumberOf(rows[1]["monitor"]));
-            Assert.AreEqual(1920d, NumberOf(rows[1]["left"]));
+            Assert.AreEqual(2d, ReadNumber(rows[1]["monitor"]));
+            Assert.AreEqual(1920d, ReadNumber(rows[1]["left"]));
             Assert.AreEqual("None", rows[1]["camera"]);
         }
 
@@ -472,7 +484,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            List<Dictionary<string, object>> rows = Rows(Nested(response, "state")["camera_mapping"]);
+            List<Dictionary<string, object>> rows = ReadRowList(GetNestedObject(response, "state")["camera_mapping"]);
             Assert.AreEqual("Left View", rows[0]["camera"]);
             Assert.AreEqual("None", rows[1]["camera"]);
         }
@@ -487,7 +499,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> visibility = Nested(Nested(response, "visibility"), "task");
+            Dictionary<string, object> visibility = GetNestedObject(GetNestedObject(response, "visibility"), "task");
             Assert.AreEqual(true, visibility["require_interaction"]);
             Assert.AreEqual(true, visibility["require_wait"]);
         }
@@ -500,7 +512,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> visibility = Nested(Nested(response, "visibility"), "task");
+            Dictionary<string, object> visibility = GetNestedObject(GetNestedObject(response, "visibility"), "task");
             Assert.AreEqual(false, visibility["require_interaction"]);
             Assert.AreEqual(false, visibility["require_wait"]);
         }
@@ -514,7 +526,7 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> response = Read();
 
-            Dictionary<string, object> visibility = Nested(Nested(response, "visibility"), "task");
+            Dictionary<string, object> visibility = GetNestedObject(GetNestedObject(response, "visibility"), "task");
             Assert.AreEqual(true, visibility["require_interaction"]);
             Assert.AreEqual(false, visibility["require_wait"]);
         }
@@ -525,7 +537,7 @@ namespace SL.Tests.EditMode
         {
             CreateActor();
 
-            Dictionary<string, object> response = Write(Section("actor", "model", "Giraffe"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "model", "Giraffe"));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Invalid model 'Giraffe'", error);
@@ -537,10 +549,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void WriteTaskParameters_UnknownActorModelWithoutActor_IsIgnored()
         {
-            Dictionary<string, object> response = Write(Section("actor", "model", "Giraffe"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "model", "Giraffe"));
 
             AssertSucceeded(response);
-            Assert.IsNull(Nested(response, "state")["actor"]);
+            Assert.IsNull(GetNestedObject(response, "state")["actor"]);
         }
 
         /// <summary>Verifies that a non-string model value is neither validated nor applied.</summary>
@@ -550,10 +562,10 @@ namespace SL.Tests.EditMode
             ActorObject actor = CreateActor();
             AddChild(actor.gameObject, "Model Rodent");
 
-            Dictionary<string, object> response = Write(Section("actor", "model", 7L));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "model", 7L));
 
             AssertSucceeded(response);
-            Assert.AreEqual("Rodent", Nested(Nested(response, "state"), "actor")["model"]);
+            Assert.AreEqual("Rodent", GetNestedObject(GetNestedObject(response, "state"), "actor")["model"]);
         }
 
         /// <summary>Verifies that writing a valid model instantiates the matching model child.</summary>
@@ -562,11 +574,11 @@ namespace SL.Tests.EditMode
         {
             CreateActor();
 
-            Dictionary<string, object> response = Write(Section("actor", "model", "Rodent"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "model", "Rodent"));
 
             AssertSucceeded(response);
-            Assert.AreEqual("Rodent", Nested(Nested(response, "state"), "actor")["model"]);
-            Assert.AreEqual("Rodent", Nested(Nested(Read(), "state"), "actor")["model"]);
+            Assert.AreEqual("Rodent", GetNestedObject(GetNestedObject(response, "state"), "actor")["model"]);
+            Assert.AreEqual("Rodent", GetNestedObject(GetNestedObject(Read(), "state"), "actor")["model"]);
         }
 
         /// <summary>Verifies that a controller name matching no scene controller is rejected.</summary>
@@ -576,7 +588,7 @@ namespace SL.Tests.EditMode
             CreateActor();
             CreateController("Simulated");
 
-            Dictionary<string, object> response = Write(Section("actor", "controller", "Missing"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "controller", "Missing"));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Invalid controller 'Missing'", error);
@@ -590,11 +602,11 @@ namespace SL.Tests.EditMode
             ActorObject actor = CreateActor();
             actor.Controller = CreateController("Simulated");
 
-            Dictionary<string, object> response = Write(Section("actor", "controller", "None"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "controller", "None"));
 
             AssertSucceeded(response);
             Assert.IsNull(actor.Controller);
-            Assert.AreEqual("None", Nested(Nested(response, "state"), "actor")["controller"]);
+            Assert.AreEqual("None", GetNestedObject(GetNestedObject(response, "state"), "actor")["controller"]);
         }
 
         /// <summary>Verifies that a named controller is bound to the actor by GameObject name.</summary>
@@ -605,11 +617,11 @@ namespace SL.Tests.EditMode
             CreateController("Simulated");
             ControllerOutput treadmill = CreateController("Treadmill");
 
-            Dictionary<string, object> response = Write(Section("actor", "controller", "Treadmill"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "controller", "Treadmill"));
 
             AssertSucceeded(response);
             Assert.AreSame(treadmill, actor.Controller);
-            Assert.AreEqual("Treadmill", Nested(Nested(response, "state"), "actor")["controller"]);
+            Assert.AreEqual("Treadmill", GetNestedObject(GetNestedObject(response, "state"), "actor")["controller"]);
         }
 
         /// <summary>Verifies that a port that is not a whole number is rejected before anything is written.</summary>
@@ -618,7 +630,7 @@ namespace SL.Tests.EditMode
         {
             CreateClient();
 
-            Dictionary<string, object> response = Write(Section("mqtt", "port", "eighteen"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "port", "eighteen"));
 
             StringAssert.Contains(
                 "Invalid port 'eighteen'. Must be a whole number between 0 and 65535.",
@@ -632,7 +644,7 @@ namespace SL.Tests.EditMode
         {
             CreateClient();
 
-            Dictionary<string, object> response = Write(Section("mqtt", "port", 3000000000L));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "port", 3000000000L));
 
             StringAssert.Contains("Invalid port '3000000000'", ErrorOf(response));
         }
@@ -646,7 +658,7 @@ namespace SL.Tests.EditMode
             MQTTClient client = CreateClient();
             EditorPrefs.SetInt(PortPreferenceKey, 1883);
 
-            Dictionary<string, object> response = Write(Section("mqtt", "port", port));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "port", port));
 
             StringAssert.Contains(
                 $"Invalid port '{port}'. Must be a whole number between 0 and 65535.",
@@ -663,7 +675,7 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient();
 
-            Dictionary<string, object> response = Write(Section("mqtt", "port", port));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "port", port));
 
             AssertSucceeded(response);
             Assert.AreEqual((int)port, client.port);
@@ -698,7 +710,7 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient();
 
-            Dictionary<string, object> response = Write(Section("mqtt", "ip", 5L));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "ip", 5L));
 
             AssertSucceeded(response);
             Assert.AreEqual("127.0.0.1", client.ipAddress);
@@ -708,10 +720,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void WriteTaskParameters_MqttSectionWithoutClient_IsIgnored()
         {
-            Dictionary<string, object> response = Write(Section("mqtt", "port", "eighteen"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("mqtt", "port", "eighteen"));
 
             AssertSucceeded(response);
-            Assert.IsNull(Nested(response, "state")["mqtt"]);
+            Assert.IsNull(GetNestedObject(response, "state")["mqtt"]);
         }
 
         /// <summary>Verifies that a non-finite current brightness is rejected.</summary>
@@ -720,7 +732,9 @@ namespace SL.Tests.EditMode
         {
             CreateDisplay(withSettings: true);
 
-            Dictionary<string, object> response = Write(Section("display", "current_brightness", float.NaN));
+            Dictionary<string, object> response = Write(
+                BuildSectionArguments("display", "current_brightness", float.NaN)
+            );
 
             string error = ErrorOf(response);
             StringAssert.Contains("Invalid current_brightness", error);
@@ -733,7 +747,7 @@ namespace SL.Tests.EditMode
         {
             CreateDisplay(withSettings: true);
 
-            Dictionary<string, object> response = Write(Section("display", "brightness", "bright"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("display", "brightness", "bright"));
 
             StringAssert.Contains("Invalid brightness 'bright'. Must be a finite number.", ErrorOf(response));
         }
@@ -744,7 +758,7 @@ namespace SL.Tests.EditMode
         {
             CreateDisplay(withSettings: true);
 
-            Dictionary<string, object> response = Write(Section("display", "height_in_vr", "tall"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("display", "height_in_vr", "tall"));
 
             StringAssert.Contains("Invalid height_in_vr 'tall'. Must be a finite number.", ErrorOf(response));
         }
@@ -793,7 +807,10 @@ namespace SL.Tests.EditMode
 
             AssertSucceeded(response);
             Assert.AreEqual(12.5f, display.currentBrightness, 1e-6f);
-            Assert.AreEqual(100d, NumberOf(Nested(Nested(response, "state"), "display")["brightness"]));
+            Assert.AreEqual(
+                100d,
+                ReadNumber(GetNestedObject(GetNestedObject(response, "state"), "display")["brightness"])
+            );
             Assert.AreEqual(0f, display.transform.localPosition.y, 1e-6f);
 
             // Destroyed inside the test body because the Parameters window dereferences display.settings
@@ -805,10 +822,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void WriteTaskParameters_DisplaySectionWithoutDisplay_IsIgnored()
         {
-            Dictionary<string, object> response = Write(Section("display", "brightness", "bright"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("display", "brightness", "bright"));
 
             AssertSucceeded(response);
-            Assert.IsNull(Nested(response, "state")["display"]);
+            Assert.IsNull(GetNestedObject(response, "state")["display"]);
         }
 
         /// <summary>Verifies that a camera mapping write is refused when no monitor was detected.</summary>
@@ -817,7 +834,7 @@ namespace SL.Tests.EditMode
         {
             _manager.monitors = new List<Monitor>();
 
-            Dictionary<string, object> response = Write(CameraMapping(new Dictionary<string, object>()));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(new Dictionary<string, object>()));
 
             string error = ErrorOf(response);
             StringAssert.Contains("no monitors were detected", error);
@@ -830,7 +847,7 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", "first" } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             StringAssert.Contains("Invalid monitor 'first'. Must be a whole number.", ErrorOf(response));
         }
@@ -841,7 +858,7 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 0L } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             StringAssert.Contains("Invalid monitor index 0; scene has 2 monitors.", ErrorOf(response));
         }
@@ -852,7 +869,7 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 3L } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             StringAssert.Contains("Invalid monitor index 3; scene has 2 monitors.", ErrorOf(response));
         }
@@ -874,10 +891,10 @@ namespace SL.Tests.EditMode
                 { "monitor", 2L },
                 { "camera", "Right View" },
             };
-            Dictionary<string, object> response = Write(CameraMapping(first, second));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(first, second));
 
             AssertSucceeded(response);
-            List<Dictionary<string, object>> rows = Rows(Nested(response, "state")["camera_mapping"]);
+            List<Dictionary<string, object>> rows = ReadRowList(GetNestedObject(response, "state")["camera_mapping"]);
             Assert.AreEqual("Left View", rows[0]["camera"]);
             Assert.AreEqual("Right View", rows[1]["camera"]);
         }
@@ -893,7 +910,7 @@ namespace SL.Tests.EditMode
                 { "camera", "Ghost View" },
             };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Invalid camera 'Ghost View' for monitor 2.", error);
@@ -908,10 +925,10 @@ namespace SL.Tests.EditMode
             _syntheticMonitors[0].cameraEntityId = camera.GetEntityId();
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 1L }, { "camera", "None" } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             AssertSucceeded(response);
-            Assert.AreEqual("None", Rows(Nested(response, "state")["camera_mapping"])[0]["camera"]);
+            Assert.AreEqual("None", ReadRowList(GetNestedObject(response, "state")["camera_mapping"])[0]["camera"]);
         }
 
         /// <summary>Verifies that a row carrying no camera key leaves the monitor's assignment untouched.</summary>
@@ -922,10 +939,13 @@ namespace SL.Tests.EditMode
             _syntheticMonitors[0].cameraEntityId = camera.GetEntityId();
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 1L } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             AssertSucceeded(response);
-            Assert.AreEqual("Left View", Rows(Nested(response, "state")["camera_mapping"])[0]["camera"]);
+            Assert.AreEqual(
+                "Left View",
+                ReadRowList(GetNestedObject(response, "state")["camera_mapping"])[0]["camera"]
+            );
         }
 
         /// <summary>Verifies that a row carrying a camera but no monitor is reported rather than dropped.</summary>
@@ -940,19 +960,19 @@ namespace SL.Tests.EditMode
             _syntheticMonitors[0].cameraEntityId = camera.GetEntityId();
             Dictionary<string, object> row = new Dictionary<string, object> { { "camera", "Left View" } };
 
-            Dictionary<string, object> response = Write(CameraMapping(row));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(row));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Invalid camera_mapping row.", error);
             StringAssert.Contains("'monitor'", error);
-            Assert.AreEqual("Left View", Rows(Nested(Read(), "state")["camera_mapping"])[0]["camera"]);
+            Assert.AreEqual("Left View", ReadRowList(GetNestedObject(Read(), "state")["camera_mapping"])[0]["camera"]);
         }
 
         /// <summary>Verifies that a row carrying neither key is reported the same way.</summary>
         [Test]
         public void WriteTaskParameters_EmptyCameraMappingRow_ReturnsTheMissingMonitorError()
         {
-            Dictionary<string, object> response = Write(CameraMapping(new Dictionary<string, object>()));
+            Dictionary<string, object> response = Write(BuildCameraMappingArguments(new Dictionary<string, object>()));
 
             StringAssert.Contains("Invalid camera_mapping row.", ErrorOf(response));
         }
@@ -972,7 +992,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = Write(arguments);
 
             AssertSucceeded(response);
-            Assert.AreEqual(2, Rows(Nested(response, "state")["camera_mapping"]).Count);
+            Assert.AreEqual(2, ReadRowList(GetNestedObject(response, "state")["camera_mapping"]).Count);
         }
 
         /// <summary>Verifies that a camera mapping list whose rows assign nothing leaves the scene clean.</summary>
@@ -988,7 +1008,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> row = new Dictionary<string, object> { { "monitor", 1L } };
             ClearActiveSceneDirtiness();
 
-            AssertSucceeded(Write(CameraMapping(row)));
+            AssertSucceeded(Write(BuildCameraMappingArguments(row)));
 
             Assert.IsFalse(
                 SceneManager.GetActiveScene().isDirty,
@@ -1002,7 +1022,7 @@ namespace SL.Tests.EditMode
         {
             ClearActiveSceneDirtiness();
 
-            AssertSucceeded(Write(CameraMapping()));
+            AssertSucceeded(Write(BuildCameraMappingArguments()));
 
             Assert.IsFalse(
                 SceneManager.GetActiveScene().isDirty,
@@ -1022,7 +1042,7 @@ namespace SL.Tests.EditMode
             };
             ClearActiveSceneDirtiness();
 
-            AssertSucceeded(Write(CameraMapping(row)));
+            AssertSucceeded(Write(BuildCameraMappingArguments(row)));
 
             Assert.IsTrue(
                 SceneManager.GetActiveScene().isDirty,
@@ -1043,7 +1063,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = Write(arguments);
 
             AssertSucceeded(response);
-            Assert.AreEqual(0, Rows(Nested(response, "state")["camera_mapping"]).Count);
+            Assert.AreEqual(0, ReadRowList(GetNestedObject(response, "state")["camera_mapping"]).Count);
         }
 
         /// <summary>Verifies that the interaction toggle is refused when the scene has no guidance zone.</summary>
@@ -1053,7 +1073,7 @@ namespace SL.Tests.EditMode
             CreateTask();
             CreateOccupancyZone();
 
-            Dictionary<string, object> response = Write(Section("task", "require_interaction", true));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "require_interaction", true));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Cannot set require_interaction", error);
@@ -1067,7 +1087,7 @@ namespace SL.Tests.EditMode
             CreateTask();
             CreateGuidanceZone();
 
-            Dictionary<string, object> response = Write(Section("task", "require_wait", true));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "require_wait", true));
 
             string error = ErrorOf(response);
             StringAssert.Contains("Cannot set require_wait", error);
@@ -1081,11 +1101,11 @@ namespace SL.Tests.EditMode
             Task task = CreateTask();
             CreateGuidanceZone();
 
-            Dictionary<string, object> response = Write(Section("task", "require_interaction", true));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "require_interaction", true));
 
             AssertSucceeded(response);
             Assert.IsTrue(task.requireInteraction);
-            Assert.AreEqual(true, Nested(Nested(response, "state"), "task")["require_interaction"]);
+            Assert.AreEqual(true, GetNestedObject(GetNestedObject(response, "state"), "task")["require_interaction"]);
         }
 
         /// <summary>Verifies that the wait toggle is written when the occupancy zone is present.</summary>
@@ -1095,11 +1115,11 @@ namespace SL.Tests.EditMode
             Task task = CreateTask();
             CreateOccupancyZone();
 
-            Dictionary<string, object> response = Write(Section("task", "require_wait", true));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "require_wait", true));
 
             AssertSucceeded(response);
             Assert.IsTrue(task.requireWait);
-            Assert.AreEqual(true, Nested(Nested(response, "state"), "task")["require_wait"]);
+            Assert.AreEqual(true, GetNestedObject(GetNestedObject(response, "state"), "task")["require_wait"]);
         }
 
         /// <summary>Verifies that a toggle value that is not a boolean is rejected.</summary>
@@ -1109,7 +1129,7 @@ namespace SL.Tests.EditMode
             Task task = CreateTask();
             CreateGuidanceZone();
 
-            Dictionary<string, object> response = Write(Section("task", "require_interaction", "maybe"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "require_interaction", "maybe"));
 
             StringAssert.Contains("Invalid require_interaction 'maybe'. Must be true or false.", ErrorOf(response));
             Assert.IsFalse(task.requireInteraction);
@@ -1121,7 +1141,7 @@ namespace SL.Tests.EditMode
         {
             CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_length", 0d));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", 0d));
 
             StringAssert.Contains("Invalid track_length '0'", ErrorOf(response));
         }
@@ -1132,7 +1152,7 @@ namespace SL.Tests.EditMode
         {
             Task task = CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_length", 0.5d));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", 0.5d));
 
             AssertSucceeded(response);
             Assert.AreEqual(0.5f, task.trackLength, 1e-6f);
@@ -1144,7 +1164,7 @@ namespace SL.Tests.EditMode
         {
             CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_length", -0.5d));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", -0.5d));
 
             StringAssert.Contains("Invalid track_length", ErrorOf(response));
         }
@@ -1155,7 +1175,7 @@ namespace SL.Tests.EditMode
         {
             CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_length", 1e40d));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", 1e40d));
 
             StringAssert.Contains("Invalid track_length", ErrorOf(response));
         }
@@ -1166,7 +1186,7 @@ namespace SL.Tests.EditMode
         {
             CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_length", new object()));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", new object()));
 
             StringAssert.Contains("Invalid track_length", ErrorOf(response));
         }
@@ -1177,7 +1197,7 @@ namespace SL.Tests.EditMode
         {
             CreateTask();
 
-            Dictionary<string, object> response = Write(Section("task", "track_seed", "seed"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_seed", "seed"));
 
             StringAssert.Contains("Invalid track_seed 'seed'. Must be a whole number.", ErrorOf(response));
         }
@@ -1189,7 +1209,7 @@ namespace SL.Tests.EditMode
             Task task = CreateTask();
             task.trackSeed = 7;
 
-            Dictionary<string, object> response = Write(Section("task", "track_seed", -1L));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_seed", -1L));
 
             AssertSucceeded(response);
             Assert.AreEqual(Task.RandomSeedSentinel, task.trackSeed);
@@ -1199,10 +1219,10 @@ namespace SL.Tests.EditMode
         [Test]
         public void WriteTaskParameters_TaskSectionWithoutTask_IsIgnored()
         {
-            Dictionary<string, object> response = Write(Section("task", "track_length", -5d));
+            Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_length", -5d));
 
             AssertSucceeded(response);
-            Assert.IsNull(Nested(response, "state")["task"]);
+            Assert.IsNull(GetNestedObject(response, "state")["task"]);
         }
 
         /// <summary>Verifies that a section value that is not an object is ignored outright.</summary>
@@ -1215,7 +1235,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = Write(new Dictionary<string, object> { { "task", "not-a-section" } });
 
             AssertSucceeded(response);
-            Assert.AreEqual(7d, NumberOf(Nested(Nested(response, "state"), "task")["track_seed"]));
+            Assert.AreEqual(7d, ReadNumber(GetNestedObject(GetNestedObject(response, "state"), "task")["track_seed"]));
         }
 
         /// <summary>Verifies that a rejected request leaves every earlier section unwritten.</summary>
@@ -1240,7 +1260,7 @@ namespace SL.Tests.EditMode
 
             StringAssert.Contains("Invalid track_seed", ErrorOf(response));
             Assert.AreEqual("127.0.0.1", client.ipAddress);
-            Assert.AreEqual("127.0.0.1", Nested(Nested(Read(), "state"), "mqtt")["ip"]);
+            Assert.AreEqual("127.0.0.1", GetNestedObject(GetNestedObject(Read(), "state"), "mqtt")["ip"]);
         }
 
         /// <summary>Verifies that an accepted write is observable in the snapshot the next read returns.</summary>
@@ -1258,9 +1278,9 @@ namespace SL.Tests.EditMode
             };
             AssertSucceeded(Write(arguments));
 
-            Dictionary<string, object> state = Nested(Nested(Read(), "state"), "task");
-            Assert.AreEqual(1234.5d, NumberOf(state["track_length"]));
-            Assert.AreEqual(7d, NumberOf(state["track_seed"]));
+            Dictionary<string, object> state = GetNestedObject(GetNestedObject(Read(), "state"), "task");
+            Assert.AreEqual(1234.5d, ReadNumber(state["track_length"]));
+            Assert.AreEqual(7d, ReadNumber(state["track_seed"]));
         }
 
         /// <summary>Verifies that the write response reports the scene as the single pre-write walk saw it.</summary>
@@ -1276,13 +1296,13 @@ namespace SL.Tests.EditMode
             CreateTask();
             GameObject ghost = AddChild(actor.gameObject, "Model Ghost");
             ghost.AddComponent<OccupancyZone>();
-            Assert.AreEqual(true, Nested(Nested(Read(), "visibility"), "task")["require_wait"]);
+            Assert.AreEqual(true, GetNestedObject(GetNestedObject(Read(), "visibility"), "task")["require_wait"]);
 
-            Dictionary<string, object> response = Write(Section("actor", "model", "None"));
+            Dictionary<string, object> response = Write(BuildSectionArguments("actor", "model", "None"));
 
             AssertSucceeded(response);
-            Assert.AreEqual(true, Nested(Nested(response, "visibility"), "task")["require_wait"]);
-            Assert.AreEqual(false, Nested(Nested(Read(), "visibility"), "task")["require_wait"]);
+            Assert.AreEqual(true, GetNestedObject(GetNestedObject(response, "visibility"), "task")["require_wait"]);
+            Assert.AreEqual(false, GetNestedObject(GetNestedObject(Read(), "visibility"), "task")["require_wait"]);
         }
 
         /// <summary>Verifies that the play state tool reports the edit state and the active scene name.</summary>
@@ -1349,13 +1369,13 @@ namespace SL.Tests.EditMode
                 _manager.monitors.Any(monitor => monitor.left == SentinelCoordinate),
                 "The refresh left the installed sentinel monitor in the manager's list."
             );
-            List<Dictionary<string, object>> rows = Rows(Nested(response, "state")["camera_mapping"]);
+            List<Dictionary<string, object>> rows = ReadRowList(GetNestedObject(response, "state")["camera_mapping"]);
             Assert.AreEqual(_manager.monitors.Count, rows.Count);
             for (int index = 0; index < rows.Count; index++)
             {
-                Assert.AreEqual(index + 1d, NumberOf(rows[index]["monitor"]));
-                Assert.AreEqual((double)_manager.monitors[index].left, NumberOf(rows[index]["left"]));
-                Assert.AreEqual((double)_manager.monitors[index].top, NumberOf(rows[index]["top"]));
+                Assert.AreEqual(index + 1d, ReadNumber(rows[index]["monitor"]));
+                Assert.AreEqual((double)_manager.monitors[index].left, ReadNumber(rows[index]["left"]));
+                Assert.AreEqual((double)_manager.monitors[index].top, ReadNumber(rows[index]["top"]));
             }
         }
 
@@ -1372,10 +1392,13 @@ namespace SL.Tests.EditMode
                 new[] { "state", "options", "visibility", "success" },
                 response.Keys.ToList()
             );
-            Assert.AreEqual(false, Nested(Nested(response, "visibility"), "task")["require_interaction"]);
+            Assert.AreEqual(
+                false,
+                GetNestedObject(GetNestedObject(response, "visibility"), "task")["require_interaction"]
+            );
             CollectionAssert.AreEqual(
                 new[] { "Rodent", "None" },
-                Strings(Nested(Nested(response, "options"), "actor")["model"])
+                ReadStringList(GetNestedObject(GetNestedObject(response, "options"), "actor")["model"])
             );
         }
 
@@ -1391,7 +1414,7 @@ namespace SL.Tests.EditMode
             );
             CollectionAssert.AreEquivalent(
                 new[] { "actor", "mqtt", "display", "camera_mapping", "task" },
-                Nested(response, "state").Keys.ToList()
+                GetNestedObject(response, "state").Keys.ToList()
             );
         }
 
@@ -1435,10 +1458,6 @@ namespace SL.Tests.EditMode
                 );
         }
 
-        /// <summary>Routes a tool call through the bridge dispatcher and parses its JSON answer.</summary>
-        /// <param name="tool">The tool name to dispatch.</param>
-        /// <param name="arguments">The tool arguments.</param>
-        /// <returns>The parsed response payload.</returns>
         /// <summary>Clears the active scene's dirty flag, so a later assertion observes this test's writes alone.
         /// </summary>
         /// <remarks>
@@ -1455,6 +1474,10 @@ namespace SL.Tests.EditMode
             );
         }
 
+        /// <summary>Routes a tool call through the bridge dispatcher and parses its JSON answer.</summary>
+        /// <param name="tool">The tool name to dispatch.</param>
+        /// <param name="arguments">The tool arguments.</param>
+        /// <returns>The parsed response payload.</returns>
         private static Dictionary<string, object> Dispatch(string tool, Dictionary<string, object> arguments)
         {
             string json = (string)PrivateAccess.InvokeStatic(typeof(McpBridge), "Dispatch", tool, arguments);
@@ -1504,7 +1527,7 @@ namespace SL.Tests.EditMode
         /// <param name="key">The field name inside the section.</param>
         /// <param name="value">The field value to write.</param>
         /// <returns>The assembled arguments dictionary.</returns>
-        private static Dictionary<string, object> Section(string section, string key, object value)
+        private static Dictionary<string, object> BuildSectionArguments(string section, string key, object value)
         {
             return new Dictionary<string, object>
             {
@@ -1518,7 +1541,7 @@ namespace SL.Tests.EditMode
         /// <summary>Builds a camera mapping write request from the supplied rows.</summary>
         /// <param name="rows">The rows to place in the camera_mapping list.</param>
         /// <returns>The assembled arguments dictionary.</returns>
-        private static Dictionary<string, object> CameraMapping(params Dictionary<string, object>[] rows)
+        private static Dictionary<string, object> BuildCameraMappingArguments(params Dictionary<string, object>[] rows)
         {
             return new Dictionary<string, object> { { "camera_mapping", rows.Cast<object>().ToList() } };
         }
@@ -1527,7 +1550,7 @@ namespace SL.Tests.EditMode
         /// <param name="parent">The dictionary to read from.</param>
         /// <param name="key">The key holding the nested dictionary.</param>
         /// <returns>The nested dictionary.</returns>
-        private static Dictionary<string, object> Nested(Dictionary<string, object> parent, string key)
+        private static Dictionary<string, object> GetNestedObject(Dictionary<string, object> parent, string key)
         {
             Assert.IsNotNull(parent[key], $"Expected a nested object at '{key}'.");
             return (Dictionary<string, object>)parent[key];
@@ -1536,7 +1559,7 @@ namespace SL.Tests.EditMode
         /// <summary>Returns the parsed string list stored in a JSON array value.</summary>
         /// <param name="value">The parsed JSON array.</param>
         /// <returns>The list of strings it carries.</returns>
-        private static List<string> Strings(object value)
+        private static List<string> ReadStringList(object value)
         {
             return ((List<object>)value).Select(item => (string)item).ToList();
         }
@@ -1544,7 +1567,7 @@ namespace SL.Tests.EditMode
         /// <summary>Returns the parsed object list stored in a JSON array value.</summary>
         /// <param name="value">The parsed JSON array.</param>
         /// <returns>The list of dictionaries it carries.</returns>
-        private static List<Dictionary<string, object>> Rows(object value)
+        private static List<Dictionary<string, object>> ReadRowList(object value)
         {
             return ((List<object>)value).Select(item => (Dictionary<string, object>)item).ToList();
         }
@@ -1552,7 +1575,7 @@ namespace SL.Tests.EditMode
         /// <summary>Returns a parsed JSON number as a double regardless of its integral or real form.</summary>
         /// <param name="value">The parsed JSON number.</param>
         /// <returns>The numeric value.</returns>
-        private static double NumberOf(object value)
+        private static double ReadNumber(object value)
         {
             return value is long integral ? integral : (double)value;
         }

@@ -1,9 +1,8 @@
 /// <summary>
 /// Provides the Task class that manages the infinite corridor VR environment for mesoscope experiments.
 ///
-/// Controls the generation and cycling of random maze segments, manages animal position
-/// within the corridor system, and handles MQTT communication for cue sequences, scene information, and the
-/// interaction/wait requirement toggles.
+/// Controls the generation and cycling of random maze segments, manages animal position within the corridor system, and
+/// handles MQTT communication for cue sequences, scene information, and the interaction/wait requirement toggles.
 /// </summary>
 using System;
 using System.Collections.Generic;
@@ -21,10 +20,10 @@ namespace SL.Tasks
     /// communication.
     /// </summary>
     /// <remarks>
-    /// A "cue" refers to a visual pattern displayed on the corridor walls. A "trial" is a named entry in the
-    /// task template's trial_structures dictionary; it carries the trial's cue sequence, trigger zone, and
-    /// optional transition probabilities. A "segment" is the Unity prefab generated for a trial. A "corridor"
-    /// is a grouping of adjacent segments forming a visual unit.
+    /// A "cue" refers to a visual pattern displayed on the corridor walls. A "trial" is a named entry in the task
+    /// template's trial_structures dictionary. It carries the trial's cue sequence, trigger zone, and optional
+    /// transition probabilities. A "segment" is the Unity prefab generated for a trial. A "corridor" is a grouping of
+    /// adjacent segments forming a visual unit.
     /// </remarks>
     public class Task : MonoBehaviour
     {
@@ -32,16 +31,13 @@ namespace SL.Tasks
         public const int RandomSeedSentinel = -1;
 
         /// <summary>The default length of the pre-generated segment sequence in Unity units.</summary>
-        /// <remarks>
-        /// The generation pipeline reads this to confirm a template's segments are short enough to fill a corridor,
-        /// because a generated task prefab always starts at this length.
-        /// </remarks>
         public const float DefaultTrackLength = 15000f;
 
         /// <summary>The largest corridor map the runtime allocates, measured in segment combinations.</summary>
         /// <remarks>
-        /// Every entry pairs two floats, so this ceiling holds the map inside the two gigabyte limit the runtime
-        /// places on a single managed array.
+        /// Every entry pairs two floats, so the ceiling of 2^28 combinations puts the map at the two gigabyte bound
+        /// the runtime places on a single managed array. A template whose trial count raised to the corridor depth
+        /// exceeds the ceiling is rejected at startup, before any allocation is attempted.
         /// </remarks>
         private const int MaximumCorridorCount = 268435456;
 
@@ -103,10 +99,10 @@ namespace SL.Tasks
         /// <summary>The MQTT channel for sending the scene name data.</summary>
         private MQTTChannel<SceneNameMessage> _sceneNameChannel;
 
-        /// <summary>The MQTT channel that toggles the interaction requirement; payload true enables it.</summary>
+        /// <summary>The MQTT channel that toggles the interaction requirement. A payload of true enables it.</summary>
         private MQTTChannel<BoolMessage> _requireInteractionChannel;
 
-        /// <summary>The MQTT channel that toggles the wait requirement; payload value of true enables it.</summary>
+        /// <summary>The MQTT channel that toggles the wait requirement. A payload of true enables it.</summary>
         private MQTTChannel<BoolMessage> _requireWaitChannel;
 
         /// <summary>The number of segments visible in each corridor (corridor depth).</summary>
@@ -138,9 +134,9 @@ namespace SL.Tasks
         private float[] _cueLengths;
 
         /// <summary>
-        /// Maps a base-<see cref="_trialCount"/> encoding of the current corridor's segment indices to its
-        /// (x-position, first segment length). Indexed by <see cref="ComputeCorridorKey"/>; the encoding lets
-        /// the runtime avoid allocating a string key every frame.
+        /// Maps a base-<see cref="_trialCount"/> encoding of the current corridor's segment indices to its (x-position,
+        /// first segment length). Indexed by <see cref="ComputeCorridorKey"/>. The encoding lets the runtime avoid
+        /// allocating a string key every frame.
         /// </summary>
         private (float xPosition, float firstSegmentLength)[] _corridorMap;
 
@@ -398,28 +394,28 @@ namespace SL.Tasks
             _requireWaitChannel?.receivedEvent.RemoveListener(OnRequireWait);
         }
 
-        /// <summary>MQTT callback that sends the cue sequence when requested.</summary>
+        /// <summary>Sends the cue sequence in response to the MQTT trigger.</summary>
         private void OnCueSequenceTrigger()
         {
             Debug.Log("Task: Received request for cue sequence.");
             _cueSequenceChannel.Send(new SequenceMessage() { cueSequence = _cueSequenceArray });
         }
 
-        /// <summary>MQTT callback that sends the scene name when requested.</summary>
+        /// <summary>Sends the active scene name in response to the MQTT trigger.</summary>
         private void OnSceneNameTrigger()
         {
             _sceneNameChannel.Send(new SceneNameMessage() { name = _sceneName });
         }
 
-        /// <summary>MQTT callback that applies the interaction-requirement toggle from the message payload.</summary>
-        /// <param name="message">The boolean payload; true enables the requirement, false disables it.</param>
+        /// <summary>Applies the interaction-requirement toggle carried by the message payload.</summary>
+        /// <param name="message">The boolean payload. True enables the requirement, false disables it.</param>
         private void OnRequireInteraction(BoolMessage message)
         {
             requireInteraction = message.value;
         }
 
-        /// <summary>MQTT callback that applies the wait-requirement toggle from the message payload.</summary>
-        /// <param name="message">The boolean payload; true enables the requirement, false disables it.</param>
+        /// <summary>Applies the wait-requirement toggle carried by the message payload.</summary>
+        /// <param name="message">The boolean payload. True enables the requirement, false disables it.</param>
         private void OnRequireWait(BoolMessage message)
         {
             requireWait = message.value;
@@ -455,10 +451,9 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Encodes the segment indices of a corridor as a single integer for indexing into
-        /// <see cref="_corridorMap"/>. Reads the sequence as digits of a base-<see cref="_trialCount"/> number
-        /// so that the corridor-map build loop (which decomposes its outer index back into digits) and the
-        /// runtime lookup produce identical integers.
+        /// Encodes the segment indices of a corridor as a single integer for indexing into <see cref="_corridorMap"/>.
+        /// Reads the sequence as digits of a base-<see cref="_trialCount"/> number so that the corridor-map build loop
+        /// (which decomposes its outer index back into digits) and the runtime lookup produce identical integers.
         /// </summary>
         /// <param name="segments">The ordered segment indices that identify a corridor.</param>
         /// <returns>The integer key matching the build-time index in <see cref="_corridorMap"/>.</returns>
@@ -511,7 +506,7 @@ namespace SL.Tasks
         /// The optional seed for the random number generator. Use <see cref="RandomSeedSentinel"/> for a
         /// nondeterministic seed.
         /// </param>
-        /// <returns>A tuple containing (trial indices array, flattened cue codes array).</returns>
+        /// <returns>The trial indices in generation order and the cue codes they expand to.</returns>
         private (int[], byte[]) GenerateRandomMaze(float length, int seed)
         {
             float sequenceLength = 0;
@@ -573,9 +568,9 @@ namespace SL.Tasks
 
         /// <summary>Wraps a single boolean payload for MQTT toggle channels.</summary>
         /// <remarks>
-        /// Required because <see cref="UnityEngine.JsonUtility"/> cannot serialize or deserialize bare
-        /// primitives at the top level; the wrapper makes the value addressable via the JSON object
-        /// <c>{"value": true|false}</c> contract that <see cref="MQTTChannel{TMessage}"/> uses.
+        /// Required because <see cref="UnityEngine.JsonUtility"/> cannot serialize or deserialize bare primitives at
+        /// the top level. The wrapper makes the value addressable via the JSON object <c>{"value": true|false}</c>
+        /// contract that <see cref="MQTTChannel{TMessage}"/> uses.
         /// </remarks>
         public class BoolMessage
         {

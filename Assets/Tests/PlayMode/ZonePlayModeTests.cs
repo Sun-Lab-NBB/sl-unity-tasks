@@ -658,7 +658,7 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Builds the single-trial template every rig's task loads.</summary>
-        /// <returns>The template builder.</returns>
+        /// <returns>A builder whose rendered document carries one cue and the single trial that names it.</returns>
         private static TemplateYaml BuildZoneTemplate()
         {
             TemplateYaml template = new TemplateYaml();
@@ -696,7 +696,10 @@ namespace SL.Tests.PlayMode
         private static void PlaceZone(Component zone, float centerZ, float depth)
         {
             zone.transform.position = new Vector3(0f, 0f, centerZ);
-            BoxCollider collider = zone.GetComponent<BoxCollider>();
+            Assert.IsTrue(
+                zone.TryGetComponent(out BoxCollider collider),
+                $"Unable to place zone '{zone.name}'. The zone must carry a BoxCollider, but none is attached."
+            );
             collider.center = Vector3.zero;
             collider.size = new Vector3(ZoneCrossSection, ZoneCrossSection, depth);
         }

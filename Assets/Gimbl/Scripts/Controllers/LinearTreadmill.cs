@@ -1,16 +1,14 @@
 /// <summary>
 /// Provides the LinearTreadmill class for handling physical treadmill input via MQTT.
 ///
-/// Receives movement data from an external treadmill device and translates it
-/// to actor position updates in the VR environment.
+/// Receives movement data from an external treadmill device and translates it to actor position updates in the VR
+/// environment.
 /// </summary>
 using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Handles linear treadmill input from MQTT and updates actor position.
-    /// </summary>
+    /// <summary>Handles linear treadmill input from MQTT and updates actor position.</summary>
     public class LinearTreadmill : ControllerObject
     {
         /// <summary>The accumulated movement since last frame.</summary>
@@ -19,19 +17,17 @@ namespace Gimbl
         /// <summary>The cached actor position for updates.</summary>
         private Vector3 _position;
 
-        /// <summary>The MQTT channel subscribed to incoming treadmill data; null for simulated treadmills.</summary>
+        /// <summary>The MQTT channel subscribed to incoming treadmill data, null for simulated treadmills.</summary>
         private MQTTChannel<TreadmillMessage> _dataChannel;
 
         /// <summary>Subscribes to the hardware-treadmill MQTT data topic on start.</summary>
         /// <remarks>
-        /// <see cref="SimulatedLinearTreadmill"/> hides this method via its own private <c>Start</c> and
-        /// intentionally does not chain to it, so the hardware subscription stays inactive for keyboard
-        /// runs. The lifecycle contract relies on Unity dispatching <c>Start</c> per most-derived type
-        /// only: promoting either <c>Start</c> to <c>protected virtual</c> or wiring a base call from the
-        /// simulated subclass would subscribe the simulated rig to <see cref="MQTTTopics.Motion"/> (a
-        /// hardware-only topic it must never listen on); both are deliberate non-options. If a third
-        /// controller subclass appears, follow the same pattern (hide via its own
-        /// <c>Start</c>; do not chain).
+        /// <see cref="SimulatedLinearTreadmill"/> hides this method via its own private <c>Start</c> and intentionally
+        /// does not chain to it, so the hardware subscription stays inactive for keyboard runs. The lifecycle contract
+        /// relies on Unity dispatching <c>Start</c> per most-derived type only. Promoting <c>Start</c> to
+        /// <c>protected virtual</c>, or wiring a base call from the simulated subclass, would subscribe the simulated
+        /// rig to <see cref="MQTTTopics.Motion"/>, a hardware-only topic it must never listen on. If a third controller
+        /// subclass appears, follow the same pattern (hide via its own <c>Start</c>, without chaining).
         /// </remarks>
         private void Start()
         {
@@ -43,6 +39,12 @@ namespace Gimbl
         public virtual void Update()
         {
             ProcessMovement();
+        }
+
+        /// <summary>Removes the MQTT listener so the treadmill stops receiving data after destruction.</summary>
+        private void OnDestroy()
+        {
+            _dataChannel?.receivedEvent.RemoveListener(OnMessage);
         }
 
         /// <summary>Applies accumulated movement to the actor's position.</summary>
@@ -62,12 +64,6 @@ namespace Gimbl
 
                 movement.Clear();
             }
-        }
-
-        /// <summary>Removes the MQTT listener so the treadmill stops receiving data after destruction.</summary>
-        private void OnDestroy()
-        {
-            _dataChannel?.receivedEvent.RemoveListener(OnMessage);
         }
 
         /// <summary>Receives movement data from the treadmill via MQTT callback.</summary>

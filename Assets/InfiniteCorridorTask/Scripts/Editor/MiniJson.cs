@@ -16,8 +16,8 @@ namespace SL.Tasks
     public static class MiniJson
     {
         /// <summary>Deserializes a JSON string into a dictionary.</summary>
-        /// <param name="json">The JSON string to parse.</param>
-        /// <returns>A dictionary of string keys to object values.</returns>
+        /// <param name="json">The payload whose top-level object is decoded.</param>
+        /// <returns>The decoded top-level object, empty when the payload holds none.</returns>
         /// <exception cref="ArgumentNullException">The <paramref name="json"/> argument is null.</exception>
         public static Dictionary<string, object> Deserialize(string json)
         {
@@ -34,31 +34,34 @@ namespace SL.Tasks
         /// Serializes a dictionary, sequence, string, number, boolean, or null value to a JSON string, and serializes
         /// any other value as its quoted ToString representation.
         /// </summary>
-        /// <param name="obj">The object to serialize.</param>
-        /// <returns>A JSON string representation.</returns>
-        public static string Serialize(object obj)
+        /// <param name="value">The value whose JSON encoding is produced.</param>
+        /// <returns>The JSON text encoding the value.</returns>
+        public static string Serialize(object value)
         {
-            if (obj == null)
+            if (value == null)
             {
                 return "null";
             }
 
-            if (obj is bool boolValue)
+            if (value is bool boolValue)
             {
                 return boolValue ? "true" : "false";
             }
 
-            if (obj is string stringValue)
+            if (value is string stringValue)
             {
                 return $"\"{EscapeString(stringValue)}\"";
             }
 
-            if (obj is IFormattable formattable && (obj is int || obj is long || obj is float || obj is double))
+            if (
+                value is IFormattable formattable
+                && (value is int || value is long || value is float || value is double)
+            )
             {
                 return formattable.ToString(format: null, CultureInfo.InvariantCulture);
             }
 
-            if (obj is Dictionary<string, object> dictionary)
+            if (value is Dictionary<string, object> dictionary)
             {
                 StringBuilder builder = new StringBuilder("{");
                 bool first = true;
@@ -78,7 +81,7 @@ namespace SL.Tasks
                 return builder.ToString();
             }
 
-            if (obj is Dictionary<string, float> floatDictionary)
+            if (value is Dictionary<string, float> floatDictionary)
             {
                 StringBuilder builder = new StringBuilder("{");
                 bool first = true;
@@ -100,7 +103,7 @@ namespace SL.Tasks
 
             // The non-generic interface covers a sequence of a value type, which no IEnumerable<T> check matches
             // because covariance is limited to reference types.
-            if (obj is IEnumerable sequence)
+            if (value is IEnumerable sequence)
             {
                 StringBuilder builder = new StringBuilder("[");
                 bool first = true;
@@ -119,14 +122,14 @@ namespace SL.Tasks
                 return builder.ToString();
             }
 
-            return $"\"{EscapeString(obj.ToString())}\"";
+            return $"\"{EscapeString(value.ToString())}\"";
         }
 
         /// <summary>
         /// Escapes the backslash, the quote, and every character below 0x20, emitting the six-character unicode form
         /// for the control characters that carry no shorter escape.
         /// </summary>
-        /// <param name="value">The string to escape.</param>
+        /// <param name="value">The raw text destined for a quoted JSON string.</param>
         /// <returns>The escaped string safe for JSON inclusion.</returns>
         private static string EscapeString(string value)
         {
@@ -178,7 +181,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON string into a dictionary using a recursive-descent parser.</summary>
-        /// <param name="json">The raw JSON string.</param>
+        /// <param name="json">The complete payload, parsed from its first character.</param>
         /// <returns>A parsed dictionary.</returns>
         private static Dictionary<string, object> Parse(string json)
         {
@@ -187,9 +190,9 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON object.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed object.</param>
-        /// <returns>A dictionary representing the parsed JSON object.</returns>
+        /// <returns>The decoded members, empty when the text at the position is not an object.</returns>
         private static Dictionary<string, object> ParseObject(string json, ref int index)
         {
             Dictionary<string, object> result = new Dictionary<string, object>();
@@ -244,9 +247,9 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON value (object, array, string, number, boolean, or null).</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed value.</param>
-        /// <returns>The parsed value as an object.</returns>
+        /// <returns>The decoded value, typed as a dictionary, list, string, long, double, bool, or null.</returns>
         private static object ParseValue(string json, ref int index)
         {
             SkipWhitespace(json, ref index);
@@ -272,9 +275,9 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON string.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed string.</param>
-        /// <returns>The parsed string value.</returns>
+        /// <returns>The unescaped contents between the quotes, empty when no string starts here.</returns>
         /// <exception cref="FormatException">
         /// A unicode escape inside the string is followed by four characters that are not hexadecimal digits.
         /// </exception>
@@ -353,7 +356,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON number.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed number.</param>
         /// <returns>The parsed number as a long or double.</returns>
         private static object ParseNumber(string json, ref int index)
@@ -404,9 +407,9 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON boolean.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed boolean.</param>
-        /// <returns>The parsed boolean value.</returns>
+        /// <returns>The value of the literal at the parse position.</returns>
         /// <exception cref="FormatException">
         /// The literal at <paramref name="index"/> is not "true" or "false".
         /// </exception>
@@ -426,7 +429,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON null value.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the null literal.</param>
         /// <returns>Null.</returns>
         /// <exception cref="FormatException">The literal at <paramref name="index"/> is not "null".</exception>
@@ -441,9 +444,9 @@ namespace SL.Tasks
         }
 
         /// <summary>Parses a JSON array.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed array.</param>
-        /// <returns>A list of parsed values.</returns>
+        /// <returns>The decoded elements in source order, empty for an empty array.</returns>
         private static List<object> ParseArray(string json, ref int index)
         {
             List<object> result = new List<object>();
@@ -481,7 +484,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Advances the index past whitespace characters.</summary>
-        /// <param name="json">The JSON string being parsed.</param>
+        /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past any whitespace.</param>
         private static void SkipWhitespace(string json, ref int index)
         {

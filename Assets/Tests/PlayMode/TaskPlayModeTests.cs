@@ -654,7 +654,7 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Builds the two-trial corridor template whose two segments carry different lengths.</summary>
-        /// <returns>The template builder.</returns>
+        /// <returns>A builder whose rendered document carries a 100 cm cue and a 200 cm cue, one trial each.</returns>
         private static TemplateYaml BuildPairTemplate()
         {
             TemplateYaml template = new TemplateYaml();
@@ -675,7 +675,7 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Builds the single-trial template whose maze generation is fully deterministic.</summary>
-        /// <returns>The template builder.</returns>
+        /// <returns>A builder whose rendered document carries one cue and the one trial that names it.</returns>
         private static TemplateYaml BuildSingleTemplate()
         {
             TemplateYaml template = new TemplateYaml();
@@ -691,7 +691,7 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Builds a template that omits its cues section and therefore fails validation.</summary>
-        /// <returns>The template builder.</returns>
+        /// <returns>A builder whose rendered document omits the cues key ConfigLoader requires.</returns>
         private static TemplateYaml BuildInvalidTemplate()
         {
             TemplateYaml template = BuildPairTemplate();

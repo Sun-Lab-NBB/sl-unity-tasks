@@ -86,7 +86,7 @@ External requirements that must be installed before working with this Unity proj
   the X11 server utilities, resolved from the `PATH`. Windows enumerates monitors through the operating system and
   needs no helper. Without the helper, Camera Mapping lists no monitors and full-screen views cannot be assigned.
 - [Blender](https://www.blender.org/download/) **4.5.0 LTS** is required only for authoring or modifying 3D assets
-  (corridor models). It is not required to build or run existing tasks.
+  (corridor models).
 - [.NET SDK](https://dotnet.microsoft.com/download) **8.0 or later** and [CSharpier](https://csharpier.com/) **1.x**
   only when contributing source changes (see [Formatting and Style](#formatting-and-style)).
 
@@ -294,16 +294,20 @@ selecting a template, the pipeline:
 
 1. Runs a cross-template cue-texture preflight (`ValidateCueDefinitionsAcrossTemplates`). If two templates declare the
    same `(cue name, length_cm)` pair with different textures, the generation aborts before any asset is written.
-2. Builds or reuses cue prefabs keyed by `(name, length_cm)` under `Assets/InfiniteCorridorTask/Cues/`.
-3. Wipes every segment prefab the template owns (`CleanGeneratedSegments`) so trial-parameter edits take effect. The
+2. Validates that the default track length covers one corridor (`ValidateTrackLengthCoversCorridor`) and that every
+   hand-authored asset the build consumes is present (`ValidateHandAuthoredAssets`). Both checks abort before any
+   asset is written.
+3. Builds or reuses cue prefabs keyed by `(name, length_cm)` under `Assets/InfiniteCorridorTask/Cues/`.
+4. Wipes every segment prefab the template owns (`CleanGeneratedSegments`) so trial-parameter edits take effect. The
    wipe follows the cue build, so a missing texture aborts the run with the previous generation still intact.
-4. Builds every segment prefab from scratch under
+5. Builds every segment prefab from scratch under
    `Assets/InfiniteCorridorTask/Prefabs/<TemplateName>-<TrialName>.prefab`. Template and trial names are restricted to
    ASCII letters, digits, and underscores, so the hyphen separator resolves each segment to exactly one template.
-5. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`.
-6. Copies `Assets/Scenes/ExperimentTemplate.unity` to `Assets/Scenes/<TemplateName>.unity`, instantiates the task
-   prefab into it, and runs `MainWindow.EnsureControllers` so both the `LinearTreadmill` (hardware) and
-   `SimulatedLinearTreadmill` (keyboard testing) controllers are present.
+6. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`.
+7. Copies `Assets/Scenes/ExperimentTemplate.unity` to `Assets/Scenes/<TemplateName>.unity`, instantiates the task
+   prefab into it, and runs `MainWindow.EnsureControllers`, `EnsureMqttDefaults`, and `SyncDisplayBrightnessToSettings`
+   so both the `LinearTreadmill` (hardware) and `SimulatedLinearTreadmill` (keyboard testing) controllers are present
+   and the scene carries the project's broker address and display brightness.
 
 **MCP-driven flow.** The same pipeline is reachable via AI agents over the `slsa mcp` server's Unity relay. A single
 `create_task_tool` call builds both the task prefab and the matching scene from the same `CreateTask.CreateFromTemplate`

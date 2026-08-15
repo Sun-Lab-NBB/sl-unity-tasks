@@ -60,10 +60,10 @@ namespace Gimbl
 
         /// <summary>Renders a per-monitor row pairing the monitor coordinates with a camera dropdown.</summary>
         /// <remarks>
-        /// Enumerates every assignable <see cref="Camera"/> in the active scene (excluding the Unity-default
-        /// Main Camera) each frame so the dropdown reflects the current scene state without manual refresh.
-        /// Selections that would alias another monitor's
-        /// camera are silently ignored to preserve the existing one-camera-per-monitor invariant.
+        /// Enumerates every assignable <see cref="Camera"/> in the active scene (excluding the Unity-default Main
+        /// Camera) each frame so the dropdown reflects the current scene state without manual refresh. Selections that
+        /// would alias another monitor's camera are silently ignored to preserve the existing one-camera-per-monitor
+        /// invariant.
         /// </remarks>
         public void OnGUICameraObjectFields()
         {
@@ -96,11 +96,9 @@ namespace Gimbl
 
         /// <summary>Re-detects the system monitors, carrying each existing camera assignment across by index.</summary>
         /// <remarks>
-        /// Shared by the Camera Mapping refresh button and the bridge's <c>refresh_monitors</c> tool so the manual
-        /// and the agentic path re-detect identically. Assignments carry by position, so removing a monitor from the
-        /// middle of the arrangement shifts every later assignment up by one slot. The refreshed list stays in memory
-        /// exactly as the button leaves it, and reaches the per-scene companion asset on the next
-        /// <see cref="SaveCameras"/> call.
+        /// Assignments carry by position, so removing a monitor from the middle of the arrangement shifts every later
+        /// assignment up by one slot. The refreshed list stays in memory and reaches the per-scene companion asset on
+        /// the next <see cref="SaveCameras"/> call.
         /// </remarks>
         public void RefreshMonitorPositions()
         {
@@ -172,9 +170,9 @@ namespace Gimbl
 
         /// <summary>Loads camera assignments from the scene's asset file.</summary>
         /// <remarks>
-        /// Skips both the load and the create-if-missing paths when the active scene has no name
-        /// (untitled / unsaved). Saving a companion asset keyed by the empty string would produce an
-        /// orphan <c>-savedFullScreenViews.asset</c> with no matching scene to consume it.
+        /// Skips both the load and the create-if-missing paths when the active scene has no name (untitled / unsaved).
+        /// Saving a companion asset keyed by the empty string would produce an orphan
+        /// <c>-savedFullScreenViews.asset</c> with no matching scene to consume it.
         /// </remarks>
         public void LoadCameras()
         {
@@ -193,31 +191,28 @@ namespace Gimbl
             _savedFullScreenViews = (FullScreenViewsSaved)
                 AssetDatabase.LoadAssetAtPath(savedViewsPath, typeof(FullScreenViewsSaved));
 
-            if (_savedFullScreenViews != null)
-            {
-                for (int savedIndex = 0; savedIndex < _savedFullScreenViews.cameraNames.Count; savedIndex++)
-                {
-                    if (savedIndex < monitors.Count)
-                    {
-                        string cameraPath = _savedFullScreenViews.cameraNames[savedIndex];
-                        GameObject cameraObject = GameObject.Find(cameraPath);
-                        if (cameraObject != null)
-                        {
-                            Camera camera = cameraObject.GetComponent<Camera>();
-                            if (camera != null)
-                            {
-                                monitors[savedIndex].cameraEntityId = camera.GetEntityId();
-                            }
-                        }
-                    }
-                }
-            }
-            else
+            if (_savedFullScreenViews == null)
             {
                 _savedFullScreenViews = ScriptableObject.CreateInstance<FullScreenViewsSaved>();
                 AssetDatabase.CreateAsset(_savedFullScreenViews, savedViewsPath);
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
+                return;
+            }
+
+            for (int savedIndex = 0; savedIndex < _savedFullScreenViews.cameraNames.Count; savedIndex++)
+            {
+                if (savedIndex >= monitors.Count)
+                {
+                    continue;
+                }
+                string cameraPath = _savedFullScreenViews.cameraNames[savedIndex];
+                GameObject cameraObject = GameObject.Find(cameraPath);
+                if (cameraObject == null || !cameraObject.TryGetComponent(out Camera camera))
+                {
+                    continue;
+                }
+                monitors[savedIndex].cameraEntityId = camera.GetEntityId();
             }
         }
 

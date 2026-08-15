@@ -23,7 +23,7 @@ namespace SL.Tests
         /// <summary>Determines whether the stimulus zone object carries a MeshRenderer boundary indicator.</summary>
         public bool includeBoundaryRenderer = true;
 
-        /// <summary>The stimulus zone's per-lap boundary visibility setting.</summary>
+        /// <summary>Determines whether the stimulus zone shows its boundary while it is active.</summary>
         public bool showBoundary = false;
 
         /// <summary>The trial name the stimulus zone publishes with every outcome.</summary>
@@ -32,10 +32,10 @@ namespace SL.Tests
         /// <summary>The occupancy duration in milliseconds assigned to the occupancy zone.</summary>
         public float occupancyDurationMs = 1000f;
 
-        /// <summary>The task's interaction-requirement toggle, which gates interaction-mode guidance.</summary>
+        /// <summary>Determines whether the task requires an interaction, gating interaction-mode guidance.</summary>
         public bool requireInteraction = false;
 
-        /// <summary>The task's wait-requirement toggle, which gates occupancy-mode brake guidance.</summary>
+        /// <summary>Determines whether the task requires a wait, gating occupancy-mode brake guidance.</summary>
         public bool requireWait = false;
 
         /// <summary>

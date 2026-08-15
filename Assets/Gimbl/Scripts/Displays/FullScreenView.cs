@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the FullScreenView class for rendering borderless full-screen game views.
 ///
-/// Renders a camera to a borderless popup editor window, enabling multi-monitor VR
-/// display setups within the Unity editor.
+/// Renders a camera to a borderless popup editor window, enabling multi-monitor VR display setups within the Unity
+/// editor.
 /// </summary>
 #if UNITY_EDITOR
 using System.Collections.Generic;
@@ -11,9 +11,7 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Renders a borderless full-screen game view in an editor window.
-    /// </summary>
+    /// <summary>Renders a borderless full-screen game view in an editor window.</summary>
     public class FullScreenView : EditorWindow
     {
         /// <summary>The list of all active full-screen views.</summary>
@@ -32,10 +30,10 @@ namespace Gimbl
         /// <remarks>
         /// Registration lives here rather than in Awake because a domain reload rebuilds <see cref="Views"/>
         /// empty without re-invoking Awake on a window that survived it, which would orphan every open view.
-        /// The play-mode subscription closes the view when Play Mode ends. Without it the borderless
-        /// window outlives the scene restore that Unity performs on exit, which clears the camera's
-        /// programmatically assigned <c>targetTexture</c> and leaves the OnGUI render path drawing
-        /// against a null texture (visible as a stale afterimage plus a console error).
+        /// The play-mode subscription closes the view when Play Mode ends. The borderless window would otherwise
+        /// outlive the scene restore Unity performs on exit, which clears the camera's programmatically assigned
+        /// <c>targetTexture</c>. The OnGUI render path would then draw against a null texture, producing a stale
+        /// afterimage and a console error.
         /// </remarks>
         private void OnEnable()
         {
@@ -55,16 +53,6 @@ namespace Gimbl
         {
             EditorApplication.wantsToQuit -= OnEditorWantsToQuit;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
-        }
-
-        /// <summary>Closes the view when Play Mode ends so the post-restore null targetTexture cannot fire.</summary>
-        /// <param name="state">The current Play Mode transition.</param>
-        private void OnPlayModeStateChanged(PlayModeStateChange state)
-        {
-            if (state == PlayModeStateChange.ExitingPlayMode)
-            {
-                Close();
-            }
         }
 
         /// <summary>Handles GUI events and renders the camera view.</summary>
@@ -97,7 +85,7 @@ namespace Gimbl
                         _camera.targetTexture = new RenderTexture(
                             renderWidth,
                             renderHeight,
-                            24,
+                            depth: 24,
                             RenderTextureFormat.ARGB32
                         );
                         _rendering = true;
@@ -139,6 +127,16 @@ namespace Gimbl
                 _camera.enabled = true;
             }
             Views.Remove(this);
+        }
+
+        /// <summary>Closes the view when Play Mode ends so the post-restore null targetTexture cannot fire.</summary>
+        /// <param name="state">The current Play Mode transition.</param>
+        private void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state == PlayModeStateChange.ExitingPlayMode)
+            {
+                Close();
+            }
         }
 
         /// <summary>Closes this view when the editor is quitting.</summary>

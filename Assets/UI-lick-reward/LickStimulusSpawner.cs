@@ -8,9 +8,7 @@ using UnityEngine;
 
 namespace SL.UI
 {
-    /// <summary>
-    /// Spawns UI indicator prefabs on a canvas in response to lick and stimulus MQTT messages.
-    /// </summary>
+    /// <summary>Spawns UI indicator prefabs on a canvas in response to lick and stimulus MQTT messages.</summary>
     public class LickStimulusSpawner : MonoBehaviour
     {
         /// <summary>The prefab to instantiate when a lick is detected.</summary>

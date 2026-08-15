@@ -5,17 +5,15 @@ using UnityEngine;
 
 namespace SL.Tasks
 {
-    /// <summary>
-    /// Provides static utility functions for measuring prefab dimensions.
-    /// </summary>
+    /// <summary>Provides static utility functions for measuring prefab dimensions.</summary>
     public static class Utility
     {
         /// <summary>
         /// Calculates the z-axis length of a prefab by combining the bounds of every Renderer on the prefab and
         /// its children.
         /// </summary>
-        /// <param name="prefab">The prefab GameObject to measure.</param>
-        /// <returns>The z-axis size of the combined bounds, or 0 if no renderers found.</returns>
+        /// <param name="prefab">The root object whose own and child renderers bound the measurement.</param>
+        /// <returns>The z-axis size of the combined bounds, or 0 when the prefab carries no renderers.</returns>
         public static float GetPrefabLength(GameObject prefab)
         {
             Renderer[] renderers = prefab.GetComponentsInChildren<Renderer>();

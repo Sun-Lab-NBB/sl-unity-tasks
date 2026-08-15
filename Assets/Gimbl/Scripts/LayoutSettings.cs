@@ -6,11 +6,9 @@ using UnityEngine;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Defines shared GUI layout options and styles for editor windows.
-    /// </summary>
+    /// <summary>Defines shared GUI layout options and styles for editor windows.</summary>
     /// <remarks>
-    /// Widths are sized to fit the longest expected line — illustratively the Camera Mapping row, whose label
+    /// Widths are sized to fit the longest expected line, illustratively the Camera Mapping row, whose label
     /// reads <c>"Monitor N (x, y)"</c> followed by a camera-name Popup (its entries are "None" or a scene camera
     /// name, not a literal "Camera View" string). The ~170 px monitor label, an unmeasured ~95 px dropdown estimate,
     /// and ~15 px of MainBox padding together add up to roughly the 280 px <see cref="MainBoxStyle"/> width.

@@ -10,9 +10,7 @@ using YamlDotNet.Serialization.NamingConventions;
 
 namespace SL.Config
 {
-    /// <summary>
-    /// Loads and validates task templates from YAML files.
-    /// </summary>
+    /// <summary>Loads and validates task templates from YAML files.</summary>
     public static class ConfigLoader
     {
         /// <summary>The tolerance for validating that trial transition probabilities sum to 1.0.</summary>
@@ -46,13 +44,8 @@ namespace SL.Config
                 throw new FileNotFoundException($"Template file not found: {filePath}", filePath);
             }
 
-            IDeserializer deserializer = new DeserializerBuilder()
-                .WithNamingConvention(UnderscoredNamingConvention.Instance)
-                .IgnoreUnmatchedProperties()
-                .Build();
-
             string yaml = File.ReadAllText(filePath);
-            TaskTemplate template = deserializer.Deserialize<TaskTemplate>(yaml);
+            TaskTemplate template = ParseTemplate(yaml);
 
             string templateName = Path.GetFileNameWithoutExtension(filePath);
             if (!SegmentNameComponentPattern.IsMatch(templateName))
@@ -69,6 +62,19 @@ namespace SL.Config
             template.templateName = templateName;
 
             return template;
+        }
+
+        /// <summary>Deserializes a task template from raw YAML content.</summary>
+        /// <param name="yaml">The YAML content of a task template file.</param>
+        /// <returns>The template the content describes.</returns>
+        private static TaskTemplate ParseTemplate(string yaml)
+        {
+            IDeserializer deserializer = new DeserializerBuilder()
+                .WithNamingConvention(UnderscoredNamingConvention.Instance)
+                .IgnoreUnmatchedProperties()
+                .Build();
+
+            return deserializer.Deserialize<TaskTemplate>(yaml);
         }
 
         /// <summary>Validates the loaded template for required fields and data integrity.</summary>
@@ -239,10 +245,10 @@ namespace SL.Config
 
                 if (isOccupancy && !trial.occupancyDurationMs.HasValue)
                 {
-                    throw new InvalidDataException(
+                    string message =
                         $"Trial '{trialName}' has trigger_type '{trial.triggerType}', an occupancy mode, so "
-                            + "occupancy_duration_ms is required, but it is unset."
-                    );
+                        + "occupancy_duration_ms is required, but it is unset.";
+                    throw new InvalidDataException(message);
                 }
 
                 if (
@@ -250,10 +256,10 @@ namespace SL.Config
                     && (!float.IsFinite(trial.occupancyDurationMs.Value) || trial.occupancyDurationMs.Value <= 0f)
                 )
                 {
-                    throw new InvalidDataException(
+                    string message =
                         $"Trial '{trialName}' has invalid occupancy_duration_ms {trial.occupancyDurationMs.Value}. "
-                            + "Must be positive and finite."
-                    );
+                        + "Must be positive and finite.";
+                    throw new InvalidDataException(message);
                 }
             }
 
@@ -302,10 +308,10 @@ namespace SL.Config
                     // distribution, and a NaN weight passes every ordered comparison including the sum tolerance.
                     if (!float.IsFinite(transition.Value) || transition.Value < 0f || transition.Value > 1f)
                     {
-                        throw new InvalidDataException(
+                        string message =
                             $"Trial '{trialName}' has a transition to '{transition.Key}' with invalid probability "
-                                + $"{transition.Value}. Must be between 0.0 and 1.0."
-                        );
+                            + $"{transition.Value}. Must be between 0.0 and 1.0.";
+                        throw new InvalidDataException(message);
                     }
 
                     probabilitySum += transition.Value;

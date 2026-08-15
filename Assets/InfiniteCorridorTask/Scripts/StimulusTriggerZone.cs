@@ -140,14 +140,14 @@ namespace SL.Tasks
         }
 
         /// <summary>Sets the zone state to active when the animal enters the trigger zone collider.</summary>
-        /// <param name="other">The collider that entered the trigger zone.</param>
+        /// <param name="other">The entering collider, which this handler accepts without filtering.</param>
         private void OnTriggerEnter(Collider other)
         {
             _inZone = true;
         }
 
         /// <summary>Sets the zone state to inactive when the animal exits the trigger zone collider.</summary>
-        /// <param name="other">The collider that exited the trigger zone.</param>
+        /// <param name="other">The exiting collider, which this handler accepts without filtering.</param>
         private void OnTriggerExit(Collider other)
         {
             bool wasInZone = _inZone;
@@ -171,13 +171,12 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the zone state for a new lap.</summary>
-        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             isActive = true;
             _interactionDetectedInZone = false;
             _inZone = false;
-            UpdateBoundaryVisibility(showBoundary);
+            UpdateBoundaryVisibility(visible: showBoundary);
         }
 
         /// <summary>Toggles the cached boundary renderer, no-op when the renderer is absent.</summary>
@@ -300,7 +299,7 @@ namespace SL.Tasks
         private void TriggerStimulus(bool delivered, string cause)
         {
             Debug.Log($"StimulusTriggerZone: Trial '{trialName}' resolved (delivered={delivered}, cause={cause}).");
-            UpdateBoundaryVisibility(false);
+            UpdateBoundaryVisibility(visible: false);
             _stimulusTrigger.Send(
                 new StimulusMessage
                 {
@@ -313,10 +312,7 @@ namespace SL.Tasks
             _interactionDetectedInZone = false;
         }
 
-        /// <summary>
-        /// Records that an interaction occurred while in the zone.
-        /// Only relevant in interaction mode when the zone is active.
-        /// </summary>
+        /// <summary>Records that an interaction occurred while in the zone.</summary>
         private void OnInteractionDetected()
         {
             Debug.Log("StimulusTriggerZone: Interaction detected.");

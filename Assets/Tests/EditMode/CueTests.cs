@@ -95,7 +95,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(30.0f, result);
         }
 
-        /// <summary>Verifies that a factor below one scales the length up rather than down.</summary>
+        /// <summary>Verifies that a factor below one scales the length up.</summary>
         [Test]
         public void LengthUnity_ScaleFactorBelowOne_ReturnsLargerValue()
         {
@@ -143,7 +143,7 @@ namespace SL.Tests.EditMode
             Assert.IsTrue(float.IsPositiveInfinity(result));
         }
 
-        /// <summary>Verifies that a zero length divided by a zero factor produces a NaN rather than a throw.</summary>
+        /// <summary>Verifies that a zero length divided by a zero factor produces a NaN.</summary>
         [Test]
         public void LengthUnity_ZeroLengthAndZeroScaleFactor_ReturnsNaN()
         {
@@ -210,7 +210,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(30.0f, cue.lengthCm);
         }
 
-        /// <summary>Verifies that LengthUnity honors the factor passed on each call rather than a stored one.</summary>
+        /// <summary>Verifies that LengthUnity honors the factor passed on each call.</summary>
         [Test]
         public void LengthUnity_DifferentFactorPerCall_UsesTheFactorSuppliedToThatCall()
         {

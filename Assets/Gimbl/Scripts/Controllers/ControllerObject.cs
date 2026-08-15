@@ -1,8 +1,7 @@
 /// <summary>
 /// Provides the ControllerObject base class for input handling.
 ///
-/// Defines the abstract controller interface and the ValueBuffer class for
-/// accumulating input between frames.
+/// Defines the abstract controller interface and the ValueBuffer class for accumulating input between frames.
 /// </summary>
 using UnityEngine;
 #if UNITY_EDITOR
@@ -11,16 +10,14 @@ using UnityEditor;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Represents the abstract base class for all input controllers.
-    /// </summary>
+    /// <summary>Represents the abstract base class for all input controllers.</summary>
     public abstract class ControllerObject : MonoBehaviour
     {
         /// <summary>The actor receiving input from this controller.</summary>
         public ActorObject actor;
 
         /// <summary>The buffer for accumulating movement input between frames.</summary>
-        public ValueBuffer movement = new ValueBuffer();
+        public readonly ValueBuffer movement = new ValueBuffer();
 
 #if UNITY_EDITOR
         /// <summary>Parents this controller under the scene's Controllers root and registers it for undo.</summary>
@@ -31,16 +28,14 @@ namespace Gimbl
         }
 #endif
 
-        /// <summary>
-        /// Accumulates input values into a running total that callers drain once per frame.
-        /// </summary>
+        /// <summary>Accumulates input values into a running total that callers drain once per frame.</summary>
         public class ValueBuffer
         {
             /// <summary>The running total of the values added since the last clear.</summary>
             private float _accumulator;
 
             /// <summary>Adds a value to the running total.</summary>
-            /// <param name="value">The value to add.</param>
+            /// <param name="value">The input increment to fold into the running total.</param>
             public void Add(float value)
             {
                 _accumulator += value;

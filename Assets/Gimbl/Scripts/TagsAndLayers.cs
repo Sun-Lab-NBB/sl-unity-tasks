@@ -9,9 +9,7 @@ using UnityEditor;
 
 namespace Gimbl
 {
-    /// <summary>
-    /// Manages Unity tags and layers through the TagManager asset.
-    /// </summary>
+    /// <summary>Manages Unity tags and layers through the TagManager asset.</summary>
     public static class TagsAndLayers
     {
         /// <summary>The maximum number of tags allowed.</summary>
@@ -31,18 +29,18 @@ namespace Gimbl
             SerializedObject tagManager = new SerializedObject(
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]
             );
-            SerializedProperty tagsProp = tagManager.FindProperty("tags");
-            if (tagsProp.arraySize >= MaxTags)
+            SerializedProperty tagsProperty = tagManager.FindProperty("tags");
+            if (tagsProperty.arraySize >= MaxTags)
             {
                 throw new InvalidOperationException(
-                    $"No more tags can be added to the Tags property. You have {tagsProp.arraySize} tags."
+                    $"No more tags can be added to the Tags property. You have {tagsProperty.arraySize} tags."
                 );
             }
-            if (!PropertyExists(tagsProp, start: 0, end: tagsProp.arraySize, value: tagName))
+            if (!PropertyExists(tagsProperty, start: 0, end: tagsProperty.arraySize, value: tagName))
             {
-                int index = tagsProp.arraySize;
-                tagsProp.InsertArrayElementAtIndex(index);
-                SerializedProperty newTag = tagsProp.GetArrayElementAtIndex(index);
+                int index = tagsProperty.arraySize;
+                tagsProperty.InsertArrayElementAtIndex(index);
+                SerializedProperty newTag = tagsProperty.GetArrayElementAtIndex(index);
                 newTag.stringValue = tagName;
                 tagManager.ApplyModifiedProperties();
                 return true;
@@ -61,14 +59,14 @@ namespace Gimbl
             SerializedObject tagManager = new SerializedObject(
                 AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]
             );
-            SerializedProperty layersProp = tagManager.FindProperty("layers");
-            int layerSlotBound = Math.Min(MaxLayers, layersProp.arraySize);
-            if (!PropertyExists(layersProp, start: 0, end: layerSlotBound, value: layerName))
+            SerializedProperty layersProperty = tagManager.FindProperty("layers");
+            int layerSlotBound = Math.Min(MaxLayers, layersProperty.arraySize);
+            if (!PropertyExists(layersProperty, start: 0, end: layerSlotBound, value: layerName))
             {
                 SerializedProperty layerSlot;
                 for (int layerIndex = 8; layerIndex < layerSlotBound; layerIndex++)
                 {
-                    layerSlot = layersProp.GetArrayElementAtIndex(layerIndex);
+                    layerSlot = layersProperty.GetArrayElementAtIndex(layerIndex);
                     if (string.IsNullOrEmpty(layerSlot.stringValue))
                     {
                         layerSlot.stringValue = layerName;

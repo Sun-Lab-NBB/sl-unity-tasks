@@ -664,7 +664,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Installs a client as the singleton without running its Awake callback.</summary>
         /// <param name="client">The client every channel constructed afterwards resolves.</param>
-        private void InstallSingleton(MQTTClient client)
+        private static void InstallSingleton(MQTTClient client)
         {
             PrivateAccess.SetStaticProperty(typeof(MQTTClient), "Instance", client);
         }
