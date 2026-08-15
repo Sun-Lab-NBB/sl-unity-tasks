@@ -8,8 +8,10 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
@@ -22,8 +24,20 @@ namespace Gimbl
     [Serializable]
     public class Monitor
     {
-        /// <summary>The timeout for subprocess-based monitor enumeration on Linux and macOS.</summary>
+        /// <summary>
+        /// The budget in milliseconds allowed separately for the enumeration subprocess to exit and for its output
+        /// to be read, bounding each wait on the editor thread.
+        /// </summary>
         private const int SubprocessTimeoutMilliseconds = 5000;
+
+        /// <summary>The displayplacer install path used by the Apple Silicon Homebrew prefix.</summary>
+        private const string AppleSiliconDisplayPlacerPath = "/opt/homebrew/bin/displayplacer";
+
+        /// <summary>The displayplacer install path used by the Intel Homebrew prefix.</summary>
+        private const string IntelDisplayPlacerPath = "/usr/local/bin/displayplacer";
+
+        /// <summary>The bare displayplacer executable name, resolved through PATH.</summary>
+        private const string DisplayPlacerExecutableName = "displayplacer";
 
         /// <summary>The pre-compiled regex matching xrandr `WxH+L+T` connected-monitor lines.</summary>
         private static readonly Regex LinuxMonitorRegex = new Regex(
@@ -31,10 +45,14 @@ namespace Gimbl
             RegexOptions.Compiled
         );
 
-        /// <summary>The pre-compiled regex matching displayplacer Resolution/Origin pairs.</summary>
+        /// <summary>
+        /// The pre-compiled regex pairing each displayplacer Resolution line with the Origin line of the same display
+        /// block. The gap between the two fields is consumed one line at a time and stops at the next Resolution line,
+        /// so a block whose Origin fails to match cannot borrow the origin of the block that follows it.
+        /// </summary>
         private static readonly Regex MacOsMonitorRegex = new Regex(
-            @"Resolution: (\d+)x(\d+).*?Origin: [(](\d+),(\d+)[)]",
-            RegexOptions.Compiled | RegexOptions.Singleline
+            @"Resolution: (\d+)x(\d+)(?:\r?\n(?!Resolution:)[^\r\n]*)*?\r?\nOrigin: [(](-?\d+),(-?\d+)[)]",
+            RegexOptions.Compiled
         );
 
         /// <summary>The left position of the monitor in pixels.</summary>
@@ -102,7 +120,7 @@ namespace Gimbl
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                EnumerateViaSubprocess("/usr/local/bin/displayplacer", "list", MacOsMonitorRegex, result);
+                EnumerateViaSubprocess(ResolveDisplayPlacerPath(), "list", MacOsMonitorRegex, result);
             }
 
             foreach (Monitor monitor in result)
@@ -114,6 +132,21 @@ namespace Gimbl
             }
 
             return result;
+        }
+
+        /// <summary>Resolves the displayplacer executable path across the supported Homebrew prefixes.</summary>
+        /// <returns>The first Homebrew install path that exists, or the bare executable name.</returns>
+        private static string ResolveDisplayPlacerPath()
+        {
+            if (File.Exists(AppleSiliconDisplayPlacerPath))
+            {
+                return AppleSiliconDisplayPlacerPath;
+            }
+            if (File.Exists(IntelDisplayPlacerPath))
+            {
+                return IntelDisplayPlacerPath;
+            }
+            return DisplayPlacerExecutableName;
         }
 
         /// <summary>
@@ -143,11 +176,18 @@ namespace Gimbl
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"Monitor enumeration: failed to start '{command}': {exception.Message}");
+                string startMessage = $"Monitor enumeration: failed to start '{command}': {exception.Message}";
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                {
+                    startMessage += " Install it with 'brew install displayplacer'.";
+                }
+                Debug.LogWarning(startMessage);
                 return;
             }
 
-            string output = process.StandardOutput.ReadToEnd();
+            // The read starts before the wait so a child filling the pipe buffer cannot deadlock against a drain
+            // that has not begun, and each of the two waits is bounded so neither can stall the editor thread.
+            Task<string> outputTask = process.StandardOutput.ReadToEndAsync();
             if (!process.WaitForExit(SubprocessTimeoutMilliseconds))
             {
                 process.Kill();
@@ -155,6 +195,25 @@ namespace Gimbl
                     $"Monitor enumeration: '{command}' timed out after {SubprocessTimeoutMilliseconds}ms; "
                         + "monitor list may be incomplete."
                 );
+            }
+
+            string output;
+            try
+            {
+                if (!outputTask.Wait(SubprocessTimeoutMilliseconds))
+                {
+                    Debug.LogWarning(
+                        $"Monitor enumeration: reading the output of '{command}' timed out after "
+                            + $"{SubprocessTimeoutMilliseconds}ms."
+                    );
+                    return;
+                }
+                output = outputTask.Result;
+            }
+            catch (AggregateException exception)
+            {
+                Debug.LogWarning($"Monitor enumeration: failed to read the output of '{command}': {exception.Message}");
+                return;
             }
 
             foreach (Match match in pattern.Matches(output))

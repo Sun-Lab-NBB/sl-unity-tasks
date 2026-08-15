@@ -150,13 +150,14 @@ namespace Gimbl
 
         /// <summary>Saves camera assignments to the scene's asset file.</summary>
         /// <remarks>
-        /// No-ops when <see cref="_savedFullScreenViews"/> is null — the only path that leaves it null is
-        /// <see cref="LoadCameras"/> skipping the asset create on an untitled active scene, in which case
-        /// there is no destination path to write to.
+        /// No-ops when <see cref="_savedFullScreenViews"/> is null, which happens only when <see cref="LoadCameras"/>
+        /// skips the asset create on an untitled active scene, leaving no destination path to write to. Also no-ops
+        /// when no monitors are detected, because a list rebuilt from zero monitors would overwrite the persisted
+        /// camera assignments with an empty list.
         /// </remarks>
         public void SaveCameras()
         {
-            if (_savedFullScreenViews == null)
+            if (_savedFullScreenViews == null || monitors.Count == 0)
             {
                 return;
             }
@@ -284,6 +285,14 @@ namespace Gimbl
             EditorGUILayout.EndHorizontal();
 
             Camera newCamera = newIndex == 0 ? null : sceneCameras[newIndex - 1];
+
+            // A camera on a deactivated GameObject is absent from sceneCameras while the assignment still
+            // resolves to it, which parks the dropdown on "None". Leaving that row alone keeps the assignment,
+            // so only a "None" chosen over a listed camera clears it.
+            if (newCamera == null && oldCamera != null && currentIndex == 0)
+            {
+                return;
+            }
 
             if (newCamera != null)
             {

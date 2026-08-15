@@ -33,10 +33,22 @@ namespace Gimbl
             float heightInVR = settings?.heightInVR ?? 0f;
             gameObject.transform.localPosition = new Vector3(0f, heightInVR, 0f);
 
+            int actorLayer = LayerMask.NameToLayer(actor.name);
+            if (actorLayer == -1)
+            {
+                string message =
+                    $"DisplayObject.ParentToActor: unable to cull the actor model from display '{name}'. The "
+                    + $"project must define a layer named '{actor.name}', but no such layer exists.";
+                Debug.LogWarning(message);
+            }
+
             foreach (Camera displayCamera in gameObject.GetComponentsInChildren<Camera>())
             {
                 displayCamera.cullingMask = -1;
-                displayCamera.cullingMask &= ~(1 << LayerMask.NameToLayer(actor.name));
+                if (actorLayer != -1)
+                {
+                    displayCamera.cullingMask &= ~(1 << actorLayer);
+                }
             }
         }
 

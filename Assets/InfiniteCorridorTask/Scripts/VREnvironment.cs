@@ -28,8 +28,7 @@ namespace SL.Config
 
         /// <summary>
         /// The offset of the animal's starting position relative to each corridor's cue sequence origin,
-        /// in centimeters. Drives both the upstream shift applied to every segment prefab's local origin
-        /// and the position of the per-segment ResetZone.
+        /// in centimeters. Drives the upstream shift applied to every segment prefab's local origin.
         /// </summary>
         public float cueOffsetCm = 0.0f;
 

@@ -63,7 +63,6 @@ namespace SL.Tasks
         {
             "Assets/InfiniteCorridorTask/Prefabs/StimulusTriggerZone.prefab",
             "Assets/InfiniteCorridorTask/Prefabs/OccupancyTriggerZone.prefab",
-            "Assets/InfiniteCorridorTask/Prefabs/ResetZone.prefab",
             "Assets/InfiniteCorridorTask/Prefabs/Padding.prefab",
             "Assets/InfiniteCorridorTask/Materials/_CueShaderReference.mat",
             "Assets/InfiniteCorridorTask/Materials/Floor.mat",
@@ -207,11 +206,22 @@ namespace SL.Tasks
                 responseJson = Error($"Bridge error: {exception.Message}");
             }
 
-            byte[] buffer = Encoding.UTF8.GetBytes(responseJson);
-            context.Response.ContentType = "application/json";
-            context.Response.ContentLength64 = buffer.Length;
-            context.Response.OutputStream.Write(buffer, 0, buffer.Length);
-            context.Response.Close();
+            try
+            {
+                byte[] buffer = Encoding.UTF8.GetBytes(responseJson);
+                context.Response.ContentType = "application/json";
+                context.Response.ContentLength64 = buffer.Length;
+                context.Response.OutputStream.Write(buffer, 0, buffer.Length);
+                context.Response.Close();
+            }
+            catch (Exception exception)
+            {
+                // The client drops the connection once its own request timeout expires, which the 30 second bound in
+                // the Python relay makes routine for a long generation. Aborting releases the context and its socket,
+                // which an escaping exception would leak for the rest of the Editor session.
+                Debug.LogWarning($"McpBridge: Failed to deliver response: {exception.Message}");
+                context.Response.Abort();
+            }
         }
 
         /// <summary>Routes a tool call to the appropriate handler method.</summary>
@@ -255,11 +265,12 @@ namespace SL.Tasks
         /// hand-edited scene — use <c>delete_task</c> first to regenerate. The prefab itself is always
         /// regenerated because the template is authoritative.
         /// </remarks>
-        /// <param name="args">The tool arguments containing template_name.</param>
+        /// <param name="args">The tool arguments containing template_name and optional unsaved_changes.</param>
         /// <returns>A JSON response with the generated prefab and scene paths or an error message.</returns>
         private static string GenerateTask(Dictionary<string, object> args)
         {
             string templateName = GetString(args, "template_name");
+            string unsavedChanges = GetString(args, "unsaved_changes", defaultValue: "");
 
             if (string.IsNullOrEmpty(templateName))
             {
@@ -283,8 +294,10 @@ namespace SL.Tasks
             // Path.Combine treat the value as absolute on Linux/macOS and discard the data path.
             string relativeConfigPath = Path.Combine("InfiniteCorridorTask", "Configurations", $"{templateName}.yaml");
 
-            string prefabSavePath = Path.Combine("Assets", "InfiniteCorridorTask", "Tasks", $"{templateName}.prefab");
-            string sceneSavePath = Path.Combine("Assets", "Scenes", $"{templateName}.unity");
+            // AssetDatabase paths are forward-slash by contract, so these are built as literals rather than through
+            // Path.Combine, whose backslash output on Windows would not match the paths Unity reports back.
+            string prefabSavePath = $"Assets/InfiniteCorridorTask/Tasks/{templateName}.prefab";
+            string sceneSavePath = $"Assets/Scenes/{templateName}.unity";
 
             // Refuses to clobber an existing scene before generating the prefab so a regeneration cycle
             // is an explicit two-step action: delete_task first, then create_task. Checking up front
@@ -293,6 +306,14 @@ namespace SL.Tasks
             {
                 string message = $"Scene already exists at: {sceneSavePath}. Call delete_task first to regenerate.";
                 return Error(message);
+            }
+
+            // Scene generation opens the new scene, which discards unsaved edits in the active one. Resolving the
+            // policy before any asset is written keeps this tool's contract identical to open_scene's.
+            string handlingError = HandleUnsavedChanges(unsavedChanges);
+            if (handlingError != null)
+            {
+                return Error(handlingError);
             }
 
             // Ensures the Tasks output directory exists before CreateFromTemplate writes the prefab.
@@ -366,9 +387,21 @@ namespace SL.Tasks
                 return Error("Missing required argument: template_name");
             }
 
-            string scenePath = Path.Combine("Assets", "Scenes", $"{templateName}.unity");
-            string prefabPath = Path.Combine("Assets", "InfiniteCorridorTask", "Tasks", $"{templateName}.prefab");
-            string segmentPrefix = $"Assets/InfiniteCorridorTask/Prefabs/{templateName}_";
+            // AssetDatabase paths are forward-slash by contract, so these are built as literals rather than through
+            // Path.Combine, whose backslash output on Windows would silently fail the comparisons below.
+            string scenePath = $"Assets/Scenes/{templateName}.unity";
+            string prefabPath = $"Assets/InfiniteCorridorTask/Tasks/{templateName}.prefab";
+            string segmentPrefix = $"Assets/InfiniteCorridorTask/Prefabs/{templateName}-";
+
+            // Scene deletion is the one delete path that never consults IsDeleteAllowed, so the protected set is
+            // checked here directly. Without it a template name matching a hand-authored asset removes that asset.
+            if (DeleteProtectedPaths.Contains(scenePath) || DeleteProtectedPaths.Contains(prefabPath))
+            {
+                string message =
+                    $"Refusing to delete task '{templateName}'. Its scene or task prefab is a protected "
+                    + "hand-authored asset that the generation pipeline loads by hardcoded path.";
+                return Error(message);
+            }
 
             List<string> deletedPaths = new List<string>();
             string companionDeleted = null;
@@ -397,24 +430,15 @@ namespace SL.Tasks
                 }
             }
 
-            // Sweeps every segment prefab this template owns. Segment prefabs are named
-            // ``TemplateName_TrialName``, so a bare ``TemplateName_`` prefix also matches the segments of a
-            // longer-named template whose basename nests this one (for example, ``SSO_Merging`` nesting
-            // ``SSO_Merging_Base``). Ownership is resolved against the whole Configurations catalog so a
-            // segment is removed only when this template is its longest owning prefix, which still reclaims
-            // orphaned segments left behind by trials since removed from the template.
-            HashSet<string> templateBaseNames = GetTemplateBaseNames();
-            templateBaseNames.Add(templateName);
+            // Sweeps every segment prefab this template owns. Segment prefabs are named ``TemplateName-TrialName``
+            // and ConfigLoader excludes the hyphen from both halves, so this prefix matches exactly the segments of
+            // this template even where another template basename nests it. The sweep is by prefix rather than by
+            // current trial name so it also reclaims orphans left by trials since removed from the template.
             string[] guids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/InfiniteCorridorTask/Prefabs" });
             foreach (string guid in guids)
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
                 if (!path.StartsWith(segmentPrefix, StringComparison.Ordinal))
-                {
-                    continue;
-                }
-                string segmentFileName = Path.GetFileNameWithoutExtension(path);
-                if (!SegmentBelongsToTemplate(segmentFileName, templateName, templateBaseNames))
                 {
                     continue;
                 }
@@ -443,70 +467,6 @@ namespace SL.Tasks
                 response["companion_deleted"] = companionDeleted;
             }
             return Ok(response);
-        }
-
-        /// <summary>Lists the basename of every task template YAML in the Configurations catalog.</summary>
-        /// <remarks>
-        /// Reads only filenames, never YAML contents, so a malformed or unparseable template still
-        /// contributes its basename to the ownership comparison used by <see cref="DestroyTask"/>. Mirrors
-        /// the ``.yaml`` / ``.yml`` enumeration the CreateTask cue-texture preflight performs.
-        /// </remarks>
-        /// <returns>The set of template basenames, without directory or extension.</returns>
-        private static HashSet<string> GetTemplateBaseNames()
-        {
-            string configurationsDirectory = Path.Combine(
-                Application.dataPath,
-                "InfiniteCorridorTask",
-                "Configurations"
-            );
-            HashSet<string> baseNames = new HashSet<string>(StringComparer.Ordinal);
-            if (!Directory.Exists(configurationsDirectory))
-            {
-                return baseNames;
-            }
-            foreach (
-                string templatePath in Directory
-                    .GetFiles(configurationsDirectory, "*.yaml", SearchOption.TopDirectoryOnly)
-                    .Concat(Directory.GetFiles(configurationsDirectory, "*.yml", SearchOption.TopDirectoryOnly))
-            )
-            {
-                baseNames.Add(Path.GetFileNameWithoutExtension(templatePath));
-            }
-            return baseNames;
-        }
-
-        /// <summary>
-        /// Determines whether a segment prefab is owned by the named template rather than by a longer-named
-        /// template whose basename nests the shorter one.
-        /// </summary>
-        /// <remarks>
-        /// Segment prefabs are named <c>TemplateName_TrialName</c>, so a filename can be prefixed by more than
-        /// one template basename when one nests another. The segment belongs to the longest such basename, so
-        /// ownership is decided by picking the longest template prefix and comparing it against the caller.
-        /// </remarks>
-        /// <param name="segmentFileName">The segment prefab filename without directory or extension.</param>
-        /// <param name="templateName">The template basename whose ownership of the segment is tested.</param>
-        /// <param name="templateBaseNames">Every template basename the ownership comparison may consider.</param>
-        /// <returns>True when the named template is the segment's longest owning template prefix.</returns>
-        private static bool SegmentBelongsToTemplate(
-            string segmentFileName,
-            string templateName,
-            IReadOnlyCollection<string> templateBaseNames
-        )
-        {
-            string owningTemplate = null;
-            foreach (string candidate in templateBaseNames)
-            {
-                if (!segmentFileName.StartsWith($"{candidate}_", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-                if (owningTemplate == null || candidate.Length > owningTemplate.Length)
-                {
-                    owningTemplate = candidate;
-                }
-            }
-            return string.Equals(owningTemplate, templateName, StringComparison.Ordinal);
         }
 
         /// <summary>Reads a prefab and returns its hierarchy, components, and BoxCollider details.</summary>
@@ -568,19 +528,14 @@ namespace SL.Tasks
                 return Error(destinationError);
             }
 
-            if (AssetDatabase.LoadAssetAtPath<GameObject>(destinationPrefab) != null)
+            bool destinationExists = AssetDatabase.LoadAssetAtPath<GameObject>(destinationPrefab) != null;
+            if (destinationExists && !overwrite)
             {
-                if (!overwrite)
-                {
-                    return Error(
-                        $"A prefab already exists at '{destinationPrefab}'. Pass overwrite=true to replace it."
-                    );
-                }
-
-                AssetDatabase.DeleteAsset(destinationPrefab);
+                return Error($"A prefab already exists at '{destinationPrefab}'. Pass overwrite=true to replace it.");
             }
 
-            // Resolves requested scripts up front so a bad name fails before any asset is written.
+            // Resolves requested scripts up front so a bad name fails before any asset is written, which includes
+            // the overwrite delete below. Resolving after it would destroy the existing prefab and replace nothing.
             string resolveError = ResolveCloneScripts(
                 rootScript,
                 GetList(args, "regions"),
@@ -590,6 +545,11 @@ namespace SL.Tasks
             if (resolveError != null)
             {
                 return Error(resolveError);
+            }
+
+            if (destinationExists)
+            {
+                AssetDatabase.DeleteAsset(destinationPrefab);
             }
 
             if (!AssetDatabase.CopyAsset(sourcePrefab, destinationPrefab))
@@ -719,6 +679,13 @@ namespace SL.Tasks
             if (matches.Count > 1)
             {
                 return $"Script type '{typeName}' is ambiguous ({matches.Count} matches). Use a unique class name.";
+            }
+
+            // AddComponent returns null for an abstract type, which the swap path would then hand to SerializedObject
+            // and abort past its own rollback, leaving a half-authored prefab behind.
+            if (matches[0].IsAbstract)
+            {
+                return $"Script type '{typeName}' is abstract. Name a concrete MonoBehaviour subclass.";
             }
 
             resolved = matches[0];
@@ -1272,12 +1239,13 @@ namespace SL.Tasks
 
         /// <summary>Applies the supplied parameter subset and returns the post-write snapshot.</summary>
         /// <remarks>
-        /// Each section is optional and individual fields within a section are also optional. Validation
-        /// rejects values outside the enumeration reported by <see cref="ReadTaskParameters"/>, and rejects
-        /// require_interaction / require_wait writes when the corresponding zone is absent from the scene so the
-        /// agent contract matches the GUI's conditional rendering. Mutations flow through the same code
-        /// paths the Parameters window uses, including <see cref="EditorUtility.SetDirty"/> on touched
-        /// assets and a final <see cref="EditorSceneManager.MarkSceneDirty"/> when any write succeeded.
+        /// Each section is optional and individual fields within a section are also optional. The whole request is
+        /// validated before any section applies, so a rejected value leaves the scene untouched rather than partly
+        /// written. Validation rejects values outside the enumeration reported by <see cref="ReadTaskParameters"/>,
+        /// and rejects require_interaction / require_wait writes when the corresponding zone is absent from the
+        /// scene so the agent contract matches the GUI's conditional rendering. Mutations flow through the same code
+        /// paths the Parameters window uses, including <see cref="EditorUtility.SetDirty"/> on touched assets and a
+        /// final <see cref="EditorSceneManager.MarkSceneDirty"/> when any write succeeded.
         /// </remarks>
         /// <param name="args">
         /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>,
@@ -1287,37 +1255,19 @@ namespace SL.Tasks
         private static string WriteTaskParameters(Dictionary<string, object> args)
         {
             SceneComponents components = AcquireSceneComponents();
+
+            string validationError = ValidateTaskParameterWrites(args, components);
+            if (validationError != null)
+            {
+                return Error(validationError);
+            }
+
             bool dirty = false;
-
-            string error = TryWriteActorSection(args, components, ref dirty);
-            if (error != null)
-            {
-                return Error(error);
-            }
-
-            error = TryWriteMqttSection(args, components, ref dirty);
-            if (error != null)
-            {
-                return Error(error);
-            }
-
-            error = TryWriteDisplaySection(args, components, ref dirty);
-            if (error != null)
-            {
-                return Error(error);
-            }
-
-            error = TryWriteCameraMappingSection(args, components, ref dirty);
-            if (error != null)
-            {
-                return Error(error);
-            }
-
-            error = TryWriteTaskSection(args, components, ref dirty);
-            if (error != null)
-            {
-                return Error(error);
-            }
+            ApplyActorSection(args, components, ref dirty);
+            ApplyMqttSection(args, components, ref dirty);
+            ApplyDisplaySection(args, components, ref dirty);
+            ApplyCameraMappingSection(args, components, ref dirty);
+            ApplyTaskSection(args, components, ref dirty);
 
             if (dirty)
             {
@@ -1570,9 +1520,272 @@ namespace SL.Tasks
             };
         }
 
+        /// <summary>Runs every write_task_parameters check against the request without mutating the scene.</summary>
+        /// <remarks>
+        /// The sections apply in sequence and have no rollback, so a check firing mid-apply would leave the scene
+        /// partly written, the persisted EditorPrefs and companion-asset writes committed, and the response still
+        /// reporting failure. Validating the whole request first is what makes the tool atomic.
+        /// </remarks>
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <returns>An error message when any section is invalid, otherwise null.</returns>
+        private static string ValidateTaskParameterWrites(Dictionary<string, object> args, SceneComponents components)
+        {
+            if (TryGetSection(args, "actor", out Dictionary<string, object> actorArgs) && components.Actor != null)
+            {
+                if (actorArgs.TryGetValue("model", out object modelObject) && modelObject is string newModel)
+                {
+                    string[] validModels = GetValidActorModels();
+                    if (!validModels.Contains(newModel))
+                    {
+                        return $"Invalid model '{newModel}'. Valid: {string.Join(", ", validModels)}";
+                    }
+                }
+
+                if (
+                    actorArgs.TryGetValue("controller", out object controllerObject)
+                    && controllerObject is string newController
+                    && !string.Equals(newController, "None", StringComparison.Ordinal)
+                    && components.Controllers.All(controller => controller.gameObject.name != newController)
+                )
+                {
+                    string controllerNames = string.Join(
+                        ", ",
+                        components.Controllers.Select(controller => controller.gameObject.name)
+                    );
+                    return $"Invalid controller '{newController}'. Valid: None, {controllerNames}";
+                }
+            }
+
+            if (
+                TryGetSection(args, "mqtt", out Dictionary<string, object> mqttArgs)
+                && components.Client != null
+                && mqttArgs.TryGetValue("port", out object portObject)
+                && !TryConvertInt(portObject, out _)
+            )
+            {
+                return $"Invalid port '{portObject}'. Must be a whole number.";
+            }
+
+            if (
+                TryGetSection(args, "display", out Dictionary<string, object> displayArgs)
+                && components.Display != null
+            )
+            {
+                string displayError =
+                    ValidateFiniteFloat(displayArgs, "current_brightness")
+                    ?? ValidateFiniteFloat(displayArgs, "brightness")
+                    ?? ValidateFiniteFloat(displayArgs, "height_in_vr");
+                if (displayError != null)
+                {
+                    return displayError;
+                }
+            }
+
+            string cameraMappingError = ValidateCameraMappingWrites(args, components);
+            if (cameraMappingError != null)
+            {
+                return cameraMappingError;
+            }
+
+            return ValidateTaskSectionWrites(args, components);
+        }
+
+        /// <summary>Checks the camera_mapping rows against the detected monitors and assignable cameras.</summary>
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <returns>An error message when a row is invalid, otherwise null.</returns>
+        private static string ValidateCameraMappingWrites(Dictionary<string, object> args, SceneComponents components)
+        {
+            if (
+                !args.TryGetValue("camera_mapping", out object cameraMappingObject)
+                || cameraMappingObject is not List<object> cameraMappingList
+            )
+            {
+                return null;
+            }
+
+            // Writing an assignment list built from zero detected monitors would clear the scene's persisted
+            // mapping, so a host whose monitor enumeration failed refuses the write rather than erasing it.
+            if (components.FullScreenManager.monitors.Count == 0)
+            {
+                return "Cannot write camera_mapping: no monitors were detected on this host. Run refresh_monitors "
+                    + "after resolving monitor enumeration, because writing now would clear the saved assignments.";
+            }
+
+            foreach (object row in cameraMappingList)
+            {
+                if (row is not Dictionary<string, object> rowDict)
+                {
+                    continue;
+                }
+                if (!rowDict.TryGetValue("monitor", out object monitorObject))
+                {
+                    continue;
+                }
+                if (!TryConvertInt(monitorObject, out int monitorNumber))
+                {
+                    return $"Invalid monitor '{monitorObject}'. Must be a whole number.";
+                }
+
+                int monitorIndex = monitorNumber - 1;
+                if (monitorIndex < 0 || monitorIndex >= components.FullScreenManager.monitors.Count)
+                {
+                    return $"Invalid monitor index {monitorNumber}; scene has "
+                        + $"{components.FullScreenManager.monitors.Count} monitors.";
+                }
+
+                if (!rowDict.TryGetValue("camera", out object cameraObject) || cameraObject is not string cameraName)
+                {
+                    continue;
+                }
+                if (
+                    !string.Equals(cameraName, "None", StringComparison.Ordinal)
+                    && components.DisplayCameras.All(camera => camera.name != cameraName)
+                )
+                {
+                    return $"Invalid camera '{cameraName}' for monitor {monitorNumber}. Valid: None, "
+                        + string.Join(", ", components.DisplayCameras.Select(camera => camera.name));
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>Checks the task subsection against the zones present and the runtime's accepted ranges.</summary>
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <returns>An error message when a field is invalid, otherwise null.</returns>
+        private static string ValidateTaskSectionWrites(Dictionary<string, object> args, SceneComponents components)
+        {
+            if (!TryGetSection(args, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
+            {
+                return null;
+            }
+
+            if (taskArgs.ContainsKey("require_interaction") && !components.HasInteractionZone)
+            {
+                return "Cannot set require_interaction: the active scene has no GuidanceZone, so the control is "
+                    + "hidden in the Parameters window and the flag has no runtime effect.";
+            }
+            if (taskArgs.ContainsKey("require_wait") && !components.HasOccupancyZone)
+            {
+                return "Cannot set require_wait: the active scene has no OccupancyZone, so the control is "
+                    + "hidden in the Parameters window and the flag has no runtime effect.";
+            }
+
+            string toggleError =
+                ValidateBoolean(taskArgs, "require_interaction") ?? ValidateBoolean(taskArgs, "require_wait");
+            if (toggleError != null)
+            {
+                return toggleError;
+            }
+
+            if (taskArgs.TryGetValue("track_length", out object trackLengthObject))
+            {
+                if (!TryConvertSingle(trackLengthObject, out float newTrackLength) || newTrackLength <= 0f)
+                {
+                    return $"Invalid track_length '{trackLengthObject}'. Must be a positive, finite number of "
+                        + "Unity units long enough to fill one corridor.";
+                }
+            }
+
+            if (
+                taskArgs.TryGetValue("track_seed", out object trackSeedObject) && !TryConvertInt(trackSeedObject, out _)
+            )
+            {
+                return $"Invalid track_seed '{trackSeedObject}'. Must be a whole number.";
+            }
+
+            return null;
+        }
+
+        /// <summary>Checks that an optional toggle field converts to a boolean.</summary>
+        /// <param name="section">The section dictionary holding the field.</param>
+        /// <param name="key">The field name to check.</param>
+        /// <returns>An error message when the field is present and unconvertible, otherwise null.</returns>
+        private static string ValidateBoolean(Dictionary<string, object> section, string key)
+        {
+            if (!section.TryGetValue(key, out object value))
+            {
+                return null;
+            }
+
+            try
+            {
+                Convert.ToBoolean(value);
+            }
+            catch (Exception exception) when (exception is FormatException || exception is InvalidCastException)
+            {
+                return $"Invalid {key} '{value}'. Must be true or false.";
+            }
+
+            return null;
+        }
+
+        /// <summary>Checks that an optional numeric field converts to a finite single-precision value.</summary>
+        /// <param name="section">The section dictionary holding the field.</param>
+        /// <param name="key">The field name to check.</param>
+        /// <returns>An error message when the field is present and unconvertible, otherwise null.</returns>
+        private static string ValidateFiniteFloat(Dictionary<string, object> section, string key)
+        {
+            if (section.TryGetValue(key, out object value) && !TryConvertSingle(value, out _))
+            {
+                return $"Invalid {key} '{value}'. Must be a finite number.";
+            }
+            return null;
+        }
+
+        /// <summary>Converts a boxed argument value to a finite single-precision number.</summary>
+        /// <param name="value">The boxed value from the request payload.</param>
+        /// <param name="converted">The converted value on success, otherwise zero.</param>
+        /// <returns>True when the value converts to a finite float.</returns>
+        private static bool TryConvertSingle(object value, out float converted)
+        {
+            converted = 0f;
+            try
+            {
+                converted = Convert.ToSingle(value);
+            }
+            catch (Exception exception)
+                when (exception is FormatException
+                    || exception is InvalidCastException
+                    || exception is OverflowException
+                )
+            {
+                return false;
+            }
+            return float.IsFinite(converted);
+        }
+
+        /// <summary>Converts a boxed argument value to a 32-bit signed integer.</summary>
+        /// <param name="value">The boxed value from the request payload.</param>
+        /// <param name="converted">The converted value on success, otherwise zero.</param>
+        /// <returns>True when the value converts to an integer.</returns>
+        private static bool TryConvertInt(object value, out int converted)
+        {
+            converted = 0;
+            try
+            {
+                converted = Convert.ToInt32(value);
+            }
+            catch (Exception exception)
+                when (exception is FormatException
+                    || exception is InvalidCastException
+                    || exception is OverflowException
+                )
+            {
+                return false;
+            }
+            return true;
+        }
+
         /// <summary>Applies any "actor" subsection from <paramref name="args"/>.</summary>
-        /// <returns>An error message when the actor section is invalid, otherwise null.</returns>
-        private static string TryWriteActorSection(
+        /// <remarks>Runs only after <see cref="ValidateTaskParameterWrites"/> accepted every value it reads.</remarks>
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <param name="dirty">Set to true when this section writes to the scene.</param>
+        private static void ApplyActorSection(
             Dictionary<string, object> args,
             SceneComponents components,
             ref bool dirty
@@ -1580,15 +1793,10 @@ namespace SL.Tasks
         {
             if (!TryGetSection(args, "actor", out Dictionary<string, object> actorArgs) || components.Actor == null)
             {
-                return null;
+                return;
             }
             if (actorArgs.TryGetValue("model", out object modelObject) && modelObject is string newModel)
             {
-                string[] validModels = GetValidActorModels();
-                if (!validModels.Contains(newModel))
-                {
-                    return $"Invalid model '{newModel}'. Valid: {string.Join(", ", validModels)}";
-                }
                 components.Actor.SetModel(newModel);
                 dirty = true;
             }
@@ -1597,33 +1805,18 @@ namespace SL.Tasks
                 && controllerObject is string newController
             )
             {
-                if (string.Equals(newController, "None", StringComparison.Ordinal))
-                {
-                    components.Actor.Controller = null;
-                }
-                else
-                {
-                    ControllerOutput target = components.Controllers.FirstOrDefault(controller =>
-                        controller.gameObject.name == newController
-                    );
-                    if (target == null)
-                    {
-                        string controllerNames = string.Join(
-                            ", ",
-                            components.Controllers.Select(controller => controller.gameObject.name)
-                        );
-                        return $"Invalid controller '{newController}'. Valid: None, {controllerNames}";
-                    }
-                    components.Actor.Controller = target;
-                }
+                components.Actor.Controller = string.Equals(newController, "None", StringComparison.Ordinal)
+                    ? null
+                    : components.Controllers.First(controller => controller.gameObject.name == newController);
                 dirty = true;
             }
-            return null;
         }
 
         /// <summary>Applies any "mqtt" subsection from <paramref name="args"/>.</summary>
-        /// <returns>An error message when the mqtt section is invalid, otherwise null.</returns>
-        private static string TryWriteMqttSection(
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <param name="dirty">Set to true when this section writes to the scene.</param>
+        private static void ApplyMqttSection(
             Dictionary<string, object> args,
             SceneComponents components,
             ref bool dirty
@@ -1631,7 +1824,7 @@ namespace SL.Tasks
         {
             if (!TryGetSection(args, "mqtt", out Dictionary<string, object> mqttArgs) || components.Client == null)
             {
-                return null;
+                return;
             }
             if (mqttArgs.TryGetValue("ip", out object ipObject) && ipObject is string newIp)
             {
@@ -1646,12 +1839,13 @@ namespace SL.Tasks
                 EditorPrefs.SetInt("SollertiaVR_MQTT_Port", newPort);
                 dirty = true;
             }
-            return null;
         }
 
         /// <summary>Applies any "display" subsection from <paramref name="args"/>.</summary>
-        /// <returns>An error message when the display section is invalid, otherwise null.</returns>
-        private static string TryWriteDisplaySection(
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <param name="dirty">Set to true when this section writes to the scene.</param>
+        private static void ApplyDisplaySection(
             Dictionary<string, object> args,
             SceneComponents components,
             ref bool dirty
@@ -1662,7 +1856,7 @@ namespace SL.Tasks
                 || components.Display == null
             )
             {
-                return null;
+                return;
             }
             if (displayArgs.TryGetValue("current_brightness", out object currentBrightnessObject))
             {
@@ -1689,12 +1883,13 @@ namespace SL.Tasks
                     dirty = true;
                 }
             }
-            return null;
         }
 
         /// <summary>Applies any "camera_mapping" subsection from <paramref name="args"/>.</summary>
-        /// <returns>An error message when the camera_mapping section is invalid, otherwise null.</returns>
-        private static string TryWriteCameraMappingSection(
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <param name="dirty">Set to true when this section writes to the scene.</param>
+        private static void ApplyCameraMappingSection(
             Dictionary<string, object> args,
             SceneComponents components,
             ref bool dirty
@@ -1705,7 +1900,7 @@ namespace SL.Tasks
                 || cameraMappingObject is not List<object> cameraMappingList
             )
             {
-                return null;
+                return;
             }
 
             FullScreenViewManager fullScreenManager = components.FullScreenManager;
@@ -1719,39 +1914,29 @@ namespace SL.Tasks
                 {
                     continue;
                 }
-                int monitorIndex = Convert.ToInt32(monitorObject) - 1;
-                if (monitorIndex < 0 || monitorIndex >= fullScreenManager.monitors.Count)
-                {
-                    return $"Invalid monitor index {monitorIndex + 1}; scene has "
-                        + $"{fullScreenManager.monitors.Count} monitors.";
-                }
                 if (!rowDict.TryGetValue("camera", out object cameraObject) || cameraObject is not string cameraName)
                 {
                     continue;
                 }
-                if (string.Equals(cameraName, "None", StringComparison.Ordinal))
-                {
-                    fullScreenManager.monitors[monitorIndex].cameraEntityId = EntityId.None;
-                }
-                else
-                {
-                    Camera target = components.DisplayCameras.FirstOrDefault(camera => camera.name == cameraName);
-                    if (target == null)
-                    {
-                        return $"Invalid camera '{cameraName}' for monitor {monitorIndex + 1}. Valid: None, "
-                            + string.Join(", ", components.DisplayCameras.Select(camera => camera.name));
-                    }
-                    fullScreenManager.monitors[monitorIndex].cameraEntityId = target.GetEntityId();
-                }
+
+                int monitorIndex = Convert.ToInt32(monitorObject) - 1;
+                fullScreenManager.monitors[monitorIndex].cameraEntityId = string.Equals(
+                    cameraName,
+                    "None",
+                    StringComparison.Ordinal
+                )
+                    ? EntityId.None
+                    : components.DisplayCameras.First(camera => camera.name == cameraName).GetEntityId();
             }
             fullScreenManager.SaveCameras();
             dirty = true;
-            return null;
         }
 
         /// <summary>Applies any "task" subsection from <paramref name="args"/>.</summary>
-        /// <returns>An error message when the task section is invalid, otherwise null.</returns>
-        private static string TryWriteTaskSection(
+        /// <param name="args">The dispatched tool arguments.</param>
+        /// <param name="components">The pre-acquired scene component snapshot.</param>
+        /// <param name="dirty">Set to true when this section writes to the scene.</param>
+        private static void ApplyTaskSection(
             Dictionary<string, object> args,
             SceneComponents components,
             ref bool dirty
@@ -1759,17 +1944,7 @@ namespace SL.Tasks
         {
             if (!TryGetSection(args, "task", out Dictionary<string, object> taskArgs) || components.Task == null)
             {
-                return null;
-            }
-            if (taskArgs.ContainsKey("require_interaction") && !components.HasInteractionZone)
-            {
-                return "Cannot set require_interaction: the active scene has no GuidanceZone, so the control is "
-                    + "hidden in the Parameters window and the flag has no runtime effect.";
-            }
-            if (taskArgs.ContainsKey("require_wait") && !components.HasOccupancyZone)
-            {
-                return "Cannot set require_wait: the active scene has no OccupancyZone, so the control is "
-                    + "hidden in the Parameters window and the flag has no runtime effect.";
+                return;
             }
 
             Undo.RecordObject(components.Task, "Write Task Parameters");
@@ -1794,7 +1969,6 @@ namespace SL.Tasks
                 dirty = true;
             }
             EditorUtility.SetDirty(components.Task);
-            return null;
         }
 
         /// <summary>Extracts a sub-dictionary at the given key from the args; returns false when absent.</summary>

@@ -20,7 +20,7 @@ namespace Gimbl
         public ActorObject actor;
 
         /// <summary>The buffer for accumulating movement input between frames.</summary>
-        public ValueBuffer movement = new ValueBuffer(size: 100);
+        public ValueBuffer movement = new ValueBuffer();
 
 #if UNITY_EDITOR
         /// <summary>Parents this controller under the scene's Controllers root and registers it for undo.</summary>
@@ -32,69 +32,30 @@ namespace Gimbl
 #endif
 
         /// <summary>
-        /// Buffers values for accumulating input between frames.
+        /// Accumulates input values into a running total that callers drain once per frame.
         /// </summary>
-        /// <remarks>
-        /// Add overflow clamps the write index at the final slot rather than wrapping. Callers are expected
-        /// to drain the buffer (via <see cref="Sum"/> + <see cref="Clear"/>) each frame, so overflow should
-        /// never occur under normal operation and the clamp exists only as a safety against unbounded writes.
-        /// </remarks>
         public class ValueBuffer
         {
-            /// <summary>The maximum size of the buffer.</summary>
-            private readonly int _bufferSize;
+            /// <summary>The running total of the values added since the last clear.</summary>
+            private float _accumulator;
 
-            /// <summary>The array storing buffered values.</summary>
-            private readonly float[] _values;
-
-            /// <summary>The current write position in the buffer.</summary>
-            private int _counter;
-
-            /// <summary>Creates a new value buffer with the specified size.</summary>
-            /// <param name="size">The maximum number of values to buffer.</param>
-            public ValueBuffer(int size)
-            {
-                _bufferSize = size;
-                _values = new float[_bufferSize];
-                _counter = 0;
-            }
-
-            /// <summary>Adds a value to the buffer.</summary>
+            /// <summary>Adds a value to the running total.</summary>
             /// <param name="value">The value to add.</param>
             public void Add(float value)
             {
-                _values[_counter] = value;
-                _counter++;
-
-                if (_counter == _bufferSize)
-                {
-                    _counter = _bufferSize - 1;
-                }
+                _accumulator += value;
             }
 
-            /// <summary>Returns the sum of all buffered values.</summary>
-            /// <returns>The sum of values in the buffer.</returns>
+            /// <summary>Returns the total of the values added since the last clear.</summary>
             public float Sum()
             {
-                float result = 0;
-
-                for (int i = 0; i < _counter; i++)
-                {
-                    result += _values[i];
-                }
-
-                return result;
+                return _accumulator;
             }
 
-            /// <summary>Clears all values from the buffer.</summary>
+            /// <summary>Resets the running total to zero.</summary>
             public void Clear()
             {
-                for (int i = 0; i < _counter; i++)
-                {
-                    _values[i] = 0;
-                }
-
-                _counter = 0;
+                _accumulator = 0f;
             }
         }
     }

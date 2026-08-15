@@ -31,6 +31,13 @@ namespace SL.Tasks
         /// <summary>The sentinel value for <see cref="trackSeed"/> requesting a nondeterministic seed.</summary>
         public const int RandomSeedSentinel = -1;
 
+        /// <summary>The default length of the pre-generated segment sequence in Unity units.</summary>
+        /// <remarks>
+        /// The generation pipeline reads this to confirm a template's segments are short enough to fill a corridor,
+        /// because a generated task prefab always starts at this length.
+        /// </remarks>
+        public const float DefaultTrackLength = 15000f;
+
         /// <summary>The actor (animal) being tracked in the VR environment.</summary>
         [HideInInspector]
         public ActorObject actor;
@@ -52,7 +59,7 @@ namespace SL.Tasks
         /// Should overestimate the distance the animal will actually travel.
         /// </summary>
         [HideInInspector]
-        public float trackLength = 15000f;
+        public float trackLength = DefaultTrackLength;
 
         /// <summary>
         /// The seed for random segment generation. A specific seed produces the same cue pattern.
@@ -140,6 +147,9 @@ namespace SL.Tasks
 
         /// <summary>The cached actor position for updates.</summary>
         private Vector3 _position;
+
+        /// <summary>The per-lap resettable zones in the active scene, collected once at startup.</summary>
+        private IResettable[] _resettables;
 
 #if UNITY_EDITOR
         /// <summary>Editor-only validation that auto-assigns the actor reference when missing.</summary>
@@ -238,6 +248,23 @@ namespace SL.Tasks
 
             (_segmentSequenceArray, _cueSequenceArray) = GenerateRandomMaze(trackLength, trackSeed);
 
+            // A sequence shorter than the corridor depth leaves the first corridor lookup keyed on a partial digit
+            // string, which resolves to a corridor whose cues do not match the published cue sequence.
+            if (_segmentSequenceArray.Length < _depth)
+            {
+                string message =
+                    $"Task: trackLength {trackLength} is too short for template '{_template.templateName}'. Maze "
+                    + $"generation produced {_segmentSequenceArray.Length} segments, but segments_per_corridor "
+                    + $"requires at least {_depth}. The shortest segment measures {_segmentLengths.Min()} Unity "
+                    + "units. Raise Track Length in Window > Task Parameters. Disabling Task to prevent runtime "
+                    + "errors.";
+                Debug.LogError(message);
+                enabled = false;
+                return;
+            }
+
+            _resettables = FindResettableZones();
+
             _currentSegmentIndex = 0;
             _currentSegment = new List<int>(_segmentSequenceArray.Take(_depth));
             _currentCorridorKey = ComputeCorridorKey(_currentSegment);
@@ -316,6 +343,7 @@ namespace SL.Tasks
                     (float xPosition, float firstSegmentLength) newCorridorData = _corridorMap[_currentCorridorKey];
                     _position.x = newCorridorData.xPosition;
                     actor.transform.position = _position;
+                    ResetZoneStates();
                 }
                 else
                 {
@@ -360,6 +388,34 @@ namespace SL.Tasks
         private void OnRequireWait(BoolMessage message)
         {
             requireWait = message.value;
+        }
+
+        /// <summary>Collects every per-lap resettable zone in the active scene.</summary>
+        /// <remarks>
+        /// Enumerates the three concrete <see cref="IResettable"/> implementers by type rather than searching for the
+        /// interface, because Unity's typed find helpers resolve components only. A new implementer joins this method.
+        /// </remarks>
+        /// <returns>The resettable zones present when the task starts.</returns>
+        private static IResettable[] FindResettableZones()
+        {
+            List<IResettable> resettables = new List<IResettable>();
+            resettables.AddRange(FindObjectsByType<StimulusTriggerZone>(FindObjectsSortMode.None));
+            resettables.AddRange(FindObjectsByType<OccupancyZone>(FindObjectsSortMode.None));
+            resettables.AddRange(FindObjectsByType<OccupancyGuidanceZone>(FindObjectsSortMode.None));
+            return resettables.ToArray();
+        }
+
+        /// <summary>Restores every zone's per-lap state as the actor enters a new corridor.</summary>
+        /// <remarks>
+        /// The corridor advance is the authoritative lap boundary, so the reset is driven from it rather than from a
+        /// trigger volume the teleport is able to overshoot when one frame carries the actor past the landing point.
+        /// </remarks>
+        private void ResetZoneStates()
+        {
+            for (int i = 0; i < _resettables.Length; i++)
+            {
+                _resettables[i].ResetState();
+            }
         }
 
         /// <summary>

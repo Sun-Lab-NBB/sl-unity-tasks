@@ -108,8 +108,6 @@ crashlytics-build.properties
 !/Assets/InfiniteCorridorTask/Prefabs/StimulusTriggerZone.prefab.meta
 !/Assets/InfiniteCorridorTask/Prefabs/OccupancyTriggerZone.prefab
 !/Assets/InfiniteCorridorTask/Prefabs/OccupancyTriggerZone.prefab.meta
-!/Assets/InfiniteCorridorTask/Prefabs/ResetZone.prefab
-!/Assets/InfiniteCorridorTask/Prefabs/ResetZone.prefab.meta
 !/Assets/InfiniteCorridorTask/Prefabs/Padding.prefab
 !/Assets/InfiniteCorridorTask/Prefabs/Padding.prefab.meta
 /Assets/Scenes/*.unity

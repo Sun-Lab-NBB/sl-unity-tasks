@@ -34,22 +34,27 @@ namespace SL.Tasks
         /// <summary>
         /// Determines whether the animal has met the occupancy requirement (occupied for the required duration). Once
         /// set, it latches the zone so Update and OnTriggerEnter short-circuit, limiting firing to once per lap until
-        /// ResetZone clears it at lap start. The parent StimulusTriggerZone interprets it per trigger mode.
+        /// the corridor advance clears it at lap start. The parent StimulusTriggerZone interprets it per trigger mode.
         /// </summary>
         [HideInInspector]
         public bool occupancyMet = false;
 
-        /// <summary>Enables or disables occupancy tracking for this zone. Reset to true by ResetZone each lap.
+        /// <summary>Enables or disables occupancy tracking for this zone. Reset to true at each corridor advance.
         /// </summary>
         public bool isActive = true;
 
         /// <summary>The high-precision stopwatch for accurate millisecond timing.</summary>
         private Stopwatch _occupancyTimer;
 
-        /// <summary>Initializes the occupancy timer.</summary>
+        /// <summary>Initializes the occupancy timer and establishes the first lap's state.</summary>
+        /// <remarks>
+        /// The reset runs from this component's own Start so the timer exists before <see cref="ResetState"/> reaches
+        /// it, which an external caller ordering the two across components is unable to guarantee.
+        /// </remarks>
         private void Start()
         {
             _occupancyTimer = new Stopwatch();
+            ResetState();
         }
 
         /// <summary>Checks if the occupancy duration has been met while the animal is in the zone.</summary>
@@ -96,7 +101,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the occupancy zone state for a new lap.</summary>
-        /// <remarks>Invoked by ResetZone when the animal enters the reset zone.</remarks>
+        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             isActive = true;

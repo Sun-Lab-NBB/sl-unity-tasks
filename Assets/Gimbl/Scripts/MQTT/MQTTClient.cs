@@ -26,6 +26,15 @@ namespace Gimbl
     /// </remarks>
     public class MQTTClient : MonoBehaviour
     {
+        /// <summary>The time in milliseconds allowed for a broker connection attempt to resolve.</summary>
+        /// <remarks>
+        /// The budget exceeds any plausible broker handshake, so the attempt either completes or fails before the
+        /// first channel subscribes. An attempt that resolves after that point leaves the client able to publish
+        /// while subscribed to nothing, because every channel constructed meanwhile takes the not-connected early
+        /// return in <see cref="Subscribe"/>.
+        /// </remarks>
+        private const int ConnectTimeoutMilliseconds = 10000;
+
         /// <summary>The IP address of the MQTT broker.</summary>
         /// <remarks>
         /// The initializer matches the loopback fallback applied by <see cref="Awake"/> and by
@@ -204,16 +213,24 @@ namespace Gimbl
                 .WithProtocolVersion(MQTTnet.Formatter.MqttProtocolVersion.V500)
                 .Build();
 
-            // Runs connection in a task with timeout to avoid blocking.
+            // Waits on the connect task so a timeout and a refused connection both report before channels subscribe.
             Task connectionTask = Task.Run(() => client.ConnectAsync(options));
-            TimeSpan timeout = TimeSpan.FromMilliseconds(1000);
-            if (!connectionTask.Wait(timeout))
+            try
             {
-                Debug.LogError($"Could not connect to MQTT broker at {ipAddress}:{port}");
+                if (!connectionTask.Wait(ConnectTimeoutMilliseconds))
+                {
+                    Debug.LogError($"Could not connect to MQTT broker at {ipAddress}:{port}");
+                }
+                else if (verbose)
+                {
+                    Debug.Log($"Successfully connected to MQTT Broker at: {ipAddress}:{port}");
+                }
             }
-            else if (verbose)
+            catch (AggregateException exception)
             {
-                Debug.Log($"Successfully connected to MQTT Broker at: {ipAddress}:{port}");
+                string message =
+                    $"Could not connect to MQTT broker at {ipAddress}:{port}: {exception.InnerException?.Message}";
+                Debug.LogError(message);
             }
         }
 

@@ -59,6 +59,10 @@ namespace SL.Tasks
             }
 
             _triggerDelayChannel = new MQTTChannel<TriggerDelayMessage>(MQTTTopics.Delay, isListener: false);
+
+            // Establishes the first lap through the same path every later lap uses, so a serialized value can never
+            // leave this zone's startup state diverging from its per-lap default.
+            ResetState();
         }
 
         /// <summary>
@@ -87,7 +91,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the guidance zone state for a new lap.</summary>
-        /// <remarks>Invoked by ResetZone when the animal enters the reset zone.</remarks>
+        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             inZone = false;

@@ -20,11 +20,15 @@ namespace SL.Config
         private const float ProbabilitySumTolerance = 0.001f;
 
         /// <summary>
-        /// Matches trial names that are safe to embed in generated segment prefab filenames. Restricts trial names
-        /// to ASCII letters, digits, and underscores so the ``TaskName_TrialName`` segment naming scheme cannot be
-        /// corrupted by path separators, whitespace, or punctuation introduced in a template.
+        /// Matches the template and trial names that are safe to embed in generated segment prefab filenames.
+        /// Restricts both halves to ASCII letters, digits, and underscores so the ``TemplateName-TrialName`` segment
+        /// naming scheme cannot be corrupted by path separators, whitespace, or punctuation introduced in a template.
         /// </summary>
-        private static readonly Regex TrialNamePattern = new Regex("^[A-Za-z0-9_]+$", RegexOptions.Compiled);
+        /// <remarks>
+        /// Excluding the hyphen from both halves is what makes the joined filename unambiguous, because a segment
+        /// filename then splits at its only hyphen and resolves to exactly one owning template.
+        /// </remarks>
+        private static readonly Regex SegmentNameComponentPattern = new Regex("^[A-Za-z0-9_]+$", RegexOptions.Compiled);
 
         /// <summary>Loads a TaskTemplate from a YAML file and derives the template name from the filename.</summary>
         /// <param name="filePath">The absolute path to the YAML template file.</param>
@@ -51,9 +55,19 @@ namespace SL.Config
             string yaml = File.ReadAllText(filePath);
             TaskTemplate template = deserializer.Deserialize<TaskTemplate>(yaml);
 
+            string templateName = Path.GetFileNameWithoutExtension(filePath);
+            if (!SegmentNameComponentPattern.IsMatch(templateName))
+            {
+                string message =
+                    $"Template filename '{templateName}' is invalid. Template names must contain only ASCII "
+                    + "letters, digits, and underscores, because the generated segment prefab filename joins the "
+                    + "template name and the trial name with a hyphen.";
+                throw new InvalidDataException(message);
+            }
+
             ValidateTemplate(template, filePath);
 
-            template.templateName = Path.GetFileNameWithoutExtension(filePath);
+            template.templateName = templateName;
 
             return template;
         }
@@ -80,6 +94,8 @@ namespace SL.Config
                 throw new InvalidDataException("No VR environment configuration defined.");
             }
 
+            ValidateVrEnvironment(template.vrEnvironment);
+
             if (template.trialStructures == null || template.trialStructures.Count == 0)
             {
                 throw new InvalidDataException("No trial structures defined in template.");
@@ -92,6 +108,11 @@ namespace SL.Config
 
             foreach (Cue cue in template.cues)
             {
+                if (string.IsNullOrEmpty(cue.name))
+                {
+                    throw new InvalidDataException("A cue entry is missing the required 'name' field.");
+                }
+
                 if (cue.code < 0 || cue.code > 255)
                 {
                     throw new InvalidDataException($"Cue '{cue.name}' has invalid code {cue.code}. Must be 0-255.");
@@ -136,10 +157,10 @@ namespace SL.Config
                 string trialName = trialEntry.Key;
                 TrialStructure trial = trialEntry.Value;
 
-                // Trial names are concatenated into segment prefab filenames (``TaskName_TrialName.prefab``), so
+                // Trial names are concatenated into segment prefab filenames (``TemplateName-TrialName.prefab``), so
                 // operator-controlled punctuation, whitespace, or path separators would corrupt the generated
                 // filesystem layout. Rejects them at load time before any asset path is computed downstream.
-                if (!TrialNamePattern.IsMatch(trialName))
+                if (!SegmentNameComponentPattern.IsMatch(trialName))
                 {
                     string message =
                         $"Trial name '{trialName}' is invalid. Trial names must contain only ASCII letters, "
@@ -191,7 +212,7 @@ namespace SL.Config
                 {
                     throw new InvalidDataException(
                         $"Trial '{trialName}' has trigger_type '{trial.triggerType}', an occupancy mode, so "
-                        + "occupancy_duration_ms is required, but it is unset."
+                            + "occupancy_duration_ms is required, but it is unset."
                     );
                 }
 
@@ -199,7 +220,7 @@ namespace SL.Config
                 {
                     throw new InvalidDataException(
                         $"Trial '{trialName}' has invalid occupancy_duration_ms {trial.occupancyDurationMs.Value}. "
-                        + "Must be positive."
+                            + "Must be positive."
                     );
                 }
             }
@@ -242,6 +263,17 @@ namespace SL.Config
                             $"Trial '{trialName}' has a transition to unknown trial '{transition.Key}'."
                         );
                     }
+
+                    // A negative weight still lets the set sum to 1.0 while removing its target from the sampled
+                    // distribution, and a NaN weight passes every ordered comparison including the sum tolerance.
+                    if (!float.IsFinite(transition.Value) || transition.Value < 0f || transition.Value > 1f)
+                    {
+                        throw new InvalidDataException(
+                            $"Trial '{trialName}' has a transition to '{transition.Key}' with invalid probability "
+                                + $"{transition.Value}. Must be between 0.0 and 1.0."
+                        );
+                    }
+
                     probabilitySum += transition.Value;
                 }
 
@@ -251,6 +283,42 @@ namespace SL.Config
                         $"Trial '{trialName}' transition probabilities sum to {probabilitySum}, must be 1.0."
                     );
                 }
+            }
+        }
+
+        /// <summary>Validates the VR environment's corridor geometry scalars.</summary>
+        /// <remarks>
+        /// Every field here divides or sizes downstream geometry, so a non-positive or non-finite value produces an
+        /// infinite segment length, a zero-depth corridor, or a maze generation loop that never terminates.
+        /// </remarks>
+        /// <param name="environment">The VR environment block to validate.</param>
+        /// <exception cref="InvalidDataException">A corridor geometry scalar is out of range.</exception>
+        private static void ValidateVrEnvironment(VREnvironment environment)
+        {
+            if (environment.segmentsPerCorridor < 1)
+            {
+                throw new InvalidDataException(
+                    $"Invalid segments_per_corridor {environment.segmentsPerCorridor}. Must be at least 1."
+                );
+            }
+
+            if (!float.IsFinite(environment.cmPerUnityUnit) || environment.cmPerUnityUnit <= 0f)
+            {
+                throw new InvalidDataException(
+                    $"Invalid cm_per_unity_unit {environment.cmPerUnityUnit}. Must be positive and finite."
+                );
+            }
+
+            if (!float.IsFinite(environment.corridorSpacingCm) || environment.corridorSpacingCm <= 0f)
+            {
+                throw new InvalidDataException(
+                    $"Invalid corridor_spacing_cm {environment.corridorSpacingCm}. Must be positive and finite."
+                );
+            }
+
+            if (!float.IsFinite(environment.cueOffsetCm))
+            {
+                throw new InvalidDataException($"Invalid cue_offset_cm {environment.cueOffsetCm}. Must be finite.");
             }
         }
     }
