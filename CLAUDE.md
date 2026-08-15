@@ -245,7 +245,7 @@ tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's 
 
 ### Code standards
 
-- Unity `6000.3.15f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
+- Unity `6000.3.22f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
 - 120 character line limit enforced by CSharpier (`.csharpierrc.yaml`), with naming, brace style, and spacing enforced
   by `.editorconfig`.
 - Allman brace style, `_camelCase` private fields, PascalCase public properties and methods, camelCase Inspector

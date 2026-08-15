@@ -176,11 +176,13 @@ namespace Gimbl
             }
             catch (Exception exception)
             {
-                string startMessage = $"Monitor enumeration: failed to start '{command}': {exception.Message}";
+                // The reported error trails the hint, because its own text carries no terminating punctuation.
+                string startMessage = $"Monitor enumeration: failed to start '{command}'.";
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
                 {
                     startMessage += " Install it with 'brew install displayplacer'.";
                 }
+                startMessage += $" Reported error: {exception.Message}";
                 Debug.LogWarning(startMessage);
                 return;
             }
