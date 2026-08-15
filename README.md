@@ -287,10 +287,12 @@ selecting a template, the pipeline:
 
 1. Runs a cross-template cue-texture preflight (`ValidateCueDefinitionsAcrossTemplates`). If two templates declare the
    same `(cue name, length_cm)` pair with different textures, the generation aborts before any asset is written.
-2. Wipes every segment prefab the template owns (`CleanGeneratedSegments`) so trial-parameter edits take effect.
-3. Builds or reuses cue prefabs keyed by `(name, length_cm)` under `Assets/InfiniteCorridorTask/Cues/`.
+2. Builds or reuses cue prefabs keyed by `(name, length_cm)` under `Assets/InfiniteCorridorTask/Cues/`.
+3. Wipes every segment prefab the template owns (`CleanGeneratedSegments`) so trial-parameter edits take effect. The
+   wipe follows the cue build, so a missing texture aborts the run with the previous generation still intact.
 4. Builds every segment prefab from scratch under
-   `Assets/InfiniteCorridorTask/Prefabs/<TemplateName>_<TrialName>.prefab`.
+   `Assets/InfiniteCorridorTask/Prefabs/<TemplateName>-<TrialName>.prefab`. Template and trial names are restricted to
+   ASCII letters, digits, and underscores, so the hyphen separator resolves each segment to exactly one template.
 5. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`.
 6. Copies `Assets/Scenes/ExperimentTemplate.unity` to `Assets/Scenes/<TemplateName>.unity`, instantiates the task
    prefab into it, and runs `MainWindow.EnsureControllers` so both the `LinearTreadmill` (hardware) and
@@ -402,10 +404,10 @@ All responses are JSON objects carrying a `success` boolean plus a payload or er
 by an allow-prefix list (`Assets/InfiniteCorridorTask/Tasks/`, `Prefabs/`, `Cues/`, `Materials/`) and rejects scene
 paths under `Assets/Scenes/`. Scene cleanup goes through `delete_task` exclusively so the cascade-delete of the
 matching `Assets/VRSettings/Displays/<scene>-savedFullScreenViews.asset` companion can never be bypassed. A
-protected-paths set covers the four hand-authored prefabs (`StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`,
-`ResetZone.prefab`, `Padding.prefab`), the four hand-authored materials (`_CueShaderReference.mat`, `Floor.mat`,
-`Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Path traversal sequences and
-absolute paths are rejected.
+protected-paths set covers the three hand-authored prefabs (`StimulusTriggerZone.prefab`,
+`OccupancyTriggerZone.prefab`, `Padding.prefab`), the four hand-authored materials (`_CueShaderReference.mat`,
+`Floor.mat`, `Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Both
+`delete_asset` and `delete_task` consult that set, and path traversal sequences and absolute paths are rejected.
 
 ***Note,*** AI agents do not call this bridge directly. They use the `slsa mcp` server's Unity relay tools, which are
 listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README. The bridge
@@ -421,13 +423,13 @@ These notes apply to project developers and task authors who modify source code,
 
 Three categories of assets coexist in this project:
 
-- **Hand-authored** (protected): `StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`, `ResetZone.prefab`,
+- **Hand-authored** (protected): `StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`,
   `Padding.prefab`, `Materials/_CueShaderReference.mat`, `Materials/Floor.mat`, `Materials/Wall.mat`,
   `Materials/TargetMat.mat`, and `Scenes/ExperimentTemplate.unity`. These are the source templates and shared assets
   that `CreateTask` references at generation time (and that the trigger zone prefabs reference in turn via
   `TargetMat.mat`). They must remain untouched, and `McpBridge.DeleteProtectedPaths` refuses to delete them.
 - **Generated** (regenerable): every cue prefab under `Cues/`, every segment prefab under `Prefabs/` matching
-  `<TemplateName>_<TrialName>.prefab`, every cue material under `Materials/Cue_*_*cm.mat`, every prefab under `Tasks/`,
+  `<TemplateName>-<TrialName>.prefab`, every cue material under `Materials/Cue_*_*cm.mat`, every prefab under `Tasks/`,
   and every scene other than `ExperimentTemplate.unity`. These are produced by `CreateTask` and are safe to delete via
   `delete_task` (whole-task cleanup) or `delete_asset` (individual cue prefab / material) so the next generation pass
   rebuilds them.

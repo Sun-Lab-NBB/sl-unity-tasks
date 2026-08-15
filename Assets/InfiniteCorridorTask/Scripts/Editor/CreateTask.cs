@@ -77,7 +77,7 @@ namespace SL.Tasks
         /// <summary>The vertical offset for trigger-zone GameObjects, slightly above the segment floor.</summary>
         private const float ZoneVerticalOffset = 0.505f;
 
-        /// <summary>The vertical center for cue walls, segment walls, and the reset-zone marker.</summary>
+        /// <summary>The vertical center for cue walls and segment walls.</summary>
         private const float WallVerticalCenter = 0.5f;
 
         /// <summary>
@@ -96,18 +96,19 @@ namespace SL.Tasks
             lengthCm.ToString("0.##", CultureInfo.InvariantCulture);
 
         /// <summary>
-        /// Computes the canonical prefab name for a trial's segment as ``TemplateName_TrialName``. The template
-        /// name comes from the YAML filename (without extension) and the trial name is the key under
-        /// ``trial_structures`` — both validated for filesystem-safe characters at template load time. Segments
-        /// are therefore globally unique by construction across all templates and trivially identifiable in the
-        /// Project window. Two trials that share identical geometry no longer collapse to a single prefab; the
-        /// always-regenerate build flow makes that a deliberate non-issue.
+        /// Computes the canonical prefab name for a trial's segment as ``TemplateName-TrialName``. The template name
+        /// comes from the YAML filename (without extension) and the trial name is the key under ``trial_structures``.
         /// </summary>
+        /// <remarks>
+        /// <see cref="ConfigLoader"/> restricts both halves to ASCII letters, digits, and underscores, so the hyphen
+        /// separator appears exactly once and the joined name splits back into one template and one trial. That makes
+        /// a segment globally unique across templates even where one template basename nests another.
+        /// </remarks>
         /// <param name="template">The task template owning the trial; supplies the template name.</param>
         /// <param name="trialName">The trial key under ``trial_structures``.</param>
         /// <returns>The canonical segment prefab name (without the ``.prefab`` extension).</returns>
         public static string CanonicalSegmentName(TaskTemplate template, string trialName) =>
-            $"{template.templateName}_{trialName}";
+            $"{template.templateName}-{trialName}";
 
         /// <summary>
         /// Deletes every segment prefab the supplied template claims ownership of so the subsequent build
@@ -115,15 +116,18 @@ namespace SL.Tasks
         /// name. Cue prefabs and cue materials are intentionally **not** removed: they are keyed by cue name
         /// and length only and are shared by every template that declares a matching cue, so deleting them
         /// here would clobber assets owned by other templates and invalidate their segment prefabs' cue
-        /// references. Hand-authored prefabs (Padding, ResetZone, StimulusTriggerZone, OccupancyTriggerZone)
-        /// are never derived from template data and are therefore also left untouched.
+        /// references. Hand-authored prefabs (Padding, StimulusTriggerZone, OccupancyTriggerZone) are never
+        /// derived from template data and are therefore also left untouched.
         /// </summary>
+        /// <remarks>
+        /// Deletes by exact canonical name rather than by prefix, which the hyphen separator in
+        /// <see cref="CanonicalSegmentName"/> makes unambiguous even where one template basename nests another.
+        /// </remarks>
         /// <param name="template">The template whose owned segment prefabs are removed.</param>
         private static void CleanGeneratedSegments(TaskTemplate template)
         {
-            // The final AssetDatabase.SaveAssets + Refresh in BuildSegmentPrefabs flushes these deletions
-            // along with the subsequent cue and segment writes; skipping intermediate SaveAssets calls
-            // here keeps the generation pipeline to a single project-wide reimport rather than three.
+            // The final AssetDatabase.SaveAssets and Refresh in BuildSegmentPrefabs flush these deletions along with
+            // the segment writes that follow, keeping the pipeline to a single project-wide reimport.
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
                 string segmentName = CanonicalSegmentName(template, trialEntry.Key);
@@ -237,6 +241,72 @@ namespace SL.Tasks
                 + "change its length, or unify the textures before regenerating:\n  - "
                 + string.Join("\n  - ", conflicts);
             return false;
+        }
+
+        /// <summary>
+        /// Confirms the template's segments are short enough for the default track length to fill one corridor.
+        /// </summary>
+        /// <remarks>
+        /// A generated task prefab always starts at <see cref="Task.DefaultTrackLength"/>, so a template whose
+        /// segments outrun it produces a maze shorter than the corridor depth and a task that disables itself on the
+        /// first Play Mode entry. Reporting it here surfaces the problem while the operator is still generating.
+        /// </remarks>
+        /// <param name="template">The loaded task template.</param>
+        /// <returns>An error message when the default track length cannot fill a corridor, otherwise null.</returns>
+        private static string ValidateTrackLengthCoversCorridor(TaskTemplate template)
+        {
+            float longestSegmentUnity = template.GetSegmentLengthsUnity().Max();
+            int depth = template.vrEnvironment.segmentsPerCorridor;
+            int worstCaseSegmentCount = Mathf.FloorToInt(Task.DefaultTrackLength / longestSegmentUnity);
+
+            if (worstCaseSegmentCount >= depth)
+            {
+                return null;
+            }
+
+            return $"Template '{template.templateName}' declares a longest segment of {longestSegmentUnity} Unity "
+                + $"units, so the default track length {Task.DefaultTrackLength} yields at most "
+                + $"{worstCaseSegmentCount} segments where segments_per_corridor requires {depth}. Shorten the "
+                + "longest cue sequence or raise Track Length in Window > Task Parameters before generating.";
+        }
+
+        /// <summary>Confirms every hand-authored asset the build consumes is present before any asset is written.
+        /// </summary>
+        /// <remarks>
+        /// The segment and corridor builds each abort on a missing hand-authored input, and both run after
+        /// <see cref="CleanGeneratedSegments"/> has removed the previous generation. Checking here keeps that wipe
+        /// from stranding the existing task prefab and scene on segments the aborted call cannot rebuild.
+        /// </remarks>
+        /// <param name="template">The loaded task template, which names the padding prefab.</param>
+        /// <returns>An error message naming every missing asset, otherwise null.</returns>
+        private static string ValidateHandAuthoredAssets(TaskTemplate template)
+        {
+            string[] requiredPaths =
+            {
+                Path.Combine(MaterialsFolder, "Floor.mat"),
+                Path.Combine(MaterialsFolder, "Wall.mat"),
+                Path.Combine(PrefabsFolder, "StimulusTriggerZone.prefab"),
+                Path.Combine(PrefabsFolder, "OccupancyTriggerZone.prefab"),
+                Path.Combine(PrefabsFolder, $"{template.vrEnvironment.paddingPrefabName}.prefab"),
+            };
+
+            List<string> missingPaths = new List<string>();
+            foreach (string requiredPath in requiredPaths)
+            {
+                if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(requiredPath) == null)
+                {
+                    missingPaths.Add(requiredPath);
+                }
+            }
+
+            if (missingPaths.Count == 0)
+            {
+                return null;
+            }
+
+            return "Generation requires hand-authored assets that are missing from the project:\n  - "
+                + string.Join("\n  - ", missingPaths)
+                + "\nRestore them from version control before generating.";
         }
 
         /// <summary>
@@ -410,16 +480,31 @@ namespace SL.Tasks
                 return $"error: {exception.Message}";
             }
 
-            // Wipes any segment prefabs this template previously generated so trial-parameter edits never
-            // result in stale segment geometry surviving under an unchanged ``TemplateName_TrialName`` filename.
-            // Cue prefabs and materials are deliberately preserved because they are shared across templates
-            // by cue name and length; ``BuildCuePrefabs`` rebuilds only the cues that are still missing.
-            CleanGeneratedSegments(template);
+            string lengthError = ValidateTrackLengthCoversCorridor(template);
+            if (lengthError != null)
+            {
+                return $"error: {lengthError}";
+            }
 
+            string missingAssetError = ValidateHandAuthoredAssets(template);
+            if (missingAssetError != null)
+            {
+                return $"error: {missingAssetError}";
+            }
+
+            // Builds cues before wiping the previous segments, because a missing texture or a conflicting cached
+            // material aborts here and a wipe that ran first would leave the existing task prefab and scene
+            // referencing segments this call is unable to rebuild.
             if (!BuildCuePrefabs(template))
             {
                 return "error: Failed to build cue prefabs.";
             }
+
+            // Wipes any segment prefabs this template previously generated so trial-parameter edits never
+            // result in stale segment geometry surviving under an unchanged ``TemplateName-TrialName`` filename.
+            // Cue prefabs and materials are deliberately preserved because they are shared across templates
+            // by cue name and length; ``BuildCuePrefabs`` rebuilds only the cues that are still missing.
+            CleanGeneratedSegments(template);
 
             if (!BuildSegmentPrefabs(template))
             {
@@ -437,7 +522,7 @@ namespace SL.Tasks
             string[] trialNames = template.GetTrialNames();
             int trialCount = trialNames.Length;
 
-            // Loads segment prefabs by their canonical ``TemplateName_TrialName`` filename.
+            // Loads segment prefabs by their canonical ``TemplateName-TrialName`` filename.
             GameObject[] segmentPrefabs = new GameObject[trialCount];
             TrialStructure[] trials = new TrialStructure[trialCount];
             for (int i = 0; i < trialCount; i++)
@@ -503,8 +588,8 @@ namespace SL.Tasks
                     int segment = corridorSegments[j];
                     GameObject instance = PrefabUtility.InstantiatePrefab(segmentPrefabs[segment]) as GameObject;
 
-                    // Only the first segment in each corridor should have a stimulus trigger zone
-                    // and reset zone since the later segments are just for visual illusion
+                    // Only the first segment in each corridor carries a stimulus trigger zone, since the later
+                    // segments exist for the visual illusion of depth.
                     if (j > 0)
                     {
                         StimulusTriggerZone stimulusTriggerZone =
@@ -512,12 +597,6 @@ namespace SL.Tasks
                         if (stimulusTriggerZone != null)
                         {
                             UnityEngine.Object.DestroyImmediate(stimulusTriggerZone.gameObject);
-                        }
-
-                        ResetZone resetZone = instance.GetComponentInChildren<ResetZone>();
-                        if (resetZone != null)
-                        {
-                            UnityEngine.Object.DestroyImmediate(resetZone.gameObject);
                         }
                     }
                     else
@@ -766,7 +845,10 @@ namespace SL.Tasks
                     return false;
                 }
 
-                if (AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null)
+                // A cue prefab references its material by GUID, so a material deleted from under a surviving prefab
+                // leaves that prefab rendering untextured. Skipping requires both assets, and a missing material
+                // rebuilds the prefab alongside it so the new material is the one the renderers point at.
+                if (AssetDatabase.LoadAssetAtPath<GameObject>(cuePrefabPath) != null && cueMaterial != null)
                 {
                     continue;
                 }
@@ -825,10 +907,10 @@ namespace SL.Tasks
 
         /// <summary>
         /// Creates a segment prefab for every trial structure declared by the template, naming each one
-        /// ``TemplateName_TrialName.prefab``. Each segment prefab contains cue instances, floor, walls, and
-        /// trigger/reset zones derived from the trial structure. Callers must invoke
-        /// ``CleanGeneratedSegments`` first; this method unconditionally writes to the segment prefab path
-        /// and assumes nothing exists at that location.
+        /// ``TemplateName-TrialName.prefab``. Each segment prefab contains cue instances, floor, walls, and the
+        /// trigger zone derived from the trial structure. Callers must invoke ``ValidateHandAuthoredAssets`` and
+        /// then ``CleanGeneratedSegments`` first, because this method unconditionally writes to the segment prefab
+        /// path and assumes nothing exists at that location.
         /// </summary>
         /// <param name="template">The loaded task template.</param>
         /// <returns>True if all segment prefabs were built successfully, false on error.</returns>
@@ -858,9 +940,17 @@ namespace SL.Tasks
             GameObject occupancyZonePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
                 Path.Combine(PrefabsFolder, "OccupancyTriggerZone.prefab")
             );
-            GameObject resetZonePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(
-                Path.Combine(PrefabsFolder, "ResetZone.prefab")
-            );
+
+            // A missing zone prefab would otherwise fall through every trigger_type branch below and save a segment
+            // with no trigger zone at all, producing a task that reports success and never publishes a stimulus.
+            if (stimulusZonePrefab == null || occupancyZonePrefab == null)
+            {
+                string message =
+                    "BuildSegmentPrefabs: Missing StimulusTriggerZone.prefab or OccupancyTriggerZone.prefab under "
+                    + $"{PrefabsFolder}. Restore both hand-authored zone prefabs before generating.";
+                Debug.LogError(message);
+                return false;
+            }
 
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
@@ -934,10 +1024,7 @@ namespace SL.Tasks
                 float zoneSizeUnity = zoneEndUnity - zoneStartUnity;
                 float stimulusLocationUnity = trial.stimulusLocationCm / cmPerUnit;
 
-                if (
-                    string.Equals(trial.triggerType, "interaction", StringComparison.Ordinal)
-                    && stimulusZonePrefab != null
-                )
+                if (string.Equals(trial.triggerType, "interaction", StringComparison.Ordinal))
                 {
                     PlaceInteractionZone(
                         parent: segmentGameObject,
@@ -949,10 +1036,7 @@ namespace SL.Tasks
                         showBoundary: trial.showStimulusCollisionBoundary
                     );
                 }
-                else if (
-                    string.Equals(trial.triggerType, "collision", StringComparison.Ordinal)
-                    && stimulusZonePrefab != null
-                )
+                else if (string.Equals(trial.triggerType, "collision", StringComparison.Ordinal))
                 {
                     PlaceCollisionZone(
                         parent: segmentGameObject,
@@ -963,12 +1047,9 @@ namespace SL.Tasks
                     );
                 }
                 else if (
-                    occupancyZonePrefab != null
-                    && (
-                        string.Equals(trial.triggerType, "occupancy_disarm", StringComparison.Ordinal)
-                        || string.Equals(trial.triggerType, "occupancy_arm", StringComparison.Ordinal)
-                        || string.Equals(trial.triggerType, "occupancy_trigger", StringComparison.Ordinal)
-                    )
+                    string.Equals(trial.triggerType, "occupancy_disarm", StringComparison.Ordinal)
+                    || string.Equals(trial.triggerType, "occupancy_arm", StringComparison.Ordinal)
+                    || string.Equals(trial.triggerType, "occupancy_trigger", StringComparison.Ordinal)
                 )
                 {
                     PlaceOccupancyZone(
@@ -983,16 +1064,6 @@ namespace SL.Tasks
                         occupancyDurationMs: trial.occupancyDurationMs.Value,
                         showBoundary: trial.showStimulusCollisionBoundary
                     );
-                }
-
-                // Places ResetZone at the animal's per-corridor spawn point. The segment root is shifted
-                // upstream by cueOffsetUnity, so a local Z of cueOffsetUnity places the reset zone at
-                // world Z = 0 — exactly where the actor teleports to on every lap restart.
-                if (resetZonePrefab != null)
-                {
-                    GameObject resetZone = PrefabUtility.InstantiatePrefab(resetZonePrefab) as GameObject;
-                    resetZone.transform.SetParent(segmentGameObject.transform);
-                    resetZone.transform.localPosition = new Vector3(0, WallVerticalCenter, cueOffsetUnity);
                 }
 
                 PrefabUtility.SaveAsPrefabAsset(segmentGameObject, segmentPrefabPath);
@@ -1075,7 +1146,7 @@ namespace SL.Tasks
         /// <summary>
         /// Instantiates and configures a StimulusTriggerZone in collision mode within a segment. Reuses the
         /// interaction prefab, strips its GuidanceRegion child, and positions the root collider as a thin
-        /// invisible wall at the stimulus location that fires the stimulus unconditionally on crossing.
+        /// invisible wall starting at the stimulus location that fires the stimulus unconditionally on crossing.
         /// </summary>
         /// <param name="parent">The parent segment GameObject.</param>
         /// <param name="zonePrefab">The StimulusTriggerZone prefab to instantiate.</param>
@@ -1090,11 +1161,15 @@ namespace SL.Tasks
             bool showBoundary
         )
         {
+            // Anchors the wall's leading edge on the stimulus location, matching where the interaction guidance
+            // region and the occupancy root both begin, so every mode fires at the location the template declares.
+            // ConfigureRootZoneCollider centers the collider on the zone origin, so the origin carries the offset.
+            float wallCenterUnity = stimulusLocationUnity + GuidanceColliderDepth / 2f;
+
             GameObject zone = PrefabUtility.InstantiatePrefab(zonePrefab) as GameObject;
             zone.transform.SetParent(parent.transform);
-            zone.transform.localPosition = new Vector3(0, ZoneVerticalOffset, stimulusLocationUnity);
+            zone.transform.localPosition = new Vector3(0, ZoneVerticalOffset, wallCenterUnity);
 
-            // Collision uses a thin invisible wall at the stimulus location as its root trigger collider.
             ConfigureRootZoneCollider(zone, GuidanceColliderDepth);
 
             // Collision has no sensor or guidance, so removes the interaction prefab's GuidanceRegion child.

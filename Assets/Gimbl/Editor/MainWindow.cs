@@ -331,6 +331,8 @@ namespace Gimbl
                         if (GUILayout.Button(blankShowTooltip))
                         {
                             display.currentBrightness = 0;
+                            EditorUtility.SetDirty(display);
+                            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
                         }
                     }
                     else
@@ -339,6 +341,8 @@ namespace Gimbl
                         if (GUILayout.Button(blankShowTooltip))
                         {
                             display.currentBrightness = display.settings.brightness;
+                            EditorUtility.SetDirty(display);
+                            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
                         }
                     }
                     EditorGUILayout.EndHorizontal();
@@ -360,10 +364,14 @@ namespace Gimbl
                     if (previousHeight != display.settings.heightInVR)
                     {
                         display.transform.localPosition = new Vector3(0, display.settings.heightInVR, 0);
+                        EditorUtility.SetDirty(display);
+                        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
                     }
                     if (previousBrightness != display.settings.brightness)
                     {
                         display.currentBrightness = display.settings.brightness;
+                        EditorUtility.SetDirty(display);
+                        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
                     }
                 }
             );
@@ -399,12 +407,22 @@ namespace Gimbl
                 "MQTT",
                 () =>
                 {
-                    _client.ipAddress = EditorGUILayout.TextField(
+                    MQTTClient client = GetCachedClient();
+                    if (client == null)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "No MQTT Client in the active scene. Close and reopen this window to auto-create one.",
+                            MessageType.Info
+                        );
+                        return;
+                    }
+
+                    client.ipAddress = EditorGUILayout.TextField(
                         new GUIContent(
                             "ip: ",
                             "IP address of the MQTT broker that bridges this Unity scene to the experiment hardware."
                         ),
-                        _client.ipAddress,
+                        client.ipAddress,
                         LayoutSettings.EditFieldOption
                     );
 
@@ -413,18 +431,18 @@ namespace Gimbl
                             "port: ",
                             "TCP port of the MQTT broker that bridges this Unity scene to the experiment hardware."
                         ),
-                        _client.port.ToString(),
+                        client.port.ToString(),
                         LayoutSettings.EditFieldOption
                     );
                     if (int.TryParse(portText, out int parsedPort))
                     {
-                        _client.port = parsedPort;
+                        client.port = parsedPort;
                     }
 
                     if (GUI.changed)
                     {
-                        EditorPrefs.SetString("SollertiaVR_MQTT_IP", _client.ipAddress);
-                        EditorPrefs.SetInt("SollertiaVR_MQTT_Port", _client.port);
+                        EditorPrefs.SetString("SollertiaVR_MQTT_IP", client.ipAddress);
+                        EditorPrefs.SetInt("SollertiaVR_MQTT_Port", client.port);
                     }
                     if (
                         GUILayout.Button(
@@ -435,8 +453,8 @@ namespace Gimbl
                         )
                     )
                     {
-                        _client.Connect(verbose: true);
-                        _client.Disconnect();
+                        client.Connect(verbose: true);
+                        client.Disconnect();
                     }
                 }
             );
@@ -462,6 +480,7 @@ namespace Gimbl
         /// <summary>Clears every per-scene cached component reference so the next access re-resolves.</summary>
         private void InvalidateSceneCache()
         {
+            _client = null;
             _cachedTask = null;
             _cachedActor = null;
             _cachedDisplay = null;
@@ -520,6 +539,16 @@ namespace Gimbl
                 _cachedOccupancyZone = FindAnyObjectByType<OccupancyZone>();
             }
             return _cachedOccupancyZone;
+        }
+
+        /// <summary>Returns the cached <see cref="MQTTClient"/>, refreshing it from the scene on demand.</summary>
+        private MQTTClient GetCachedClient()
+        {
+            if (_client == null)
+            {
+                _client = FindAnyObjectByType<MQTTClient>();
+            }
+            return _client;
         }
 
         /// <summary>Ensures required GameObjects and folders exist in the scene.</summary>
@@ -717,6 +746,9 @@ namespace Gimbl
                 return;
             }
 
+            string previousIpAddress = client.ipAddress;
+            int previousPort = client.port;
+
             client.ipAddress = EditorPrefs.GetString("SollertiaVR_MQTT_IP");
             if (string.IsNullOrEmpty(client.ipAddress))
             {
@@ -727,7 +759,14 @@ namespace Gimbl
             {
                 client.port = 1883;
             }
-            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+
+            bool brokerChanged =
+                !string.Equals(client.ipAddress, previousIpAddress, System.StringComparison.Ordinal)
+                || client.port != previousPort;
+            if (brokerChanged)
+            {
+                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            }
         }
 
         /// <summary>

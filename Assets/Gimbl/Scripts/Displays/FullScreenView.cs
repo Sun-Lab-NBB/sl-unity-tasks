@@ -28,14 +28,10 @@ namespace Gimbl
         /// <summary>Determines whether the view is currently rendering.</summary>
         private bool _rendering = false;
 
-        /// <summary>Adds this view to the views list when created.</summary>
-        private void Awake()
-        {
-            Views.Add(this);
-        }
-
-        /// <summary>Registers the quit and play-mode handlers when enabled.</summary>
+        /// <summary>Adds this view to the views list and registers the quit and play-mode handlers.</summary>
         /// <remarks>
+        /// Registration lives here rather than in Awake because a domain reload rebuilds <see cref="Views"/>
+        /// empty without re-invoking Awake on a window that survived it, which would orphan every open view.
         /// The play-mode subscription closes the view when Play Mode ends. Without it the borderless
         /// window outlives the scene restore that Unity performs on exit, which clears the camera's
         /// programmatically assigned <c>targetTexture</c> and leaves the OnGUI render path drawing
@@ -43,6 +39,11 @@ namespace Gimbl
         /// </remarks>
         private void OnEnable()
         {
+            if (!Views.Contains(this))
+            {
+                Views.Add(this);
+            }
+
             EditorApplication.wantsToQuit -= OnEditorWantsToQuit;
             EditorApplication.wantsToQuit += OnEditorWantsToQuit;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
@@ -82,6 +83,15 @@ namespace Gimbl
                     if (_camera != null)
                     {
                         _camera.enabled = false;
+
+                        // A domain reload clears the private fields while the camera keeps the texture assigned
+                        // to it, so the surviving texture is freed before a replacement takes its place.
+                        if (_camera.targetTexture != null)
+                        {
+                            _camera.targetTexture.Release();
+                            UnityEngine.Object.DestroyImmediate(_camera.targetTexture);
+                        }
+
                         int renderWidth = (int)position.width;
                         int renderHeight = (int)position.height;
                         _camera.targetTexture = new RenderTexture(

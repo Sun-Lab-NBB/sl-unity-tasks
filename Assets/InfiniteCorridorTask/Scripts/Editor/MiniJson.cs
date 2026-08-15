@@ -261,6 +261,9 @@ namespace SL.Tasks
         /// <param name="json">The JSON string being parsed.</param>
         /// <param name="index">The current parse position, advanced past the parsed string.</param>
         /// <returns>The parsed string value.</returns>
+        /// <exception cref="FormatException">
+        /// A unicode escape inside the string is followed by four characters that are not hexadecimal digits.
+        /// </exception>
         private static string ParseString(string json, ref int index)
         {
             if (index >= json.Length || json[index] != '"')
@@ -285,6 +288,15 @@ namespace SL.Tasks
                         case '\\':
                             builder.Append('\\');
                             break;
+                        case '/':
+                            builder.Append('/');
+                            break;
+                        case 'b':
+                            builder.Append('\b');
+                            break;
+                        case 'f':
+                            builder.Append('\f');
+                            break;
                         case 'n':
                             builder.Append('\n');
                             break;
@@ -293,6 +305,17 @@ namespace SL.Tasks
                             break;
                         case 't':
                             builder.Append('\t');
+                            break;
+                        case 'u':
+                            // A truncated escape carries no digits to decode, so the escape letter is kept literally.
+                            if (index + 4 >= json.Length)
+                            {
+                                builder.Append(escaped);
+                                break;
+                            }
+
+                            builder.Append((char)Convert.ToInt32(json.Substring(index + 1, 4), 16));
+                            index += 4;
                             break;
                         default:
                             builder.Append(escaped);

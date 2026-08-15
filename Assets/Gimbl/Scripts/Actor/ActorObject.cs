@@ -245,8 +245,24 @@ namespace Gimbl
             );
             if (newControllerIndex != currentControllerIndex)
             {
-                Undo.RecordObject(this, "Swap Active Controller");
-                Controller = newControllerIndex == 0 ? null : controllerOutputs[newControllerIndex - 1];
+                ControllerOutput newController =
+                    newControllerIndex == 0 ? null : controllerOutputs[newControllerIndex - 1];
+                ControllerObject outgoingController = Controller != null ? Controller.master : null;
+                ControllerObject incomingController = newController != null ? newController.master : null;
+
+                // The Controller setter rewrites the actor field on both controllers, so undo records them together.
+                List<UnityEngine.Object> undoTargets = new List<UnityEngine.Object> { this };
+                if (outgoingController != null)
+                {
+                    undoTargets.Add(outgoingController);
+                }
+                if (incomingController != null)
+                {
+                    undoTargets.Add(incomingController);
+                }
+
+                Undo.RecordObjects(undoTargets.ToArray(), "Swap Active Controller");
+                Controller = newController;
             }
         }
 #endif

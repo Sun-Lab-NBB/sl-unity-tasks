@@ -45,7 +45,7 @@ namespace SL.Tasks
         public bool showBoundary = false;
 
         /// <summary>
-        /// Determines whether this zone is active (only triggers once per lap). Reset by ResetZone.
+        /// Determines whether this zone is active (only triggers once per lap). Reset at each corridor advance.
         /// </summary>
         public bool isActive = true;
 
@@ -108,6 +108,11 @@ namespace SL.Tasks
             // Caches the boundary renderer so per-lap and per-trigger toggles avoid TryGetComponent.
             TryGetComponent(out _boundaryRenderer);
 
+            // Establishes the first lap through the same path every later lap uses. The hand-authored prefabs
+            // serialize isActive as false and ship the boundary renderer enabled, and a serialized value overrides
+            // the field initializer at load, so the first corridor depends on this call.
+            ResetState();
+
             _stimulusTrigger = new MQTTChannel<StimulusMessage>(MQTTTopics.Stimulus, isListener: false);
             _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction, isListener: true);
             _interactionTrigger.receivedEvent.AddListener(OnInteractionDetected);
@@ -152,12 +157,13 @@ namespace SL.Tasks
         {
             _inZone = false;
 
-            // Resolves an interaction trial the animal left without interacting as a failure (stimulus
-            // omitted, animal's own behavior). The isActive guard ensures this runs only when no delivery
-            // path already resolved the trial this lap, keeping the contract at one message per trial.
+            // Resolves an interaction trial on the boundary crossing from whether the animal engaged the sensor
+            // inside the zone. Physics runs before Update, so an interaction recorded after this zone's last Update
+            // reaches here unconsumed and still delivers. The isActive guard keeps the contract at one message per
+            // trial by skipping a trial some delivery path already resolved.
             if (isActive && triggerMode == TriggerMode.Interaction)
             {
-                TriggerStimulus(delivered: false, cause: BehaviorCause);
+                TriggerStimulus(delivered: _interactionDetectedInZone, cause: BehaviorCause);
             }
         }
 
@@ -168,7 +174,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Resets the zone state for a new lap.</summary>
-        /// <remarks>Invoked by ResetZone when the animal enters the reset zone.</remarks>
+        /// <remarks>Invoked by <see cref="Task"/> when the actor advances into the next corridor.</remarks>
         public void ResetState()
         {
             isActive = true;
@@ -288,9 +294,7 @@ namespace SL.Tasks
         /// <param name="cause">The outcome cause: the animal's own behavior or the guidance fallback.</param>
         private void TriggerStimulus(bool delivered, string cause)
         {
-            Debug.Log(
-                $"StimulusTriggerZone: Trial '{trialName}' resolved (delivered={delivered}, cause={cause})."
-            );
+            Debug.Log($"StimulusTriggerZone: Trial '{trialName}' resolved (delivered={delivered}, cause={cause}).");
             UpdateBoundaryVisibility(false);
             _stimulusTrigger.Send(
                 new StimulusMessage
