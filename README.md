@@ -510,19 +510,23 @@ Unity -batchmode -nographics -projectPath . -runTests -testPlatform PlayMode -te
 ***Note,*** Unity holds a per-project lock, so a headless run requires the Editor to be closed on that project. Copy
 the project directory and run against the copy to keep an Editor session open.
 
+***Note,*** the `/unity-tests` skill in the sollertia marketplace's **unity** plugin is the canonical reference for the
+Edit Mode / Play Mode placement rule, the Support helpers, and the assembly catalog above. It also owns the fixtures
+that pin the enum, topic, protected-asset, and bridge-tool contracts.
+
 ### Extending the Library
 
 The project exposes six concentrated extension points. Each has a matching skill in the sollertia marketplace's
 **unity** or **assets** plugin, listed alongside the touch points below.
 
-| Extension                | Touch points                                                                                    | Owner skill        |
-|--------------------------|-------------------------------------------------------------------------------------------------|--------------------|
-| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`  |
-| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`  |
-| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`    |
-| New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract`   |
-| New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | n/a (manual)       |
-| New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework` |
+| Extension                | Touch points                                                                                    | Owner skill                    |
+|--------------------------|-------------------------------------------------------------------------------------------------|--------------------------------|
+| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`              |
+| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`              |
+| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`                |
+| New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract`               |
+| New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup` |
+| New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework`             |
 
 **Adding a new trigger zone type** is the most cross-cutting extension. The `/zone-prefabs` skill drives the
 `clone_zone_prefab` bridge tool for the prefab itself: it copies `StimulusTriggerZone.prefab` (interaction and collision
@@ -546,15 +550,17 @@ of the `/mqtt-contract` skill catalog.
 **Adding a new McpBridge tool** requires a new switch case in `McpBridge.Dispatch` and a handler method that returns
 `Ok(...)` or `Error(...)`. A tool that reads or writes scene state also integrates with `AcquireSceneComponents` and
 `BuildSnapshot`, and every tool needs a matching `@mcp.tool()` wrapper in
-`sollertia-shared-assets/src/sollertia_shared_assets/interfaces/unity_tools.py`.
+`sollertia-shared-assets/src/sollertia_shared_assets/interfaces/unity_tools.py`. The `/unity-mcp-environment-setup`
+skill owns the full contract, including the tool counts in this README that a new tool must bump.
 
 ### AI-Assisted Development
 
 Claude Code skills and other AI development assets for this project are distributed through two marketplaces:
 
 - [sollertia](https://github.com/Sun-Lab-NBB/sollertia) marketplace:
-  - **unity** plugin, the Unity Editor skills that drive McpBridge tools, document the MQTT contract, document the
-    `CreateTask` pipeline, and guide manufacturing of new trigger zone prefabs.
+  - **unity** plugin, the Unity Editor skills that drive McpBridge tools (task prefabs, scenes, Task Parameters, Play
+    Mode) and configure scenes for a run. The same plugin documents the MQTT contract, the `CreateTask` pipeline, the
+    inlined GIMBL framework, and the test suite, and carries the recipe for manufacturing new trigger zone prefabs.
   - **assets** plugin, which registers the `slsa mcp` server that fronts the Unity relay and provides configuration
     and experiment-authoring skills (task templates, experiment configurations, library extension).
 - [ataraxis](https://github.com/Sun-Lab-NBB/ataraxis) marketplace:
