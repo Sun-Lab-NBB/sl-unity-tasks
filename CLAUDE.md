@@ -65,6 +65,7 @@ that registers the backing `slsa mcp` server. The ataraxis marketplace ships the
 | `/task-generator`               | Reference for the `CreateTask` pipeline and hand-authored zone prefabs    |
 | `/gimbl-framework`              | Reference for the inlined GIMBL VR framework (Actor, MQTT, Displays)      |
 | `/scene-setup`                  | Configure the Display rig, controllers, and UI feedback                   |
+| `/unity-tests`                  | Unity Test Framework suite and the eight-assembly `.asmdef` layout        |
 | `/task-templates`               | Author and validate reusable Unity `TaskTemplate` YAMLs                   |
 | `/experiment-configuration`     | Author per-project experiment configurations that reference a template    |
 | `/library-extension`            | Orchestrate cross-cutting changes to the shared-assets vocabulary         |
@@ -202,18 +203,19 @@ by `sollertia-experiment`.
 
 ### Extension contracts
 
-| Extension                | Touch points                                                             | Skill              |
-|--------------------------|--------------------------------------------------------------------------|--------------------|
-| New task template        | YAML in `Configurations/`, materialized via `/task-prefabs`              | `/task-templates`  |
-| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field               | `/task-templates`  |
-| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, Python | `/zone-prefabs`    |
-| New MQTT topic           | `MQTTTopics` constant, plus both ends of the experiment contract         | `/mqtt-contract`   |
-| New `McpBridge` tool     | `Dispatch` case, handler, `@mcp.tool()` wrapper in `unity_tools.py`      | n/a (manual)       |
-| New treadmill controller | `ControllerObject` subclass and a `ControllerTypes` enum entry           | `/gimbl-framework` |
+| Extension                | Touch points                                                             | Skill                          |
+|--------------------------|--------------------------------------------------------------------------|--------------------------------|
+| New task template        | YAML in `Configurations/`, materialized via `/task-prefabs`              | `/task-templates`              |
+| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field               | `/task-templates`              |
+| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, Python | `/zone-prefabs`                |
+| New MQTT topic           | `MQTTTopics` constant, plus both ends of the experiment contract         | `/mqtt-contract`               |
+| New `McpBridge` tool     | `Dispatch` case, handler, `@mcp.tool()` wrapper in `unity_tools.py`      | `/unity-mcp-environment-setup` |
+| New treadmill controller | `ControllerObject` subclass and a `ControllerTypes` enum entry           | `/gimbl-framework`             |
 
-Each row's skill owns the full touch list, so invoke it before starting the extension. The `McpBridge` tool row is the
-exception no skill owns: add a `Dispatch` case and a handler returning `Ok(...)` or `Error(...)`, fold a scene-touching
-tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's bridge table in the same change.
+Each row's skill owns the full touch list, so invoke it before starting the extension. For a new `McpBridge` tool,
+`/unity-mcp-environment-setup` carries the recipe: add a `Dispatch` case and a handler returning `Ok(...)` or
+`Error(...)`, fold a scene-touching tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's
+bridge table in the same change.
 
 ### Code standards
 
@@ -262,9 +264,9 @@ Finish with `inspect_prefab_tool` to spot-check the hierarchy against the templa
 Preserve the `IResettable` contract on any zone holding per-lap state, and register a new implementer in
 `Task.FindResettableZones`.
 
-**Modifying the `CreateTask` pipeline or `McpBridge`**: invoke `/task-generator` for the generation pipeline, and read
-`McpBridge.cs` directly for the relay surface. Keep the cross-template cue-texture preflight intact, so new branches
-run after it rather than before. New `delete_asset` paths require additions to `DeleteAllowedPrefixes` and new
+**Modifying the `CreateTask` pipeline or `McpBridge`**: invoke `/task-generator` for the generation pipeline and
+`/unity-mcp-environment-setup` for the relay surface. Keep the cross-template cue-texture preflight intact, so new
+branches run after it rather than before. New `delete_asset` paths require additions to `DeleteAllowedPrefixes` and new
 hand-authored assets require additions to `DeleteProtectedPaths`, because updating one without the other leaves the
 bridge unsafe, and a new tool also needs its `@mcp.tool()` wrapper in `unity_tools.py`.
 
@@ -274,12 +276,14 @@ allow-list for each enum field) and `visibility` (whether each conditionally-ren
 that violate either are rejected with a descriptive error. Editor-time writes to `task.require_interaction` and
 `task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run toggles.
 
-**Adding or running tests**: `Assets/Tests/EditMode/` drives the private Unity lifecycle callbacks through the Support
-assembly's `PrivateAccess` helper, so it stays deterministic without frames or physics. A test belongs in
-`Assets/Tests/PlayMode/` when it needs real frames, real trigger callbacks, real elapsed time, or the engine-invoked
-`Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering. `Assets/Tests/Support/` holds the `PrivateAccess` reflection
-accessor, the staged template workspace, the task template YAML builder, the in-process MQTT harness, and the trigger
-zone rig that both assemblies draw on. Run the suite from `Window → General → Test Runner`, or headlessly with
+**Adding or running tests**: invoke `/unity-tests`, which owns the suite, the Support helpers, the assembly catalog,
+and the fixtures that pin the enum, topic, protected-asset, and bridge-tool contracts. `Assets/Tests/EditMode/` drives
+the private Unity lifecycle callbacks through the Support assembly's `PrivateAccess` helper, so it stays deterministic
+without frames or physics. A test belongs in `Assets/Tests/PlayMode/` when it needs real frames, real trigger
+callbacks, real elapsed time, or the engine-invoked `Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering.
+`Assets/Tests/Support/` holds the `PrivateAccess` reflection accessor, the staged template workspace, the task template
+YAML builder, the in-process MQTT harness, and the trigger zone rig that both assemblies draw on. Run the suite from
+`Window → General → Test Runner`, or headlessly with
 `Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults out.xml`, which requires the
 Editor closed on that project because Unity holds a per-project lock.
 
