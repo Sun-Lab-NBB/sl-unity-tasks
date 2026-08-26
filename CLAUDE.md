@@ -50,55 +50,64 @@ library state to prevent integration errors.
 
 ## Available skills
 
-The sollertia marketplace ships a `unity` plugin whose skills drive the `McpBridge` relay tools and an `assets` plugin
-that registers the backing `slsa mcp` server. The ataraxis marketplace ships the `automation` plugin. Install all three.
+The sollertia marketplace ships a `unity` plugin whose skills drive the `McpBridge` relay tools, an `assets` plugin
+that registers the backing `slsa mcp` server, and an `experiment` plugin that owns the host half of the MQTT and
+bridge contracts. The ataraxis marketplace ships the `automation` plugin. Install all four.
 
-| Skill                           | Description                                                               |
-|---------------------------------|---------------------------------------------------------------------------|
-| `/unity-mcp-environment-setup`  | Diagnose the `localhost:8090` `McpBridge` HTTP relay                      |
-| `/task-scenes`                  | List, open, and inspect Unity scenes, and enumerate Unity assets          |
-| `/task-prefabs`                 | Generate, inspect, validate, and delete task prefabs from YAML templates  |
-| `/zone-prefabs`                 | Clone a base zone prefab into a new trigger zone prefab via the MCP tool  |
-| `/task-parameters`              | Read and write the consolidated `Window → Task Parameters` editor surface |
-| `/play-mode`                    | Enter, exit, and query Editor Play Mode                                   |
-| `/mqtt-contract`                | Catalog of every MQTT topic Unity publishes or subscribes to              |
-| `/task-generator`               | Reference for the `CreateTask` pipeline and hand-authored zone prefabs    |
-| `/gimbl-framework`              | Reference for the inlined GIMBL VR framework (Actor, MQTT, Displays)      |
-| `/scene-setup`                  | Configure the Display rig, controllers, and UI feedback                   |
-| `/unity-tests`                  | Unity Test Framework suite and the eight-assembly `.asmdef` layout        |
-| `/task-templates`               | Author and validate reusable Unity `TaskTemplate` YAMLs                   |
-| `/experiment-configuration`     | Author per-project experiment configurations that reference a template    |
-| `/library-extension`            | Orchestrate cross-cutting changes to the shared-assets vocabulary         |
-| `/assets-mcp-environment-setup` | Diagnose and resolve `slsa mcp` server connectivity issues                |
-| `/explore-codebase`             | Perform in-depth codebase exploration at session start                    |
-| `/csharp-style`                 | Apply Sollertia platform C# conventions (REQUIRED for C# changes)         |
-| `/readme-style`                 | Apply Sollertia platform README conventions (REQUIRED for READMEs)        |
-| `/project-layout`               | Apply Sollertia platform project directory structure conventions          |
-| `/skill-design`                 | Generate, update, and verify skill files and this CLAUDE.md               |
-| `/commit`                       | Stage all changes and create a style-compliant commit, without pushing    |
-| `/pr`                           | Draft a style-compliant pull request summary for the active branch        |
-| `/release`                      | Draft style-compliant release notes from the merged pull requests         |
-| `/audit-project`                | Orchestrate the four audits and merge their findings                      |
-| `/audit-correctness`            | Hunt active and latent bugs the test suite leaves uncaught                |
-| `/audit-facts`                  | Fact-check documentation against its authoritative source code            |
-| `/audit-performance`            | Audit cost, memory layout, and numeric width predictability               |
-| `/audit-style`                  | Audit files against the applicable style skill checklists                 |
+| Skill                               | Description                                                               |
+|-------------------------------------|---------------------------------------------------------------------------|
+| `/unity-mcp-environment-setup`      | Diagnose the `localhost:8090` `McpBridge` HTTP relay                      |
+| `/task-scenes`                      | List, open, and inspect Unity scenes, and enumerate Unity assets          |
+| `/task-prefabs`                     | Generate, inspect, validate, and delete task prefabs from YAML templates  |
+| `/zone-prefabs`                     | Clone a base zone prefab into a new trigger zone prefab via the MCP tool  |
+| `/task-parameters`                  | Read and write the consolidated `Window → Task Parameters` editor surface |
+| `/play-mode`                        | Enter, exit, and query Editor Play Mode                                   |
+| `/mqtt-contract`                    | Catalog of every MQTT topic Unity publishes or subscribes to              |
+| `/task-generator`                   | Reference for the `CreateTask` pipeline and hand-authored zone prefabs    |
+| `/gimbl-framework`                  | Reference for the inlined GIMBL VR framework (Actor, MQTT, Displays)      |
+| `/scene-setup`                      | Configure the Display rig, controllers, and UI feedback                   |
+| `/unity-tests`                      | Unity Test Framework suite and the eight-assembly `.asmdef` layout        |
+| `/task-templates`                   | Author and validate reusable Unity `TaskTemplate` YAMLs                   |
+| `/experiment-configuration`         | Author per-project experiment configurations that reference a template    |
+| `assets:library-extension`          | Orchestrate cross-cutting changes to the shared-assets vocabulary         |
+| `/assets-mcp-environment-setup`     | Diagnose and resolve `slsa mcp` server connectivity issues                |
+| `experiment:vr-driver-interface`    | Host-side VR driver, bridge client, and the experiment end of MQTT        |
+| `experiment:system-design-pipeline` | Platform build flow that makes this project Phase 4, the corridor task    |
+| `experiment:pipeline`               | Platform operate flow that routes to the Unity task and scene skills      |
+| `/explore-codebase`                 | Perform in-depth codebase exploration at session start                    |
+| `/csharp-style`                     | Apply Sollertia platform C# conventions (REQUIRED for C# changes)         |
+| `/readme-style`                     | Apply Sollertia platform README conventions (REQUIRED for READMEs)        |
+| `/project-layout`                   | Apply Sollertia platform project directory structure conventions          |
+| `/skill-design`                     | Generate, update, and verify skill files and this CLAUDE.md               |
+| `/commit`                           | Stage all changes and create a style-compliant commit, without pushing    |
+| `/pr`                               | Draft a style-compliant pull request summary for the active branch        |
+| `/release`                          | Draft style-compliant release notes from the merged pull requests         |
+| `/audit-project`                    | Orchestrate the four audits and merge their findings                      |
+| `/audit-correctness`                | Hunt active and latent bugs the test suite leaves uncaught                |
+| `/audit-facts`                      | Fact-check documentation against its authoritative source code            |
+| `/audit-performance`                | Audit cost, memory layout, and numeric width predictability               |
+| `/audit-style`                      | Audit files against the applicable style skill checklists                 |
 
-The `assets` plugin ships further session, project, and data-management skills that this repository does not use. You
-MUST invoke `/library-extension` when adding a new `TriggerType` member or otherwise extending the shared-assets
-template vocabulary. No import-time parity check covers `TriggerType`, so an unwired member surfaces only when a config
-that uses it reaches the acquisition system. A new member does NOT require a `from_task_template` branch in every
-acquisition system, because a system may leave a mode unmapped and a config using it then raises a clear "not mapped to
-a runtime trial class" error.
+`assets:working-directory` is the declared prerequisite for every other assets skill, and it owns the task templates
+directory this project's YAML templates are consumed from. The remaining assets session, project, and data-management
+skills read session and dataset state this repository does not touch. You MUST invoke `assets:library-extension`, which
+is a separate skill from the identically named `experiment:library-extension`, when adding a new `TriggerType` member
+or otherwise extending the shared-assets template vocabulary. No import-time parity check covers `TriggerType`, so an
+unwired member surfaces only when a config that uses it reaches the acquisition system. A new member does NOT require a
+`from_task_template` branch in every acquisition system, because a system may leave a mode unmapped and a config using
+it then raises a clear "not mapped to a runtime trial class" error.
 
 ## MCP server
 
 This project does not host a standalone MCP server. The `McpBridge` editor plugin
 (`Assets/InfiniteCorridorTask/Scripts/Editor/McpBridge.cs`) starts an HTTP listener on `127.0.0.1:8090`, `[::1]:8090`,
 and `localhost:8090` when the Unity Editor loads. The backing MCP server is `slsa mcp` from `sollertia-shared-assets`,
-whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. The bridge dispatches 15 tools
-in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the source of
-truth. Four conventions bind any new tool:
+whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. `UnityBridgeClient`
+(`sollertia-experiment`, `vr_task/bridge.py`) is a second client of the same listener, opening the scene, rebinding the
+actor's motion controller, and driving Play Mode during a session. A `Dispatch` case or response shape change therefore
+breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-interface`. The bridge dispatches 15
+tools in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the
+source of truth. Four conventions bind any new tool:
 
 - Handlers run on the editor thread after `EditorApplication.update` drains the `ConcurrentQueue`, so they may call
   Unity APIs freely.
@@ -113,7 +122,9 @@ truth. Four conventions bind any new tool:
   writes see a consistent snapshot of the active scene.
 
 For bridge connectivity issues invoke `/unity-mcp-environment-setup`, and for backing `slsa mcp` issues invoke
-`/assets-mcp-environment-setup`.
+`/assets-mcp-environment-setup`. The host-side reachability probe is `check_unity_bridge_tool`, which
+`experiment:system-health-check` and `experiment:acquisition-system-setup` call as a pre-flight, and whose contract
+`experiment:vr-driver-interface` owns.
 
 ## Downstream library integration
 
@@ -123,8 +134,8 @@ bridge surface ripple through the other two libraries.
 - **sollertia-experiment** (acquisition runtime). The MQTT counterparty for every topic in `MQTTTopics`. Owns the
   publish side of `CueSequenceTrigger`, `SceneNameTrigger`, `RequireInteraction`, `RequireWait`, `Motion`, and the
   hardware side of `Interaction`. Subscribes to `SessionStart`, `SessionStop`, `Stimulus`, `Delay`, `CueSequence`, and
-  `SceneName`. Topic renames here require an in-lockstep update on the experiment side, and `/mqtt-contract` is the
-  canonical index for both ends.
+  `SceneName`. Topic renames here require an in-lockstep update on the experiment side. `/mqtt-contract` indexes the
+  Unity end, and `experiment:vr-driver-interface` owns the experiment end and the `_VRTaskMQTTTopics` mirror.
 - **sollertia-shared-assets** (configuration schema and MCP relay). Owns the Python `TaskTemplate` plus the `Cue`,
   `TrialStructure`, and `VREnvironment` schema dataclasses it composes. `interfaces/unity_tools.py` is the HTTP client
   for `McpBridge`, so adding a bridge tool requires a matching `@mcp.tool()` wrapper there. Schema changes must land in
@@ -203,17 +214,19 @@ by `sollertia-experiment`.
 
 ### Extension contracts
 
-| Extension                | Touch points                                                             | Skill                          |
-|--------------------------|--------------------------------------------------------------------------|--------------------------------|
-| New task template        | YAML in `Configurations/`, materialized via `/task-prefabs`              | `/task-templates`              |
-| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field               | `/task-templates`              |
-| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, Python | `/zone-prefabs`                |
-| New MQTT topic           | `MQTTTopics` constant, plus both ends of the experiment contract         | `/mqtt-contract`               |
-| New `McpBridge` tool     | `Dispatch` case, handler, `@mcp.tool()` wrapper in `unity_tools.py`      | `/unity-mcp-environment-setup` |
-| New treadmill controller | `ControllerObject` subclass and a `ControllerTypes` enum entry           | `/gimbl-framework`             |
+| Extension                | Touch points                                                             | Skill                                              |
+|--------------------------|--------------------------------------------------------------------------|----------------------------------------------------|
+| New task template        | YAML in `Configurations/`, materialized via `/task-prefabs`              | `/task-templates`                                  |
+| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field               | `/task-templates`                                  |
+| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, Python | `/zone-prefabs`                                    |
+| New MQTT topic           | `MQTTTopics` constant, plus both ends of the experiment contract         | `/mqtt-contract`, `experiment:vr-driver-interface` |
+| New `McpBridge` tool     | `Dispatch` case, handler, `@mcp.tool()` wrapper in `unity_tools.py`      | `/unity-mcp-environment-setup`                     |
+| New treadmill controller | `ControllerObject` subclass and a `ControllerTypes` enum entry           | `/gimbl-framework`                                 |
 
-Each row's skill owns the full touch list, so invoke it before starting the extension. For a new `McpBridge` tool,
-`/unity-mcp-environment-setup` carries the recipe: add a `Dispatch` case and a handler returning `Ok(...)` or
+Invoke each row's skill before starting the extension. Most rows own the full touch list, but the trigger zone row fans
+out, because `/zone-prefabs` owns the prefab itself and hands the `CreateTask` branch to `/task-generator`, the Python
+`TriggerType` registry to `assets:library-extension`, and the fixture updates to `/unity-tests`. For a new `McpBridge`
+tool, `/unity-mcp-environment-setup` carries the recipe: add a `Dispatch` case and a handler returning `Ok(...)` or
 `Error(...)`, fold a scene-touching tool into `AcquireSceneComponents` and `BuildSnapshot`, and update the README's
 bridge table in the same change.
 
@@ -270,11 +283,12 @@ branches run after it rather than before. New `delete_asset` paths require addit
 hand-authored assets require additions to `DeleteProtectedPaths`, because updating one without the other leaves the
 bridge unsafe, and a new tool also needs its `@mcp.tool()` wrapper in `unity_tools.py`.
 
-**Reading or writing Task Parameters**: invoke `/task-parameters`, which owns `read_task_parameters_tool` and
-`write_task_parameters_tool`. Always read the current snapshot first, because the response carries `options` (the
-allow-list for each enum field) and `visibility` (whether each conditionally-rendered control is rendered), and writes
-that violate either are rejected with a descriptive error. Editor-time writes to `task.require_interaction` and
-`task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run toggles.
+**Reading or writing Task Parameters**: invoke `/task-parameters`, which owns `read_task_parameters_tool`,
+`write_task_parameters_tool`, and `refresh_monitors_tool`. Always read the current snapshot first, because the response
+carries `options` (the allow-list for each enum field) and `visibility` (whether each conditionally-rendered control is
+rendered), and writes that violate either are rejected with a descriptive error. Editor-time writes to
+`task.require_interaction` and `task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run
+toggles.
 
 **Adding or running tests**: invoke `/unity-tests`, which owns the suite, the Support helpers, the assembly catalog,
 and the fixtures that pin the enum, topic, protected-asset, and bridge-tool contracts. `Assets/Tests/EditMode/` drives
