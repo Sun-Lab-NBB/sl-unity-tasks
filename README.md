@@ -380,16 +380,17 @@ both published and subscribed inside Unity, so they alone can be exercised witho
 requires a real MQTT 5.0 broker because sollertia-experiment supplies the missing side of the exchange.
 
 ***Note,*** the `/mqtt-contract` skill in the sollertia marketplace's **unity** plugin is the canonical reference for
-topic ownership and payload shape. Any topic addition or rename must be coordinated with sollertia-experiment in the
-same release.
+the Unity end of every topic. The sollertia-experiment publishing and subscribing side and its `_VRTaskMQTTTopics`
+mirror belong to the `/vr-driver-interface` skill in the **experiment** plugin. Any topic addition or rename must be
+coordinated with sollertia-experiment in the same release.
 
 ### Editor MCP Bridge
 
 The `McpBridge` editor plugin (`Assets/InfiniteCorridorTask/Scripts/Editor/McpBridge.cs`) starts an `HttpListener` on
 `127.0.0.1:8090`, `[::1]:8090`, and `localhost:8090` when the Unity Editor loads. The listener exposes Editor
-operations to AI agents via JSON request/response. The backing MCP server (`slsa mcp` from
-[sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)) relays each agent tool call to this
-bridge over HTTP.
+operations to AI agents and to the acquisition runtime via JSON request/response. The backing MCP server (`slsa mcp`
+from [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)) relays each agent tool call to
+this bridge over HTTP, and sollertia-experiment's `UnityBridgeClient` drives the same endpoints during a session.
 
 The bridge dispatches **15 tools**:
 
@@ -420,9 +421,12 @@ protected-paths set covers the three hand-authored prefabs (`StimulusTriggerZone
 `Floor.mat`, `Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Both
 `delete_asset` and `delete_task` consult that set, and path traversal sequences and absolute paths are rejected.
 
-***Note,*** AI agents do not call this bridge directly. They use the `slsa mcp` server's Unity relay tools, which are
-listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README. The bridge
-exists so that any MCP-driven action against this project shares the same code paths as the Editor menu.
+***Note,*** the listener has two clients. AI agents reach it through the `slsa mcp` server's Unity relay tools, which
+are listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README, rather than
+by calling the bridge themselves. The `UnityBridgeClient` in sollertia-experiment's `vr_task/bridge.py` is the second
+client, and it POSTs to the same port during a session to open the scene, rebind the actor's motion controller, and
+drive Play Mode. Changing a `Dispatch` case or a response shape therefore breaks the acquisition runtime as well as the
+relay. The bridge exists so that any driven action against this project shares the same code paths as the Editor menu.
 
 ___
 
@@ -517,16 +521,16 @@ that pin the enum, topic, protected-asset, and bridge-tool contracts.
 ### Extending the Library
 
 The project exposes six concentrated extension points. Each has a matching skill in the sollertia marketplace's
-**unity** or **assets** plugin, listed alongside the touch points below.
+**unity**, **assets**, or **experiment** plugin, listed alongside the touch points below.
 
-| Extension                | Touch points                                                                                    | Owner skill                    |
-|--------------------------|-------------------------------------------------------------------------------------------------|--------------------------------|
-| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`              |
-| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`              |
-| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`                |
-| New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract`               |
-| New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup` |
-| New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework`             |
+| Extension                | Touch points                                                                                    | Owner skill                               |
+|--------------------------|-------------------------------------------------------------------------------------------------|-------------------------------------------|
+| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`                         |
+| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`                         |
+| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`                           |
+| New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract` + `/vr-driver-interface` |
+| New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup`            |
+| New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework`                        |
 
 **Adding a new trigger zone type** is the most cross-cutting extension. The `/zone-prefabs` skill drives the
 `clone_zone_prefab` bridge tool for the prefab itself: it copies `StimulusTriggerZone.prefab` (interaction and collision
@@ -544,8 +548,9 @@ Mesoscope-VR system, for example, maps `interaction` (`MesoscopeWaterRewardTrial
 (`MesoscopeGasPuffTrial`), and does not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
 
 **Adding a new MQTT topic** requires the constant in `MQTTTopics.cs` (with `Direction`, `Payload`, and `Callers`
-remarks), a runtime script that publishes or subscribes, an in-lockstep update in sollertia-experiment, and a refresh
-of the `/mqtt-contract` skill catalog.
+remarks), a runtime script that publishes or subscribes, and an in-lockstep update in sollertia-experiment. It also
+requires a refresh of the `/mqtt-contract` catalog for the Unity end and of the `/vr-driver-interface` catalog in the
+**experiment** plugin for the sollertia-experiment end.
 
 **Adding a new McpBridge tool** requires a new switch case in `McpBridge.Dispatch` and a handler method that returns
 `Ok(...)` or `Error(...)`. A tool that reads or writes scene state also integrates with `AcquireSceneComponents` and
@@ -562,12 +567,18 @@ Claude Code skills and other AI development assets for this project are distribu
     Mode) and configure scenes for a run. The same plugin documents the MQTT contract, the `CreateTask` pipeline, the
     inlined GIMBL framework, and the test suite, and carries the recipe for manufacturing new trigger zone prefabs.
   - **assets** plugin, which registers the `slsa mcp` server that fronts the Unity relay and provides configuration
-    and experiment-authoring skills (task templates, experiment configurations, library extension).
+    and experiment-authoring skills (task templates, experiment configurations, library extension). Its
+    `/working-directory` skill is the prerequisite for every other assets skill and owns the task templates directory.
+  - **experiment** plugin, which owns the host half of the contracts this project sits on. `/vr-driver-interface`
+    documents the sollertia-experiment MQTT side, the `_VRTaskMQTTTopics` mirror, and the `UnityBridgeClient` that
+    drives the McpBridge during a session. `/system-design-pipeline` places this project in the platform build flow as
+    Phase 4, the corridor task, `/pipeline` routes the operate flow to the Unity task, scene, and Play Mode skills, and
+    `/system-health-check` runs the host-side `check_unity_bridge_tool` reachability probe before a session.
 - [ataraxis](https://github.com/Sun-Lab-NBB/ataraxis) marketplace:
   - **automation** plugin, the shared development skills that enforce coding conventions (C# style, README style,
     commit messages, project layout), audit source and documentation, and explore the codebase.
 
-Install all three plugins to make the full skill set available to compatible AI coding agents. The **unity** plugin
+Install all four plugins to make the full skill set available to compatible AI coding agents. The **unity** plugin
 depends on the **assets** plugin for the backing MCP server that drives the Unity Editor relay.
 
 ___
