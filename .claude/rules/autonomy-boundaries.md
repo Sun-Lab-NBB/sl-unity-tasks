@@ -12,9 +12,9 @@ scene through `Window → Task Parameters` (see `/scene-setup` and `/task-parame
 Play Mode.
 
 **New trigger zone types are agent-led but recipe-bound.** The recipe spans the `/zone-prefabs` clone workflow and its
-worked examples, the `/task-generator` pipeline edits, and the `/library-extension` Python `TriggerType` registration.
-It holds as long as the new mode is a zone modifier on a copied zone prefab whose root subclasses `StimulusTriggerZone`
-and publishes the standard `Stimulus` event. This tier authors C# and clones a base prefab with
+worked examples, the `/task-generator` pipeline edits, and the `assets:library-extension` Python `TriggerType`
+registration. It holds as long as the new mode is a zone modifier on a copied zone prefab whose root subclasses
+`StimulusTriggerZone` and publishes the standard `Stimulus` event. This tier authors C# and clones a base prefab with
 `clone_zone_prefab_tool`, so it MUST be verified with `inspect_prefab_tool`.
 
 **Beyond the recipe, you MUST escalate to the human supervisor.** The items below have no author-derived recipe, so
