@@ -1180,10 +1180,11 @@ namespace SL.Tasks
 
         /// <summary>Imports pending asset changes and reports whether a script compilation followed.</summary>
         /// <remarks>
-        /// The agentic counterpart of the Editor's automatic refresh on focus. A headless Editor never regains
-        /// focus, so a C# file written from outside stays uncompiled and its type stays unresolvable until this
-        /// runs. Compilation is queued rather than immediate, so a true is_compiling means the domain reload has
-        /// not finished and the caller polls get_play_state until it reports a state other than compiling.
+        /// The agentic counterpart of the Editor's automatic refresh on focus. A running Editor that nobody
+        /// focuses, such as one left open on an unattended rig, never receives that event, so a C# file written
+        /// from outside stays uncompiled and its type stays unresolvable until this runs. A true is_compiling
+        /// means a domain reload is in flight, while a false one does not prove the import produced no
+        /// compilation, so the caller polls get_play_state until it reports a state other than compiling.
         /// </remarks>
         /// <returns>A JSON response with the post-import compilation state.</returns>
         private static string RefreshAssets()
