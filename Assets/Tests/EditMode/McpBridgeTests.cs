@@ -140,11 +140,13 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that each covered tool name resolves to a handler, not to the fallback.</summary>
         /// <remarks>
-        /// The cases cover eleven of the fifteen dispatched names. enter_play_mode is excluded because dispatching it
-        /// here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it from
-        /// inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
+        /// The cases cover eleven of the sixteen dispatched names. enter_play_mode is excluded because dispatching
+        /// it here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it
+        /// from inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
         /// write_task_parameters, and refresh_monitors are excluded because McpBridgeTaskParametersTests dispatches
-        /// them against the FullScreenViewManager fixture their handlers need.
+        /// them against the FullScreenViewManager fixture their handlers need. save_scene is excluded because a bare
+        /// dispatch writes whichever scene the run happens to have open, so it is covered below against a throwaway
+        /// scene this fixture stages and deletes.
         /// </remarks>
         [TestCase("create_task")]
         [TestCase("delete_task")]
@@ -522,6 +524,33 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_scene"));
 
             Assert.AreEqual(true, response["is_dirty"]);
+        }
+
+        /// <summary>Verifies that save_scene clears the dirty flag a scene edit set.</summary>
+        [Test]
+        public void SaveScene_DirtiedActiveScene_ClearsTheDirtyFlag()
+        {
+            string scenePath = CreateActiveSceneAsset("Assets/Scenes/ZZTest_Saved.unity");
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("save_scene"));
+
+            Assert.AreEqual(scenePath, response["scene_path"]);
+            Assert.AreEqual(false, response["is_dirty"]);
+            Assert.AreEqual($"Saved scene: {scenePath}", response["message"]);
+            Assert.AreEqual(false, SceneManager.GetActiveScene().isDirty);
+        }
+
+        /// <summary>Verifies that save_scene refuses an active scene that was never saved to an asset path.</summary>
+        [Test]
+        public void SaveScene_UntitledActiveScene_ReportsTheMissingAssetPath()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            Dictionary<string, object> response = CallTool("save_scene");
+
+            Assert.AreEqual(false, response["success"]);
+            StringAssert.Contains("it has never been saved", (string)response["error"]);
         }
 
         /// <summary>Verifies that open_scene rejects a path that holds no scene file.</summary>

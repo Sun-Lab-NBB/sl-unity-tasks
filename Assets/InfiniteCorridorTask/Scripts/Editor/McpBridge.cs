@@ -248,6 +248,7 @@ namespace SL.Tasks
                 "list_assets" => ListAssets(arguments),
                 "list_scenes" => ListScenes(),
                 "open_scene" => OpenScene(arguments),
+                "save_scene" => SaveScene(),
                 "inspect_scene" => InspectScene(),
                 "enter_play_mode" => EnterPlayMode(),
                 "exit_play_mode" => ExitPlayMode(),
@@ -1176,6 +1177,45 @@ namespace SL.Tasks
                 {
                     { "message", $"Opened scene: {scenePath}" },
                     { "scene_path", scenePath },
+                }
+            );
+        }
+
+        /// <summary>Saves the active scene to its existing asset path.</summary>
+        /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
+        /// <remarks>
+        /// Clears the dirty flag that every write_task_parameters call sets, which the play-mode preflight
+        /// requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
+        /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is
+        /// likewise rejected, since edits made there are discarded on exit and saving them is never intended.
+        /// </remarks>
+        private static string SaveScene()
+        {
+            if (EditorApplication.isPlaying)
+            {
+                return Error("Cannot save the active scene while the Editor is in Play Mode.");
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (string.IsNullOrEmpty(activeScene.path))
+            {
+                string message =
+                    $"Cannot save the active scene '{activeScene.name}': it has never been saved, so it has no "
+                    + "asset path. Generate it through create_task or save it once by hand first.";
+                return Error(message);
+            }
+
+            if (!EditorSceneManager.SaveScene(activeScene))
+            {
+                return Error($"Unable to save the active scene to: {activeScene.path}");
+            }
+
+            return Ok(
+                new Dictionary<string, object>
+                {
+                    { "message", $"Saved scene: {activeScene.path}" },
+                    { "scene_path", activeScene.path },
+                    { "is_dirty", activeScene.isDirty },
                 }
             );
         }
