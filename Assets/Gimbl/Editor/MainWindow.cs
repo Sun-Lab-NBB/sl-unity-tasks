@@ -223,20 +223,26 @@ namespace Gimbl
         /// The auto-created Display owns the per-monitor cameras (via PerspectiveProjection) and the Actor
         /// owns the third-person tracking camera, so the Unity-default "Main Camera" left over by the new
         /// scene template renders nothing useful while still consuming display slot 0. No runtime rendering
-        /// code depends on <c>Camera.main</c> or the <c>MainCamera</c> tag, so removing it is safe. The opening
-        /// short-circuit skips the full scene scan only when <c>Camera.main</c> is null and no GameObject named
-        /// "Main Camera" exists, which is the common state after the first scene visit.
+        /// code depends on <c>Camera.main</c> or the <c>MainCamera</c> tag, so removing it is safe. The scan
+        /// includes inactive objects, because a deactivated default camera still occupies the slot and still
+        /// serializes into the scene.
         /// </remarks>
         public static void RemoveDefaultMainCamera()
         {
-            if (Camera.main == null && GameObject.Find("Main Camera") == null)
+            Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (cameras.Length == 0)
             {
                 return;
             }
-            Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             bool anyRemoved = false;
             foreach (Camera camera in cameras)
             {
+                // Destroying a parent takes its children with it, so a camera nested under an earlier match is
+                // already gone by the time the loop reaches its entry in this snapshot.
+                if (camera == null)
+                {
+                    continue;
+                }
                 if (
                     camera.gameObject.CompareTag("MainCamera")
                     || string.Equals(camera.gameObject.name, "Main Camera", System.StringComparison.Ordinal)
