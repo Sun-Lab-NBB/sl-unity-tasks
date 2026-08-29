@@ -179,17 +179,21 @@ by `sollertia-experiment`.
 ### Architecture
 
 - **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python `YamlConfig`
-  classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates cue
-  codes, the template and trial name pattern, the `trigger_type` literal set, per-trial `cue_sequence` uniqueness, a
-  positive `occupancy_duration_ms`, the transition targets and per-target probability range, and every
-  `vr_environment` geometry scalar. Per-mode geometric zone validation lives in the shared-assets Python
-  `TaskTemplate`, not here.
+  classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates the
+  template, trial, and cue name patterns, cue code range and uniqueness, cue name uniqueness, and a positive finite
+  `length_cm`. It also checks that each `texture` is named and exists under `Textures/`, that each `cue_sequence` is
+  non-empty and references declared cues, and that `cue_sequence` values stay unique across trials. It validates the
+  `trigger_type` literal set, a positive `occupancy_duration_ms`, transition targets whose probabilities each fall in
+  `0.0-1.0` and sum to 1.0 within tolerance, and every `vr_environment` geometry scalar. Per-mode geometric zone
+  validation lives in the shared-assets Python `TaskTemplate`.
 - **Task runtime**: `Task` (`Assets/InfiniteCorridorTask/Scripts/Task.cs`) keys a `_corridorMap` by a base-`trialCount`
   encoding of the current segment combination and pre-generates the random maze sequence with an optional seed. It
   teleports the actor to the next corridor once the current corridor's first segment is traversed.
 - **Zone composition**: `StimulusTriggerZone` dispatches on a `TriggerMode` enum that `CreateTask` sets from the
   trial's `trigger_type`. Every mode publishes one `StimulusMessage { trialName, delivered, cause }` per resolved trial
-  on the `Stimulus` topic and adds no MQTT topics, where `cause` is `behavior` or `guidance`. `occupancy_trigger` alone
+  on the `Stimulus` topic and introduces no new `MQTTTopics` constants, where `cause` is `behavior` or
+  `guidance`. The three occupancy modes additionally reuse the existing `Delay` topic through their
+  `OccupancyGuidanceZone` child. `occupancy_trigger` alone
   leaves an unmet lap unresolved, so it publishes nothing for that trial. `OccupancyZone` exposes a generic
   `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches the
   `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
