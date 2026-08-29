@@ -6,12 +6,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using SL.Config;
 using SL.Tasks;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace SL.Tests.EditMode
@@ -1275,6 +1278,49 @@ namespace SL.Tests.EditMode
 
             Assert.IsFalse(result.Success);
             Assert.AreEqual("Scene save path must not be null or empty.", result.Message);
+        }
+
+        /// <summary>Verifies that scene creation strips the template's default Main Camera.</summary>
+        /// <remarks>
+        /// The generated scene becomes the active scene, so the assertion reads the live hierarchy and the finally
+        /// block restores whichever scene the run had open before teardown deletes the generated one.
+        /// </remarks>
+        [Test]
+        public void CreateSceneFromTemplate_TemplateScene_RemovesTheDefaultMainCamera()
+        {
+            string initialScenePath = SceneManager.GetActiveScene().path;
+            string sceneSavePath = $"{ScenesFolder}/ZZTest_CameraStripped.unity";
+
+            try
+            {
+                CreateTask.SceneCreationResult result = CreateTask.CreateSceneFromTemplate(
+                    sceneSavePath: sceneSavePath,
+                    taskPrefabPath: string.Empty,
+                    overwriteExisting: false
+                );
+
+                Assert.IsTrue(result.Success, result.Message);
+                List<string> defaultCameras = UnityEngine
+                    .Object.FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None)
+                    .Where(camera =>
+                        camera.gameObject.CompareTag("MainCamera")
+                        || string.Equals(camera.gameObject.name, "Main Camera", StringComparison.Ordinal)
+                    )
+                    .Select(camera => camera.gameObject.name)
+                    .ToList();
+                CollectionAssert.IsEmpty(defaultCameras);
+            }
+            finally
+            {
+                if (string.IsNullOrEmpty(initialScenePath))
+                {
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                }
+                else
+                {
+                    EditorSceneManager.OpenScene(initialScenePath);
+                }
+            }
         }
 
         /// <summary>Verifies that scene creation refuses to clobber an existing scene without permission.</summary>

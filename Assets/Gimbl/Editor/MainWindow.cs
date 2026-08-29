@@ -218,6 +218,47 @@ namespace Gimbl
             EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
         }
 
+        /// <summary>Removes every default Unity "Main Camera" GameObject from the active scene.</summary>
+        /// <remarks>
+        /// The auto-created Display owns the per-monitor cameras (via PerspectiveProjection) and the Actor
+        /// owns the third-person tracking camera, so the Unity-default "Main Camera" left over by the new
+        /// scene template renders nothing useful while still consuming display slot 0. No runtime rendering
+        /// code depends on <c>Camera.main</c> or the <c>MainCamera</c> tag, so removing it is safe. The scan
+        /// includes inactive objects, because a deactivated default camera still occupies the slot and still
+        /// serializes into the scene.
+        /// </remarks>
+        public static void RemoveDefaultMainCamera()
+        {
+            Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (cameras.Length == 0)
+            {
+                return;
+            }
+            bool anyRemoved = false;
+            foreach (Camera camera in cameras)
+            {
+                // Destroying a parent takes its children with it, so a camera nested under an earlier match is
+                // already gone by the time the loop reaches its entry in this snapshot.
+                if (camera == null)
+                {
+                    continue;
+                }
+                if (
+                    camera.gameObject.CompareTag("MainCamera")
+                    || string.Equals(camera.gameObject.name, "Main Camera", System.StringComparison.Ordinal)
+                )
+                {
+                    DestroyImmediate(camera.gameObject);
+                    anyRemoved = true;
+                }
+            }
+            if (anyRemoved)
+            {
+                Debug.Log("Removed default Main Camera (unused; Display cameras handle monitor rendering).");
+                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            }
+        }
+
         /// <summary>Registers auto-open hooks that keep the Parameters window available across sessions.</summary>
         /// <remarks>
         /// Subscribes to scene-open and Play-Mode-enter events so closing the window does not strand the
@@ -719,41 +760,6 @@ namespace Gimbl
             EnsureActorAndDisplay();
             EnsureControllers();
             EnsureMqttDefaults();
-        }
-
-        /// <summary>Removes every default Unity "Main Camera" GameObject from the active scene.</summary>
-        /// <remarks>
-        /// The auto-created Display owns the per-monitor cameras (via PerspectiveProjection) and the Actor
-        /// owns the third-person tracking camera, so the Unity-default "Main Camera" left over by the new
-        /// scene template renders nothing useful while still consuming display slot 0. No runtime rendering
-        /// code depends on <c>Camera.main</c> or the <c>MainCamera</c> tag, so removing it is safe. The opening
-        /// short-circuit skips the full scene scan only when <c>Camera.main</c> is null and no GameObject named
-        /// "Main Camera" exists, which is the common state after the first scene visit.
-        /// </remarks>
-        private static void RemoveDefaultMainCamera()
-        {
-            if (Camera.main == null && GameObject.Find("Main Camera") == null)
-            {
-                return;
-            }
-            Camera[] cameras = FindObjectsByType<Camera>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-            bool anyRemoved = false;
-            foreach (Camera camera in cameras)
-            {
-                if (
-                    camera.gameObject.CompareTag("MainCamera")
-                    || string.Equals(camera.gameObject.name, "Main Camera", System.StringComparison.Ordinal)
-                )
-                {
-                    DestroyImmediate(camera.gameObject);
-                    anyRemoved = true;
-                }
-            }
-            if (anyRemoved)
-            {
-                Debug.Log("Removed default Main Camera (unused; Display cameras handle monitor rendering).");
-                EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-            }
         }
 
         /// <summary>Ensures the active scene contains exactly one Actor and one Display, wired together.</summary>

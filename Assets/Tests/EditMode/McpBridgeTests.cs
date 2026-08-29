@@ -140,11 +140,13 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that each covered tool name resolves to a handler, not to the fallback.</summary>
         /// <remarks>
-        /// The cases cover eleven of the fifteen dispatched names. enter_play_mode is excluded because dispatching it
-        /// here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it from
-        /// inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
+        /// The cases cover thirteen of the eighteen dispatched names. enter_play_mode is excluded because dispatching
+        /// it here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it
+        /// from inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
         /// write_task_parameters, and refresh_monitors are excluded because McpBridgeTaskParametersTests dispatches
-        /// them against the FullScreenViewManager fixture their handlers need.
+        /// them against the FullScreenViewManager fixture their handlers need. save_scene is excluded because a bare
+        /// dispatch writes whichever scene the run happens to have open, so it is covered below against a throwaway
+        /// scene this fixture stages and deletes.
         /// </remarks>
         [TestCase("create_task")]
         [TestCase("delete_task")]
@@ -152,11 +154,13 @@ namespace SL.Tests.EditMode
         [TestCase("clone_zone_prefab")]
         [TestCase("delete_asset")]
         [TestCase("list_assets")]
+        [TestCase("refresh_assets")]
         [TestCase("list_scenes")]
         [TestCase("open_scene")]
         [TestCase("inspect_scene")]
         [TestCase("exit_play_mode")]
         [TestCase("get_play_state")]
+        [TestCase("read_console")]
         public void Dispatch_DeclaredToolName_DoesNotFallThroughToUnknownTool(string tool)
         {
             Dictionary<string, object> response = CallTool(tool);
@@ -442,11 +446,45 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> root = ReadSection(response["hierarchy"]);
             CollectionAssert.AreEquivalent(
-                new List<string> { "name", "position", "rotation", "scale", "components" },
+                new List<string>
+                {
+                    "name",
+                    "active_self",
+                    "position",
+                    "rotation",
+                    "scale",
+                    "components",
+                    "component_states",
+                },
                 root.Keys.ToList()
             );
             Assert.AreEqual("ZZTest_Bare", root["name"]);
+            Assert.AreEqual(true, root["active_self"]);
             CollectionAssert.AreEqual(new List<string> { "Transform" }, ReadStringList(root["components"]));
+        }
+
+        /// <summary>Verifies that inspect_prefab reports the enabled flag beside each component type.</summary>
+        [Test]
+        public void InspectPrefab_HandAuthoredStimulusZone_ReportsThePerComponentEnabledFlags()
+        {
+            Dictionary<string, object> arguments = BuildArguments("prefab_path", StimulusZonePath);
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_prefab", arguments));
+
+            Dictionary<string, object> root = ReadSection(response["hierarchy"]);
+            List<object> states = (List<object>)root["component_states"];
+            CollectionAssert.AreEqual(
+                ReadStringList(root["components"]),
+                states.Select(entry => (string)ReadSection(entry)["type"]).ToList()
+            );
+
+            Dictionary<string, object> transform = ReadSection(states[0]);
+            Assert.AreEqual("Transform", transform["type"]);
+            Assert.IsNull(transform["enabled"], "A Transform carries no enabled flag and must report null.");
+
+            Dictionary<string, object> zone = ReadSection(states[states.Count - 1]);
+            Assert.AreEqual("StimulusTriggerZone", zone["type"]);
+            Assert.AreEqual(true, zone["enabled"]);
         }
 
         /// <summary>Verifies that inspect_scene reports a freshly saved active scene as clean.</summary>
@@ -488,6 +526,170 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_scene"));
 
             Assert.AreEqual(true, response["is_dirty"]);
+        }
+
+        /// <summary>Verifies that save_scene clears the dirty flag a scene edit set.</summary>
+        [Test]
+        public void SaveScene_DirtiedActiveScene_ClearsTheDirtyFlag()
+        {
+            string scenePath = CreateActiveSceneAsset("Assets/Scenes/ZZTest_Saved.unity");
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("save_scene"));
+
+            Assert.AreEqual(scenePath, response["scene_path"]);
+            Assert.AreEqual(false, response["is_dirty"]);
+            Assert.AreEqual($"Saved scene: {scenePath}", response["message"]);
+            Assert.AreEqual(false, SceneManager.GetActiveScene().isDirty);
+        }
+
+        /// <summary>Verifies that save_scene refuses an active scene that was never saved to an asset path.</summary>
+        [Test]
+        public void SaveScene_UntitledActiveScene_ReportsTheMissingAssetPath()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            Dictionary<string, object> response = CallTool("save_scene");
+
+            Assert.AreEqual(false, response["success"]);
+            StringAssert.Contains("it has never been saved", (string)response["error"]);
+        }
+
+        /// <summary>Verifies that refresh_assets reports the post-import compilation state.</summary>
+        [Test]
+        public void RefreshAssets_AfterImport_ReportsTheCompilationState()
+        {
+            Dictionary<string, object> response = AssertSucceeded(CallTool("refresh_assets"));
+
+            Assert.AreEqual("Imported pending asset changes.", response["message"]);
+            // Asserts the shape rather than the value, because comparing against a second read of the same
+            // Editor globals passes vacuously and races whenever the refresh does start a compilation.
+            Assert.IsInstanceOf<bool>(response["is_compiling"]);
+            Assert.IsInstanceOf<bool>(response["is_updating"]);
+        }
+
+        /// <summary>Verifies that read_console returns a logged message with its severity and stack trace.</summary>
+        [Test]
+        public void ReadConsole_AfterLogging_ReturnsTheCapturedEntry()
+        {
+            string marker = "ZZTest_ConsoleMarker";
+            Debug.Log(marker);
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("read_console"));
+
+            List<object> entries = (List<object>)response["entries"];
+            Dictionary<string, object> captured = entries
+                .Select(ReadSection)
+                .LastOrDefault(entry => string.Equals((string)entry["message"], marker, StringComparison.Ordinal));
+            Assert.IsNotNull(captured, "The logged marker was not captured in the console buffer.");
+            Assert.AreEqual("Log", captured["type"]);
+            Assert.IsNotNull(captured["stack_trace"]);
+            int capacity = PrivateAccess.GetStaticField<int>(typeof(McpBridge), "ConsoleBufferCapacity");
+            Assert.AreEqual(capacity, Convert.ToInt32(response["capacity"]));
+        }
+
+        /// <summary>Verifies that read_console returns only the entries logged after a given sequence number.</summary>
+        [Test]
+        public void ReadConsole_WithSinceSequence_ReturnsOnlyTheNewerEntries()
+        {
+            Debug.Log("ZZTest_ConsoleBefore");
+            Dictionary<string, object> first = AssertSucceeded(CallTool("read_console"));
+            long checkpoint = Convert.ToInt64(first["next_sequence"]);
+            Debug.Log("ZZTest_ConsoleAfter");
+
+            Dictionary<string, object> response = AssertSucceeded(
+                CallTool("read_console", BuildArguments("since_sequence", checkpoint))
+            );
+
+            List<string> messages = ((List<object>)response["entries"])
+                .Select(entry => (string)ReadSection(entry)["message"])
+                .ToList();
+            CollectionAssert.Contains(messages, "ZZTest_ConsoleAfter");
+            CollectionAssert.DoesNotContain(messages, "ZZTest_ConsoleBefore");
+        }
+
+        /// <summary>Verifies that polling drains forward without skipping an entry the limit truncated.</summary>
+        [Test]
+        public void ReadConsole_PollingBelowTheBacklog_DrainsEveryEntryInOrder()
+        {
+            const string Marker = "ZZTest_ConsoleDrain";
+            long checkpoint = Convert.ToInt64(AssertSucceeded(CallTool("read_console"))["next_sequence"]);
+            List<string> logged = new List<string>();
+            for (int index = 0; index < 6; index++)
+            {
+                logged.Add($"{Marker}{index}");
+                Debug.Log(logged[index]);
+            }
+
+            // Polls with a limit below the backlog, so a run that returned the newest entries and advanced past
+            // the rest would drop the earlier markers instead of handing them back on the following poll.
+            List<string> drained = new List<string>();
+            for (int poll = 0; poll < 5; poll++)
+            {
+                Dictionary<string, object> arguments = new Dictionary<string, object>
+                {
+                    { "since_sequence", checkpoint },
+                    { "limit", 2 },
+                };
+                Dictionary<string, object> response = AssertSucceeded(CallTool("read_console", arguments));
+                foreach (object entry in (List<object>)response["entries"])
+                {
+                    string message = (string)ReadSection(entry)["message"];
+                    if (message.StartsWith(Marker, StringComparison.Ordinal))
+                    {
+                        drained.Add(message);
+                    }
+                }
+
+                checkpoint = Convert.ToInt64(response["next_sequence"]);
+            }
+
+            CollectionAssert.AreEqual(logged, drained);
+        }
+
+        /// <summary>Verifies that read_console filters out the severities the level argument excludes.</summary>
+        [Test]
+        public void ReadConsole_WithWarningLevel_ExcludesPlainLogEntries()
+        {
+            Debug.Log("ZZTest_ConsoleFilteredOut");
+            Debug.LogWarning("ZZTest_ConsoleWarning");
+
+            Dictionary<string, object> response = AssertSucceeded(
+                CallTool("read_console", BuildArguments("level", "warning"))
+            );
+
+            List<Dictionary<string, object>> entries = ((List<object>)response["entries"]).Select(ReadSection).ToList();
+            CollectionAssert.AreEquivalent(
+                new List<string> { "Warning" },
+                entries.Select(entry => (string)entry["type"]).Distinct().ToList()
+            );
+            CollectionAssert.Contains(
+                entries.Select(entry => (string)entry["message"]).ToList(),
+                "ZZTest_ConsoleWarning"
+            );
+        }
+
+        /// <summary>Verifies that read_console rejects a level filter it does not define.</summary>
+        [Test]
+        public void ReadConsole_UnknownLevel_ReportsTheAcceptedValues()
+        {
+            Dictionary<string, object> response = CallTool("read_console", BuildArguments("level", "fatal"));
+
+            Assert.AreEqual(false, response["success"]);
+            Assert.AreEqual(
+                "Unknown level: fatal. The accepted values are all, log, warning, and error.",
+                response["error"]
+            );
+        }
+
+        /// <summary>Verifies that read_console rejects a limit below one.</summary>
+        [Test]
+        public void ReadConsole_ZeroLimit_ReportsTheMinimum()
+        {
+            Dictionary<string, object> response = CallTool("read_console", BuildArguments("limit", 0));
+
+            Assert.AreEqual(false, response["success"]);
+            Assert.AreEqual("The limit argument must be at least 1, but it is 0.", response["error"]);
         }
 
         /// <summary>Verifies that open_scene rejects a path that holds no scene file.</summary>

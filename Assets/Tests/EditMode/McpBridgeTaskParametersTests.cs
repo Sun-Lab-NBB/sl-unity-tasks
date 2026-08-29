@@ -439,15 +439,18 @@ namespace SL.Tests.EditMode
             UnityEngine.Object.DestroyImmediate(display.gameObject);
         }
 
-        /// <summary>Verifies that the task state reports all four task fields at their component values.</summary>
+        /// <summary>Verifies that the task state reports all six task fields at their component values.</summary>
         [Test]
         public void ReadTaskParameters_TaskPresent_ReportsEveryTaskField()
         {
+            ActorObject actor = CreateActor();
             Task task = CreateTask();
             task.requireInteraction = true;
             task.requireWait = false;
             task.trackLength = 1234.5f;
             task.trackSeed = 7;
+            task.actor = actor;
+            task.configPath = "Configurations/ZZTest_Snapshot.yaml";
 
             Dictionary<string, object> response = Read();
 
@@ -456,6 +459,21 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(false, state["require_wait"]);
             Assert.AreEqual(1234.5d, ReadNumber(state["track_length"]));
             Assert.AreEqual(7d, ReadNumber(state["track_seed"]));
+            Assert.AreEqual(actor.gameObject.name, state["actor"]);
+            Assert.AreEqual("Configurations/ZZTest_Snapshot.yaml", state["config_path"]);
+        }
+
+        /// <summary>Verifies that the task snapshot reports a null actor when the reference is unassigned.</summary>
+        [Test]
+        public void ReadTaskParameters_TaskWithoutActor_ReportsANullActorName()
+        {
+            Task task = CreateTask();
+            task.actor = null;
+
+            Dictionary<string, object> response = Read();
+
+            Dictionary<string, object> state = GetNestedObject(GetNestedObject(response, "state"), "task");
+            Assert.IsNull(state["actor"]);
         }
 
         /// <summary>Verifies that the camera mapping reports one one-based row per detected monitor.</summary>

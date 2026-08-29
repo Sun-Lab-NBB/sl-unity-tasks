@@ -3,7 +3,7 @@
 Provides assets for creating and executing Virtual Reality (VR) tasks for Sollertia platform data acquisition systems.
 
 [![C#](https://tinyurl.com/bdd689s9)](https://docs.microsoft.com/en-us/dotnet/csharp/)
-[![Unity](https://img.shields.io/badge/Unity-6000.3.22f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
+[![Unity](https://img.shields.io/badge/Unity-6000.3.23f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ___
@@ -35,8 +35,9 @@ ___
 - Supports five stimulus trigger modes (interaction, collision, occupancy-disarm, occupancy-arm, occupancy-trigger)
   with optional guidance modes.
 - Supports probabilistic transitions between trial structures within a single task template.
-- Ships an HTTP-based McpBridge that exposes 15 Editor operations to AI agents (task lifecycle, scene management,
-  asset inspection, Play Mode control, parameter read/write, monitor refresh).
+- Ships an HTTP-based McpBridge that exposes 18 Editor operations to AI agents (task lifecycle, prefab inspection
+  and zone cloning, asset management, scene management, Play Mode control, parameter read/write, monitor refresh,
+  Console reads).
 - Maintains a bidirectional MQTT 5.0 contract with
   [sollertia-experiment](https://github.com/Sun-Lab-NBB/sollertia-experiment), centralized in a single `MQTTTopics`
   constant set.
@@ -76,7 +77,7 @@ ___
 
 External requirements that must be installed before working with this Unity project:
 
-- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.22f1 LTS** (Unity 6). Installed via
+- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.23f1 LTS** (Unity 6). Installed via
   [Unity Hub](https://unity.com/download).
 - An [MQTT broker](https://mosquitto.org/) supporting **MQTT 5.0**, such as Mosquitto 2.0 or later. The project
   defaults to `127.0.0.1:1883` for the broker. Both the IP and port are configurable from the Task Parameters window.
@@ -102,7 +103,7 @@ ___
 This project is a Unity 6 application that is not distributed via package managers. To install:
 
 1. Install [Unity Hub](https://unity.com/download) and use it to install the required Unity Editor version
-   (**6000.3.22f1 LTS**).
+   (**6000.3.23f1 LTS**).
 2. Download this repository to the local machine using the preferred method, such as git-cloning. Use one of the
    [stable releases](https://github.com/Sun-Lab-NBB/sollertia-virtual-reality/tags) when available.
 3. From Unity Hub, select **Add project from disk** and navigate to the local folder containing the downloaded
@@ -247,14 +248,17 @@ A task template defines:
 - **vr_environment**: The Unity corridor configuration, covering `corridor_spacing_cm`, `segments_per_corridor`,
   `padding_prefab_name`, `cm_per_unity_unit`, and `cue_offset_cm`.
 - **trial_structures**: A dictionary mapping trial names (e.g., `ABCD`) to their spatial configuration. Each entry
-  declares the cue sequence, the stimulus trigger zone start and end positions, the stimulus location, an optional
+  declares the cue sequence, the stimulus trigger zone start and end positions, the stimulus location, a
   collision-boundary visibility flag, and an optional probability distribution over successor trials. It also declares
   a trigger type, one of `"interaction"`, `"collision"`, `"occupancy_disarm"`, `"occupancy_arm"`, or
   `"occupancy_trigger"`. The three occupancy modes additionally require a positive `occupancy_duration_ms`.
 
 The five trigger modes share the same `Stimulus` event but differ in how that event is fired:
 
-- **interaction**: an animal interaction (e.g., a lick) detected while inside the trigger zone fires the stimulus.
+- **interaction**: with `requireInteraction` set, only a sensor interaction inside the trigger zone delivers the
+  stimulus, and a zone exit without one resolves the trial as `delivered: false`. With the flag clear, an
+  interaction anywhere in the zone delivers with `cause: behavior`, and reaching a nested `GuidanceZone`
+  delivers with `cause: guidance`. A zone carrying no `GuidanceZone` delivers on entry with `cause: guidance`.
 - **collision**: crossing an invisible boundary wall, a thin collider at `stimulus_location`, fires the stimulus
   unconditionally, with no sensor and no occupancy requirement. The `showStimulusCollisionBoundary` flag toggles the
   boundary's visibility.
@@ -289,7 +293,9 @@ authoritative dataclass definitions.
 Tasks can be generated from the Editor menu or programmatically via the McpBridge.
 
 **Editor menu flow.** Select `CreateTask → New Task` from the Unity menu bar. A file dialog seeded at
-`Assets/InfiniteCorridorTask/Configurations/` opens, and only templates inside that directory are accepted. After
+`Assets/InfiniteCorridorTask/Configurations/` opens, and only templates inside that directory are accepted. A
+confirmation dialog then lists any existing task prefab or scene the run will replace, and cancelling there leaves the
+project untouched. After
 selecting a template, the pipeline:
 
 1. Runs a cross-template cue-texture preflight (`ValidateCueDefinitionsAcrossTemplates`). If two templates declare the
@@ -303,11 +309,15 @@ selecting a template, the pipeline:
 5. Builds every segment prefab from scratch under
    `Assets/InfiniteCorridorTask/Prefabs/<TemplateName>-<TrialName>.prefab`. Template and trial names are restricted to
    ASCII letters, digits, and underscores, so the hyphen separator resolves each segment to exactly one template.
-6. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`.
+6. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`, then defers to Unity's
+   unsaved-changes dialog for the currently open scene. Cancelling there aborts the scene step alone and leaves the
+   generated prefab in place.
 7. Copies `Assets/Scenes/ExperimentTemplate.unity` to `Assets/Scenes/<TemplateName>.unity`, instantiates the task
-   prefab into it, and runs `MainWindow.EnsureControllers`, `EnsureMqttDefaults`, and `SyncDisplayBrightnessToSettings`
-   so both the `LinearTreadmill` (hardware) and `SimulatedLinearTreadmill` (keyboard testing) controllers are present
-   and the scene carries the project's broker address and display brightness.
+   prefab into it, and runs `MainWindow.EnsureControllers`, `EnsureMqttDefaults`, `SyncDisplayBrightnessToSettings`,
+   and `RemoveDefaultMainCamera` so both the `LinearTreadmill` (hardware) and `SimulatedLinearTreadmill` (keyboard
+   testing) controllers are present, the scene carries the project's broker address and display brightness, and the
+   template's leftover `Main Camera` is stripped, since the Display's per-monitor cameras and the Actor's tracking
+   camera own all rendering.
 
 **MCP-driven flow.** The same pipeline is reachable via AI agents over the `slsa mcp` server's Unity relay. A single
 `create_task_tool` call builds both the task prefab and the matching scene from the same `CreateTask.CreateFromTemplate`
@@ -334,14 +344,16 @@ five sections:
 
 | Section        | Controls                                                                                                      |
 |----------------|---------------------------------------------------------------------------------------------------------------|
-| Actor          | Animal model selection and active controller (Linear or Simulated Linear)                                     |
+| Actor          | Animal model selection and active controller (None, Linear, or Simulated Linear)                                     |
 | MQTT           | Broker IP and port, and the Test Connection button performs a one-shot connect/disconnect probe               |
 | Display        | Brightness, height in VR, and a Blank/Show toggle for the active display                                      |
 | Camera Mapping | Refresh Monitor Positions, one row per OS-detected monitor with a camera dropdown, and Show Full-Screen Views |
 | Task           | Require Interaction, Require Wait, Track Length, and Track Seed for the active scene's `Task` component       |
 
 The `Task` component's public fields are marked `[HideInInspector]`, and `TaskEditor` replaces the default Inspector
-with a HelpBox pointing at this window. Configure every task field through Task Parameters, not the Inspector. The
+with a HelpBox pointing at this window. Configure `Require Interaction`, `Require Wait`, `Track Length`, and
+`Track Seed` through Task Parameters, not the Inspector. The remaining two hidden fields are not user-editable, because
+`actor` is auto-resolved from the active scene and `configPath` is written by `CreateTask` at generation time. The
 `Require Interaction` and `Require Wait` controls are hidden when the active scene lacks the corresponding
 `GuidanceZone` or `OccupancyZone`.
 
@@ -351,7 +363,7 @@ monitor.
 
 For manual testing without hardware, select **Simulated Linear** as the Actor's controller. The
 `SimulatedLinearTreadmill` reads keyboard input via the Unity Input System and publishes a synthetic `Interaction`
-message on every press of the Jump action (spacebar).
+message on every press of the Jump action (spacebar) while it is the Actor's assigned controller.
 
 ### MQTT Contract
 
@@ -392,25 +404,28 @@ operations to AI agents and to the acquisition runtime via JSON request/response
 from [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)) relays each agent tool call to
 this bridge over HTTP, and sollertia-experiment's `UnityBridgeClient` drives the same endpoints during a session.
 
-The bridge dispatches **15 tools**:
+The bridge dispatches **18 tools**:
 
-| Tool                    | Description                                                                       |
-|-------------------------|-----------------------------------------------------------------------------------|
-| `create_task`           | Builds the task prefab and the matching scene from a YAML template in one call    |
-| `delete_task`           | Removes the scene + companion + task prefab + every segment prefab for a template |
-| `inspect_prefab`        | Returns hierarchy, components, transforms, and collider details                   |
-| `clone_zone_prefab`     | Clones a base zone prefab into a new trigger-zone prefab (script + field swaps)   |
-| `delete_asset`          | Deletes a regenerable non-scene asset (refuses hand-authored protected paths)     |
-| `list_assets`           | Lists Unity assets by type filter within a search path                            |
-| `list_scenes`           | Enumerates every `.unity` asset and reports the active scene                      |
-| `open_scene`            | Opens a scene with explicit `unsaved_changes` policy                              |
-| `inspect_scene`         | Returns the active scene's root hierarchy and dirty flag                          |
-| `enter_play_mode`       | Triggers `EditorApplication.EnterPlaymode`                                        |
-| `exit_play_mode`        | Triggers `EditorApplication.ExitPlaymode`                                         |
-| `get_play_state`        | Returns `playing`, `compiling`, or `edit` plus the active scene name              |
-| `read_task_parameters`  | Snapshots Actor, MQTT, Display, Camera Mapping, and Task fields                   |
-| `write_task_parameters` | Applies a subset of Task Parameters fields and returns a new snapshot             |
-| `refresh_monitors`      | Re-detects the system monitors, preserving camera assignments, and re-snapshots   |
+| Tool                    | Description                                                                            |
+|-------------------------|----------------------------------------------------------------------------------------|
+| `create_task`           | Builds the task prefab and the matching scene from a YAML template in one call         |
+| `delete_task`           | Removes the scene + companion + task prefab + every segment prefab for a template      |
+| `inspect_prefab`        | Returns hierarchy, active state, components with enabled flags, and collider details   |
+| `clone_zone_prefab`     | Clones a base zone prefab into a new trigger-zone prefab (script + field swaps)        |
+| `delete_asset`          | Deletes a regenerable non-scene asset (refuses hand-authored protected paths)          |
+| `list_assets`           | Lists Unity assets by type filter within a search path                                 |
+| `refresh_assets`        | Imports pending asset changes and reports the compilation state                        |
+| `list_scenes`           | Enumerates every `.unity` asset and reports the active scene                           |
+| `open_scene`            | Opens a scene with explicit `unsaved_changes` policy                                   |
+| `save_scene`            | Saves the active scene to its existing asset path                                      |
+| `inspect_scene`         | Returns the active scene's root hierarchy, per-component enabled flags, and dirty flag |
+| `enter_play_mode`       | Triggers `EditorApplication.EnterPlaymode`                                             |
+| `exit_play_mode`        | Triggers `EditorApplication.ExitPlaymode`                                              |
+| `get_play_state`        | Returns `playing`, `compiling`, or `edit` plus the active scene name                   |
+| `read_task_parameters`  | Snapshots Actor, MQTT, Display, Camera Mapping, and Task fields                        |
+| `write_task_parameters` | Applies a subset of Task Parameters fields and returns a new snapshot                  |
+| `refresh_monitors`      | Re-detects the system monitors, preserving camera assignments, and re-snapshots        |
+| `read_console`          | Returns buffered Unity Console entries, filtered by level, limit, and sequence         |
 
 All responses are JSON objects carrying a `success` boolean plus a payload or error string. `delete_asset` is bounded
 by an allow-prefix list (`Assets/InfiniteCorridorTask/Tasks/`, `Prefabs/`, `Cues/`, `Materials/`) and rejects scene
@@ -419,7 +434,8 @@ matching `Assets/VRSettings/Displays/<scene>-savedFullScreenViews.asset` compani
 protected-paths set covers the three hand-authored prefabs (`StimulusTriggerZone.prefab`,
 `OccupancyTriggerZone.prefab`, `Padding.prefab`), the four hand-authored materials (`_CueShaderReference.mat`,
 `Floor.mat`, `Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Both
-`delete_asset` and `delete_task` consult that set, and path traversal sequences and absolute paths are rejected.
+`delete_asset` and `delete_task` consult that set, and path traversal sequences, absolute paths, and directory
+targets are rejected.
 
 ***Note,*** the listener has two clients. AI agents reach it through the `slsa mcp` server's Unity relay tools, which
 are listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README, rather than
@@ -489,16 +505,21 @@ reference.
 
 ### Testing
 
-The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds three groups. The first drives the runtime
+The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds four groups. The first drives the runtime
 state machines directly through their private lifecycle callbacks, which keeps them deterministic and free of frame
-timing. The second covers the editor-only surface (`CreateTask`, `McpBridge`, `MainWindow`, `Monitor`, the full-screen
-view classes). The third covers the pure schema and serialization classes (`ConfigLoader`, `TaskTemplate`, `Cue`,
-`TrialStructure`, `VREnvironment`, `MiniJson`, `MQTTTopics`). Edit Mode is the only place the editor group can live,
-because `Sollertia.Tests.EditMode` is the only test assembly that references `Sollertia.Gimbl.Editor` and
-`Sollertia.InfiniteCorridorTask.Editor`. `Assets/Tests/PlayMode/` holds the tests that need real frames, real physics
-trigger callbacks, and real elapsed time. `Assets/Tests/Support/` holds the helpers both share: a reflection accessor
-for private Unity callbacks, a staged template-and-texture workspace, a task template YAML builder, an in-process MQTT
-harness, and a trigger zone rig.
+timing. The second covers the editor-only surface: `CreateTask`, `McpBridge`, `MiniJson`, and `MainWindow` compile into
+the two `Editor`-platform assemblies, while `Monitor`, `TagsAndLayers`, and the full-screen view classes sit in
+`Sollertia.Gimbl` behind `#if UNITY_EDITOR`. The third covers the pure schema and serialization classes (`ConfigLoader`,
+`TaskTemplate`, `Cue`, `TrialStructure`, `VREnvironment`, `MQTTTopics`, `TriggerMode`, and `DisplaySettings`). The
+fourth covers the stateless helpers, meaning `Utility`. An editor-surface fixture that needs no player loop belongs in
+Edit Mode, because `Sollertia.Tests.EditMode` is the only test assembly that references `Sollertia.Gimbl.Editor` and
+`Sollertia.InfiniteCorridorTask.Editor`. `McpBridgePlayModeTests` is the exception, because it must observe the bridge's
+already-playing branch, so it resolves `McpBridge` by assembly-qualified name and dispatches through reflection.
+`Assets/Tests/PlayMode/` holds the tests that need real frames, real physics trigger callbacks, real elapsed time, the
+engine-invoked `Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering, or the Editor actually being in Play Mode.
+`Assets/Tests/Support/` holds the helpers the two assemblies draw on, a reflection accessor for private Unity callbacks,
+a task template YAML builder, an in-process MQTT harness, and a trigger zone rig, plus a staged template-and-texture
+workspace the Edit Mode `ConfigLoader` fixture uses.
 
 The MQTT harness needs no broker. `MQTTClient.Publish` routes to in-process subscribers whenever the client is
 disconnected, so a test observes exactly what the production publish path produced and drives the real listeners the
@@ -527,7 +548,7 @@ The project exposes six concentrated extension points. Each has a matching skill
 |--------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------|
 | New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`                                   |
 | New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`                                   |
-| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`                                     |
+| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, `/unity-tests` fixtures       | `/zone-prefabs`                                     |
 | New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract` + `experiment:vr-driver-interface` |
 | New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup`                      |
 | New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework`                                  |
@@ -540,12 +561,13 @@ copy-and-edit YAML route serves as the documented fallback. The new prefab path 
 `McpBridge.DeleteProtectedPaths`, a new branch must be added in `CreateTask.BuildSegmentPrefabs` with a matching
 `Place...Zone` helper, and `ConfigLoader.ValidateTemplate` must accept the new `trigger_type` literal. `CreateTask` sets
 the `TriggerMode` enum field on `StimulusTriggerZone` from the `trigger_type`, and the zone dispatches on that enum. The
-Python side requires a matching `TriggerType` registry update via the `/library-extension` skill in the **assets**
-plugin. Adding a `TriggerType` member does **not** require a `from_task_template` branch in every acquisition system:
-the platform `TriggerType` enum carries all members, but each system maps only the subset it supports and may leave a
-mode unmapped. A config that uses an unmapped mode raises a clear "not mapped to a runtime trial class" error. The
-Mesoscope-VR system, for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and `occupancy_disarm`
-(`MesoscopeGasPuffTrial`), and does not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
+fixtures that pin the enum, topic, protected-asset, and bridge-tool contracts are updated through `/unity-tests`. The
+Python side requires a matching `TriggerType` registry update via the `assets:library-extension` skill. Adding a
+`TriggerType` member does **not** require a `from_task_template` branch in every acquisition system: the platform
+`TriggerType` enum carries all members, but each system maps only the subset it supports and may leave a mode unmapped.
+A config that uses an unmapped mode raises a clear "not mapped to a runtime trial class" error. The Mesoscope-VR system,
+for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and `occupancy_disarm` (`MesoscopeGasPuffTrial`), and does
+not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
 
 **Adding a new MQTT topic** requires the constant in `MQTTTopics.cs` (with `Direction`, `Payload`, and `Callers`
 remarks), a runtime script that publishes or subscribes, and an in-lockstep update in sollertia-experiment. It also
@@ -553,8 +575,10 @@ requires a refresh of the `/mqtt-contract` catalog for the Unity end and of the 
 in the **experiment** plugin for the sollertia-experiment end.
 
 **Adding a new McpBridge tool** requires a new switch case in `McpBridge.Dispatch` and a handler method that returns
-`Ok(...)` or `Error(...)`. A tool that reads or writes scene state also integrates with `AcquireSceneComponents` and
-`BuildSnapshot`, and every tool needs a matching `@mcp.tool()` wrapper in
+`Ok(...)` or `Error(...)`. A tool that reads or writes Task Parameters state also integrates with
+`AcquireSceneComponents` and `BuildSnapshot`, while a tool that only opens, saves, or inspects the active scene calls
+the `EditorSceneManager` and `SceneManager` APIs directly, as `save_scene`, `open_scene`, and `inspect_scene` do. Every
+tool needs a matching `@mcp.tool()` wrapper in
 `sollertia-shared-assets/src/sollertia_shared_assets/interfaces/unity_tools.py`. The `/unity-mcp-environment-setup`
 skill owns the full contract, including the tool counts in this README that a new tool must bump.
 
@@ -573,9 +597,9 @@ Claude Code skills and other AI development assets for this project are distribu
   - **experiment** plugin, which owns the host half of the contracts this project sits on.
     `experiment:vr-driver-interface` documents the sollertia-experiment MQTT side, the `_VRTaskMQTTTopics` mirror, and
     the `UnityBridgeClient` that drives the McpBridge during a session. `experiment:system-design-pipeline` places this
-    project in the platform build flow as Phase 4, the corridor task, `/pipeline` routes the operate flow to the Unity
-    task, scene, and Play Mode skills, and `experiment:system-health-check` runs the host-side `check_unity_bridge_tool`
-    reachability probe before a session.
+    project in the platform build flow as Phase 4, the corridor task, `experiment:pipeline` routes the operate flow to
+    the Unity task, scene, and Play Mode skills, and `experiment:system-health-check` runs the host-side
+    `check_unity_bridge_tool` reachability probe before a session.
 - [ataraxis](https://github.com/Sun-Lab-NBB/ataraxis) marketplace:
   - **automation** plugin, the shared development skills that enforce coding conventions (C# style, README style,
     commit messages, project layout), audit source and documentation, and explore the codebase.

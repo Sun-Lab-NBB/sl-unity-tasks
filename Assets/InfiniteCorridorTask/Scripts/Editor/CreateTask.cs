@@ -519,6 +519,10 @@ namespace SL.Tasks
             // Applies defaults synchronously so the new scene is fully defaulted before this method returns.
             MainWindow.EnsureMqttDefaults();
             MainWindow.SyncDisplayBrightnessToSettings();
+            // Strips the template scene's leftover "Main Camera", the one InitializeScene step this method
+            // would otherwise miss. Running it here means a generated scene no longer depends on a human
+            // opening Window > Task Parameters to reach the camera set the Display and Actor actually use.
+            MainWindow.RemoveDefaultMainCamera();
             result.SimulatedControllerAdded = !simulatedExistedBeforeEnsure;
 
             EditorSceneManager.SaveScene(activeScene);

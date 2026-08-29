@@ -43,6 +43,12 @@ namespace SL.Tasks
         /// <summary>The highest broker port number the mqtt section accepts.</summary>
         private const int MaximumBrokerPort = 65535;
 
+        /// <summary>The number of Unity log entries the console buffer retains before evicting the oldest.</summary>
+        private const int ConsoleBufferCapacity = 500;
+
+        /// <summary>The number of console entries a read_console call returns when it requests no limit.</summary>
+        private const int DefaultConsoleReadLimit = 100;
+
         /// <summary>
         /// The set of project-relative directory prefixes under which non-scene assets may be deleted via
         /// <c>delete_asset</c>.
@@ -98,6 +104,16 @@ namespace SL.Tasks
         private static readonly ConcurrentQueue<HttpListenerContext> PendingContexts =
             new ConcurrentQueue<HttpListenerContext>();
 
+        /// <summary>The Unity log entries captured on the logging thread, read on the editor thread.</summary>
+        private static readonly ConcurrentQueue<Dictionary<string, object>> ConsoleEntries =
+            new ConcurrentQueue<Dictionary<string, object>>();
+
+        /// <summary>The number of log entries captured since the Editor loaded, used to number each entry.</summary>
+        private static long _consoleSequence;
+
+        /// <summary>The number of log entries the capacity bound has evicted from the console buffer.</summary>
+        private static long _consoleDropped;
+
         /// <summary>
         /// The <see cref="FullScreenViewManager"/> built for the active scene when the Parameters window is closed,
         /// reused across requests and cleared on every active-scene change.
@@ -116,6 +132,7 @@ namespace SL.Tasks
         {
             EditorSceneManager.activeSceneChangedInEditMode += (Scene oldScene, Scene newScene) =>
                 _cachedFullScreenManager = null;
+            Application.logMessageReceivedThreaded += OnLogMessageReceived;
 
             try
             {
@@ -166,6 +183,34 @@ namespace SL.Tasks
             catch (Exception exception)
             {
                 Debug.LogError($"McpBridge: Failed to re-arm listener: {exception.Message}");
+            }
+        }
+
+        /// <summary>Captures one Unity log entry into the bounded console buffer.</summary>
+        /// <remarks>
+        /// Subscribed to the threaded log callback rather than its main-thread counterpart because the bridge
+        /// itself logs from the listener thread in <see cref="OnContextReceived"/>, and those failures are the
+        /// ones an agent most needs to read. The buffer is therefore a concurrent queue read on the editor
+        /// thread, the same boundary <see cref="PendingContexts"/> crosses in the opposite direction.
+        /// </remarks>
+        /// <param name="condition">The log message text.</param>
+        /// <param name="stackTrace">The stack trace Unity captured alongside the message.</param>
+        /// <param name="type">The severity Unity assigned to the message.</param>
+        private static void OnLogMessageReceived(string condition, string stackTrace, LogType type)
+        {
+            ConsoleEntries.Enqueue(
+                new Dictionary<string, object>
+                {
+                    { "sequence", System.Threading.Interlocked.Increment(ref _consoleSequence) },
+                    { "type", type.ToString() },
+                    { "message", condition },
+                    { "stack_trace", stackTrace },
+                }
+            );
+
+            while (ConsoleEntries.Count > ConsoleBufferCapacity && ConsoleEntries.TryDequeue(out _))
+            {
+                System.Threading.Interlocked.Increment(ref _consoleDropped);
             }
         }
 
@@ -246,8 +291,10 @@ namespace SL.Tasks
                 "clone_zone_prefab" => CloneZonePrefab(arguments),
                 "delete_asset" => DeleteAsset(arguments),
                 "list_assets" => ListAssets(arguments),
+                "refresh_assets" => RefreshAssets(),
                 "list_scenes" => ListScenes(),
                 "open_scene" => OpenScene(arguments),
+                "save_scene" => SaveScene(),
                 "inspect_scene" => InspectScene(),
                 "enter_play_mode" => EnterPlayMode(),
                 "exit_play_mode" => ExitPlayMode(),
@@ -255,6 +302,7 @@ namespace SL.Tasks
                 "read_task_parameters" => ReadTaskParameters(),
                 "write_task_parameters" => WriteTaskParameters(arguments),
                 "refresh_monitors" => RefreshMonitors(),
+                "read_console" => ReadConsole(arguments),
                 _ => Error($"Unknown tool: {tool}"),
             };
         }
@@ -1130,6 +1178,28 @@ namespace SL.Tasks
             );
         }
 
+        /// <summary>Imports pending asset changes and reports whether a script compilation followed.</summary>
+        /// <remarks>
+        /// The agentic counterpart of the Editor's automatic refresh on focus. A headless Editor never regains
+        /// focus, so a C# file written from outside stays uncompiled and its type stays unresolvable until this
+        /// runs. Compilation is queued rather than immediate, so a true is_compiling means the domain reload has
+        /// not finished and the caller polls get_play_state until it reports a state other than compiling.
+        /// </remarks>
+        /// <returns>A JSON response with the post-import compilation state.</returns>
+        private static string RefreshAssets()
+        {
+            AssetDatabase.Refresh();
+
+            return Ok(
+                new Dictionary<string, object>
+                {
+                    { "message", "Imported pending asset changes." },
+                    { "is_compiling", EditorApplication.isCompiling },
+                    { "is_updating", EditorApplication.isUpdating },
+                }
+            );
+        }
+
         /// <summary>Lists all scene assets in the project.</summary>
         /// <returns>A JSON response with all scene paths and the active scene.</returns>
         private static string ListScenes()
@@ -1176,6 +1246,45 @@ namespace SL.Tasks
                 {
                     { "message", $"Opened scene: {scenePath}" },
                     { "scene_path", scenePath },
+                }
+            );
+        }
+
+        /// <summary>Saves the active scene to its existing asset path.</summary>
+        /// <remarks>
+        /// Clears the dirty flag that every write_task_parameters call sets, which the play-mode preflight
+        /// requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
+        /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is
+        /// likewise rejected, since edits made there are discarded on exit and saving them is never intended.
+        /// </remarks>
+        /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
+        private static string SaveScene()
+        {
+            if (EditorApplication.isPlaying)
+            {
+                return Error("Cannot save the active scene while the Editor is in Play Mode.");
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (string.IsNullOrEmpty(activeScene.path))
+            {
+                string message =
+                    $"Cannot save the active scene '{activeScene.name}': it has never been saved, so it has no "
+                    + "asset path. Generate it through create_task or save it once by hand first.";
+                return Error(message);
+            }
+
+            if (!EditorSceneManager.SaveScene(activeScene))
+            {
+                return Error($"Unable to save the active scene to: {activeScene.path}");
+            }
+
+            return Ok(
+                new Dictionary<string, object>
+                {
+                    { "message", $"Saved scene: {activeScene.path}" },
+                    { "scene_path", activeScene.path },
+                    { "is_dirty", activeScene.isDirty },
                 }
             );
         }
@@ -1332,6 +1441,130 @@ namespace SL.Tasks
             return Ok(BuildSnapshot(components));
         }
 
+        /// <summary>Returns the buffered Unity log entries, oldest first, after applying the filters.</summary>
+        /// <remarks>
+        /// The buffer holds the last <see cref="ConsoleBufferCapacity"/> entries logged since the Editor loaded,
+        /// so it answers what this session logged rather than what the Console window currently displays. Poll it
+        /// by passing the previous response's next_sequence back as since_sequence, which returns only entries
+        /// logged after that point, oldest first, so repeated polls walk the buffer without skipping an entry. A
+        /// call that omits since_sequence instead returns the newest matching entries, which is what a diagnosis
+        /// after a failure needs. Entries go missing through two channels. A dropped count that grew since the
+        /// previous call means the capacity bound evicted entries, which a caller lost only if its own polling
+        /// fell behind. A matched count above count means limit truncated that many further matching entries
+        /// out of this response.
+        /// </remarks>
+        /// <param name="arguments">The tool arguments containing optional level, limit, and since_sequence.</param>
+        /// <returns>A JSON response with the matching entries or an error message.</returns>
+        private static string ReadConsole(Dictionary<string, object> arguments)
+        {
+            string level = GetString(arguments, "level", defaultValue: "all");
+            if (!IsKnownConsoleLevel(level))
+            {
+                return Error($"Unknown level: {level}. The accepted values are all, log, warning, and error.");
+            }
+
+            int limit = DefaultConsoleReadLimit;
+            if (arguments.TryGetValue("limit", out object limitObject) && limitObject != null)
+            {
+                if (!TryConvertInt(limitObject, out limit))
+                {
+                    return Error($"The limit argument must be an integer, but it is '{limitObject}'.");
+                }
+
+                if (limit < 1)
+                {
+                    return Error($"The limit argument must be at least 1, but it is {limit}.");
+                }
+            }
+
+            int sinceSequence = 0;
+            bool polling = false;
+            if (arguments.TryGetValue("since_sequence", out object sinceObject) && sinceObject != null)
+            {
+                if (!TryConvertInt(sinceObject, out sinceSequence) || sinceSequence < 0)
+                {
+                    string message =
+                        $"The since_sequence argument must be a non-negative integer, but it is '{sinceObject}'.";
+                    return Error(message);
+                }
+
+                polling = true;
+            }
+
+            Dictionary<string, object>[] buffered = ConsoleEntries.ToArray();
+            List<Dictionary<string, object>> matching = buffered
+                .Where(entry => Convert.ToInt64(entry["sequence"]) > sinceSequence)
+                .Where(entry => MatchesConsoleLevel((string)entry["type"], level))
+                .ToList();
+            // A polling caller drains forward from its checkpoint so no entry is skipped between calls, while a
+            // one-shot caller takes the newest entries, which is what a diagnosis after a failure needs.
+            List<Dictionary<string, object>> returned = polling
+                ? matching.Take(limit).ToList()
+                : matching.Skip(Math.Max(0, matching.Count - limit)).ToList();
+
+            // Scans for the maximum rather than reading the tail, because assigning a sequence and enqueueing an
+            // entry are not one atomic step, so two logging threads can leave the queue out of sequence order.
+            long bufferedMaximum =
+                buffered.Length == 0 ? sinceSequence : buffered.Max(entry => Convert.ToInt64(entry["sequence"]));
+            long nextSequence =
+                polling && returned.Count > 0
+                    ? Convert.ToInt64(returned[returned.Count - 1]["sequence"])
+                    : bufferedMaximum;
+
+            return Ok(
+                new Dictionary<string, object>
+                {
+                    { "entries", returned },
+                    { "count", returned.Count },
+                    { "matched", matching.Count },
+                    { "next_sequence", nextSequence },
+                    { "dropped", System.Threading.Interlocked.Read(ref _consoleDropped) },
+                    { "capacity", ConsoleBufferCapacity },
+                }
+            );
+        }
+
+        /// <summary>Reports whether a level filter names a severity group that read_console accepts.</summary>
+        /// <param name="level">The requested level filter.</param>
+        /// <returns>True when the filter is one of the four accepted values.</returns>
+        private static bool IsKnownConsoleLevel(string level)
+        {
+            return string.Equals(level, "all", StringComparison.Ordinal)
+                || string.Equals(level, "log", StringComparison.Ordinal)
+                || string.Equals(level, "warning", StringComparison.Ordinal)
+                || string.Equals(level, "error", StringComparison.Ordinal);
+        }
+
+        /// <summary>Reports whether a captured entry's severity falls inside the requested level group.</summary>
+        /// <remarks>
+        /// The error group covers Error, Exception, and Assert together, because the three mean the same thing
+        /// to a caller diagnosing a failed run and Unity's own Console collapses them onto one toggle.
+        /// </remarks>
+        /// <param name="type">The serialized log type carried by the entry.</param>
+        /// <param name="level">The requested level filter.</param>
+        /// <returns>True when the entry belongs in the filtered result.</returns>
+        private static bool MatchesConsoleLevel(string type, string level)
+        {
+            if (string.Equals(level, "all", StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            if (string.Equals(level, "error", StringComparison.Ordinal))
+            {
+                return string.Equals(type, nameof(LogType.Error), StringComparison.Ordinal)
+                    || string.Equals(type, nameof(LogType.Exception), StringComparison.Ordinal)
+                    || string.Equals(type, nameof(LogType.Assert), StringComparison.Ordinal);
+            }
+
+            if (string.Equals(level, "warning", StringComparison.Ordinal))
+            {
+                return string.Equals(type, nameof(LogType.Warning), StringComparison.Ordinal);
+            }
+
+            return string.Equals(type, nameof(LogType.Log), StringComparison.Ordinal);
+        }
+
         /// <summary>
         /// Performs the single scene walk shared by <see cref="ReadTaskParameters"/> and
         /// <see cref="WriteTaskParameters"/>.
@@ -1463,6 +1696,8 @@ namespace SL.Tasks
                         { "require_wait", components.Task.requireWait },
                         { "track_length", components.Task.trackLength },
                         { "track_seed", components.Task.trackSeed },
+                        { "actor", components.Task.actor == null ? null : components.Task.actor.gameObject.name },
+                        { "config_path", components.Task.configPath },
                     };
 
             List<string> modelOptions = new List<string>(GetValidActorModels());
@@ -2130,6 +2365,7 @@ namespace SL.Tasks
             Dictionary<string, object> result = new Dictionary<string, object>
             {
                 { "name", gameObject.name },
+                { "active_self", gameObject.activeSelf },
                 { "position", FormatVector3(gameObject.transform.localPosition) },
                 { "rotation", FormatVector3(gameObject.transform.localEulerAngles) },
                 { "scale", FormatVector3(gameObject.transform.localScale) },
@@ -2141,6 +2377,17 @@ namespace SL.Tasks
                 .Select(component => component.GetType().Name)
                 .ToList();
             result["components"] = componentNames;
+            // Carries the per-component enabled flag beside the existing type-name list rather than replacing it,
+            // because a disabled Task or a disabled boundary MeshRenderer is the symptom behind most runtime
+            // bailouts and the name list alone cannot express it.
+            result["component_states"] = components
+                .Where(component => component != null)
+                .Select(component => new Dictionary<string, object>
+                {
+                    { "type", component.GetType().Name },
+                    { "enabled", GetComponentEnabled(component) },
+                })
+                .ToList();
 
             BoxCollider collider = gameObject.GetComponent<BoxCollider>();
             if (collider != null)
@@ -2162,6 +2409,25 @@ namespace SL.Tasks
             }
 
             return result;
+        }
+
+        /// <summary>Returns the enabled flag of a component, or null when its type carries no such flag.</summary>
+        /// <remarks>
+        /// Unity spreads the flag across three unrelated base types instead of declaring it on Component, so the
+        /// three are matched separately. A Transform or a MeshFilter matches none of them and reports null,
+        /// which distinguishes "cannot be disabled" from "is disabled" at the call site.
+        /// </remarks>
+        /// <param name="component">The component whose enabled state is read.</param>
+        /// <returns>The boxed flag, or null for a component type that cannot be disabled.</returns>
+        private static object GetComponentEnabled(Component component)
+        {
+            return component switch
+            {
+                Behaviour behaviour => (object)behaviour.enabled,
+                Collider collider => collider.enabled,
+                Renderer renderer => renderer.enabled,
+                _ => null,
+            };
         }
 
         /// <summary>Formats a Vector3 as a serializable dictionary.</summary>

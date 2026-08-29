@@ -97,12 +97,14 @@ and `localhost:8090` when the Unity Editor loads. The backing MCP server is `sls
 whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. `UnityBridgeClient`
 (`sollertia-experiment`, `vr_task/bridge.py`) is a second client of the same listener, opening the scene, rebinding the
 actor's motion controller, and driving Play Mode during a session. A `Dispatch` case or response shape change therefore
-breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-interface`. The bridge dispatches 15
+breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-interface`. The bridge dispatches 18
 tools in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the
 source of truth. Four conventions bind any new tool:
 
-- Handlers run on the editor thread after `EditorApplication.update` drains the `ConcurrentQueue`, so they may call
-  Unity APIs freely.
+- Handlers run on the editor thread after `EditorApplication.update` drains the `PendingContexts` queue, so they may
+  call Unity APIs freely. A second queue, `ConsoleEntries`, crosses the same boundary the other way.
+  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` drains it on the editor
+  thread, so anything a new tool captures off-thread must be plain data rather than a Unity object.
 - Every response goes through the shared `Ok(payload)` and `Error(message)` helpers, which always include a `success`
   boolean.
 - `delete_asset` is bounded by `DeleteAllowedPrefixes` and `DeleteProtectedPaths` at the top of `McpBridge.cs`, and
@@ -110,8 +112,8 @@ source of truth. Four conventions bind any new tool:
   asset. Scene deletion goes through `delete_task` so the per-scene companion cascade is never bypassed, and any
   future per-scene companion joins `McpBridge.TryDeleteScenePerSceneCompanions` in the same change. Asset paths are
   built as forward-slash literals rather than through `Path.Combine`, whose Windows output fails those comparisons.
-- `read_task_parameters` and `write_task_parameters` share one `AcquireSceneComponents` walk per request, so reads and
-  writes see a consistent snapshot of the active scene.
+- `read_task_parameters`, `write_task_parameters`, and `refresh_monitors` each share one `AcquireSceneComponents` walk
+  per request, so reads and writes see a consistent snapshot of the active scene.
 
 For bridge connectivity issues invoke `/unity-mcp-environment-setup`, and for backing `slsa mcp` issues invoke
 `assets:assets-mcp-environment-setup`. The host-side reachability probe is `check_unity_bridge_tool`, which
@@ -177,17 +179,21 @@ by `sollertia-experiment`.
 ### Architecture
 
 - **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python `YamlConfig`
-  classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates cue
-  codes, the template and trial name pattern, the `trigger_type` literal set, per-trial `cue_sequence` uniqueness, a
-  positive `occupancy_duration_ms`, the transition targets and per-target probability range, and every
-  `vr_environment` geometry scalar. Per-mode geometric zone validation lives in the shared-assets Python
-  `TaskTemplate`, not here.
+  classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates the
+  template, trial, and cue name patterns, cue code range and uniqueness, cue name uniqueness, and a positive finite
+  `length_cm`. It also checks that each `texture` is named and exists under `Textures/`, that each `cue_sequence` is
+  non-empty and references declared cues, and that `cue_sequence` values stay unique across trials. It validates the
+  `trigger_type` literal set, a positive `occupancy_duration_ms`, transition targets whose probabilities each fall in
+  `0.0-1.0` and sum to 1.0 within tolerance, and every `vr_environment` geometry scalar. Per-mode geometric zone
+  validation lives in the shared-assets Python `TaskTemplate`.
 - **Task runtime**: `Task` (`Assets/InfiniteCorridorTask/Scripts/Task.cs`) keys a `_corridorMap` by a base-`trialCount`
   encoding of the current segment combination and pre-generates the random maze sequence with an optional seed. It
   teleports the actor to the next corridor once the current corridor's first segment is traversed.
 - **Zone composition**: `StimulusTriggerZone` dispatches on a `TriggerMode` enum that `CreateTask` sets from the
   trial's `trigger_type`. Every mode publishes one `StimulusMessage { trialName, delivered, cause }` per resolved trial
-  on the `Stimulus` topic and adds no MQTT topics, where `cause` is `behavior` or `guidance`. `occupancy_trigger` alone
+  on the `Stimulus` topic and introduces no new `MQTTTopics` constants, where `cause` is `behavior` or
+  `guidance`. The three occupancy modes additionally reuse the existing `Delay` topic through their
+  `OccupancyGuidanceZone` child. `occupancy_trigger` alone
   leaves an unmet lap unresolved, so it publishes nothing for that trial. `OccupancyZone` exposes a generic
   `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches the
   `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
@@ -224,15 +230,15 @@ bridge table in the same change.
 
 ### Code standards
 
-- Unity `6000.3.22f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
+- Unity `6000.3.23f1` (Unity 6), compiled against the .NET Standard 2.1 API compatibility profile, Apache 2.0 licensed.
 - 120 character line limit enforced by CSharpier (`.csharpierrc.yaml`), with naming, brace style, and spacing enforced
   by `.editorconfig`.
 - Allman brace style, `_camelCase` private fields, PascalCase public properties and methods, camelCase Inspector
   fields, and XML documentation on every public and private member. See `/csharp-style` for the full checklist.
 - Every script compiles into a named assembly declared by an `.asmdef`, because a test assembly is unable to reference
   Unity's predefined `Assembly-CSharp`. A new script folder sits inside an existing assembly's subtree or declares its
-  own `.asmdef` and is referenced from the assemblies that consume it. The README's "Assembly Definitions" section is
-  the catalog.
+  own `.asmdef` and is referenced from the assemblies that consume it. The `.asmdef` files are the source of truth,
+  and `/unity-tests` owns the prose catalog.
 
 ### Project-specific conventions
 
@@ -254,46 +260,11 @@ bridge table in the same change.
 - **MQTT topics**: Topics are flat PascalCase identifiers with no hierarchical separators, declared as
   `public const string` in `MQTTTopics.cs`, and updated on both sides of the contract in the same release. The client
   connects with `MqttProtocolVersion.V500`, so brokers must accept MQTT 5.0 connections (Mosquitto `2.0+`).
-- **Inspector vs Parameters window**: The `Task` component's public fields are `[HideInInspector]`, so configure every
-  task field through `MainWindow` rather than the Inspector.
+- **Inspector vs Parameters window**: The `Task` component's public fields are `[HideInInspector]`, so configure
+  `requireInteraction`, `requireWait`, `trackLength`, and `trackSeed` through `MainWindow` rather than the Inspector.
+  The other two are not user-editable, because `actor` is auto-resolved from the active scene and `configPath` is
+  written by `CreateTask` at generation time.
 
 ### Workflow guidance
 
-**Authoring a new task template**: invoke `assets:task-templates` for the schema and naming convention, then place the
-YAML under `Assets/InfiniteCorridorTask/Configurations/` with the `Project / Purpose / Layout / Related` header
-comments. Invoke `/task-prefabs` and run `create_task_tool` to materialize the cues, segments, task prefab, and scene
-together. The tool refuses to overwrite an existing scene, so pair `delete_task_tool` with `create_task_tool` to
-regenerate. Finish with `inspect_prefab_tool` to spot-check the hierarchy against the template's cue and trial counts.
-
-**Modifying a runtime zone or `Task.cs`**: invoke `/csharp-style`, and `/mqtt-contract` when the change touches MQTT.
-Preserve the `IResettable` contract on any zone holding per-lap state, and register a new implementer in
-`Task.FindResettableZones`.
-
-**Modifying the `CreateTask` pipeline or `McpBridge`**: invoke `/task-generator` for the generation pipeline and
-`/unity-mcp-environment-setup` for the relay surface. Keep the cross-template cue-texture preflight intact, so new
-branches run after it rather than before. New `delete_asset` paths require additions to `DeleteAllowedPrefixes` and new
-hand-authored assets require additions to `DeleteProtectedPaths`, because updating one without the other leaves the
-bridge unsafe, and a new tool also needs its `@mcp.tool()` wrapper in `unity_tools.py`.
-
-**Reading or writing Task Parameters**: invoke `/task-parameters`, which owns `read_task_parameters_tool`,
-`write_task_parameters_tool`, and `refresh_monitors_tool`. Always read the current snapshot first, because the response
-carries `options` (the allow-list for each enum field) and `visibility` (whether each conditionally-rendered control is
-rendered), and writes that violate either are rejected with a descriptive error. Editor-time writes to
-`task.require_interaction` and `task.require_wait` are zone-gated, so publish on the matching MQTT topics for mid-run
-toggles.
-
-**Adding or running tests**: invoke `/unity-tests`, which owns the suite, the Support helpers, the assembly catalog,
-and the fixtures that pin the enum, topic, protected-asset, and bridge-tool contracts. `Assets/Tests/EditMode/` drives
-the private Unity lifecycle callbacks through the Support assembly's `PrivateAccess` helper, so it stays deterministic
-without frames or physics. A test belongs in `Assets/Tests/PlayMode/` when it needs real frames, real trigger
-callbacks, real elapsed time, or the engine-invoked `Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering.
-`Assets/Tests/Support/` holds the `PrivateAccess` reflection accessor, the staged template workspace, the task template
-YAML builder, the in-process MQTT harness, and the trigger zone rig that both assemblies draw on. Run the suite from
-`Window → General → Test Runner`, or headlessly with
-`Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults out.xml`, which requires the
-Editor closed on that project because Unity holds a per-project lock.
-
-**Before committing**: run `csharpier format .`, run both test platforms, invoke `/audit-project` to run the four
-audits over the changed files, and invoke `/commit` to stage and write the message. The Editor menu
-`CreateTask → New Task` and a single `create_task_tool(template_name=…)` call share `CreateTask.CreateFromTemplate` and
-`CreateTask.CreateSceneFromTemplate`, so the agentic and manual paths produce byte-equivalent assets.
+@.claude/rules/workflow.md
