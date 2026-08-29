@@ -290,7 +290,9 @@ authoritative dataclass definitions.
 Tasks can be generated from the Editor menu or programmatically via the McpBridge.
 
 **Editor menu flow.** Select `CreateTask → New Task` from the Unity menu bar. A file dialog seeded at
-`Assets/InfiniteCorridorTask/Configurations/` opens, and only templates inside that directory are accepted. After
+`Assets/InfiniteCorridorTask/Configurations/` opens, and only templates inside that directory are accepted. A
+confirmation dialog then lists any existing task prefab or scene the run will replace, and cancelling there leaves the
+project untouched. After
 selecting a template, the pipeline:
 
 1. Runs a cross-template cue-texture preflight (`ValidateCueDefinitionsAcrossTemplates`). If two templates declare the
@@ -304,11 +306,15 @@ selecting a template, the pipeline:
 5. Builds every segment prefab from scratch under
    `Assets/InfiniteCorridorTask/Prefabs/<TemplateName>-<TrialName>.prefab`. Template and trial names are restricted to
    ASCII letters, digits, and underscores, so the hyphen separator resolves each segment to exactly one template.
-6. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`.
+6. Assembles the task prefab at `Assets/InfiniteCorridorTask/Tasks/<TemplateName>.prefab`, then defers to Unity's
+   unsaved-changes dialog for the currently open scene. Cancelling there aborts the scene step alone and leaves the
+   generated prefab in place.
 7. Copies `Assets/Scenes/ExperimentTemplate.unity` to `Assets/Scenes/<TemplateName>.unity`, instantiates the task
-   prefab into it, and runs `MainWindow.EnsureControllers`, `EnsureMqttDefaults`, and `SyncDisplayBrightnessToSettings`
-   so both the `LinearTreadmill` (hardware) and `SimulatedLinearTreadmill` (keyboard testing) controllers are present
-   and the scene carries the project's broker address and display brightness.
+   prefab into it, and runs `MainWindow.EnsureControllers`, `EnsureMqttDefaults`, `SyncDisplayBrightnessToSettings`,
+   and `RemoveDefaultMainCamera` so both the `LinearTreadmill` (hardware) and `SimulatedLinearTreadmill` (keyboard
+   testing) controllers are present, the scene carries the project's broker address and display brightness, and the
+   template's leftover `Main Camera` is stripped, since the Display's per-monitor cameras and the Actor's tracking
+   camera own all rendering.
 
 **MCP-driven flow.** The same pipeline is reachable via AI agents over the `slsa mcp` server's Unity relay. A single
 `create_task_tool` call builds both the task prefab and the matching scene from the same `CreateTask.CreateFromTemplate`
