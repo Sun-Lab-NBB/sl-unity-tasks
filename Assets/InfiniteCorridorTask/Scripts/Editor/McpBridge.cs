@@ -187,15 +187,15 @@ namespace SL.Tasks
         }
 
         /// <summary>Captures one Unity log entry into the bounded console buffer.</summary>
-        /// <param name="condition">The log message text.</param>
-        /// <param name="stackTrace">The stack trace Unity captured alongside the message.</param>
-        /// <param name="type">The severity Unity assigned to the message.</param>
         /// <remarks>
         /// Subscribed to the threaded log callback rather than its main-thread counterpart because the bridge
         /// itself logs from the listener thread in <see cref="OnContextReceived"/>, and those failures are the
         /// ones an agent most needs to read. The buffer is therefore a concurrent queue read on the editor
         /// thread, the same boundary <see cref="PendingContexts"/> crosses in the opposite direction.
         /// </remarks>
+        /// <param name="condition">The log message text.</param>
+        /// <param name="stackTrace">The stack trace Unity captured alongside the message.</param>
+        /// <param name="type">The severity Unity assigned to the message.</param>
         private static void OnLogMessageReceived(string condition, string stackTrace, LogType type)
         {
             ConsoleEntries.Enqueue(
@@ -1179,13 +1179,13 @@ namespace SL.Tasks
         }
 
         /// <summary>Imports pending asset changes and reports whether a script compilation followed.</summary>
-        /// <returns>A JSON response with the post-import compilation state.</returns>
         /// <remarks>
         /// The agentic counterpart of the Editor's automatic refresh on focus. A headless Editor never regains
         /// focus, so a C# file written from outside stays uncompiled and its type stays unresolvable until this
         /// runs. Compilation is queued rather than immediate, so a true is_compiling means the domain reload has
         /// not finished and the caller polls get_play_state until it reports a state other than compiling.
         /// </remarks>
+        /// <returns>A JSON response with the post-import compilation state.</returns>
         private static string RefreshAssets()
         {
             AssetDatabase.Refresh();
@@ -1251,13 +1251,13 @@ namespace SL.Tasks
         }
 
         /// <summary>Saves the active scene to its existing asset path.</summary>
-        /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
         /// <remarks>
         /// Clears the dirty flag that every write_task_parameters call sets, which the play-mode preflight
         /// requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
         /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is
         /// likewise rejected, since edits made there are discarded on exit and saving them is never intended.
         /// </remarks>
+        /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
         private static string SaveScene()
         {
             if (EditorApplication.isPlaying)
@@ -1442,14 +1442,14 @@ namespace SL.Tasks
         }
 
         /// <summary>Returns the buffered Unity log entries, oldest first, after applying the filters.</summary>
-        /// <param name="arguments">The tool arguments containing optional level, limit, and since_sequence.</param>
-        /// <returns>A JSON response with the matching entries or an error message.</returns>
         /// <remarks>
         /// The buffer holds the last <see cref="ConsoleBufferCapacity"/> entries logged since the Editor loaded,
         /// so it answers what this session logged rather than what the Console window currently displays. Poll it
         /// by passing the previous response's next_sequence back as since_sequence, which returns only entries
         /// logged after that point. A non-zero dropped count means the bound evicted entries never read.
         /// </remarks>
+        /// <param name="arguments">The tool arguments containing optional level, limit, and since_sequence.</param>
+        /// <returns>A JSON response with the matching entries or an error message.</returns>
         private static string ReadConsole(Dictionary<string, object> arguments)
         {
             string level = GetString(arguments, "level", defaultValue: "all");
@@ -1516,13 +1516,13 @@ namespace SL.Tasks
         }
 
         /// <summary>Reports whether a captured entry's severity falls inside the requested level group.</summary>
-        /// <param name="type">The serialized log type carried by the entry.</param>
-        /// <param name="level">The requested level filter.</param>
-        /// <returns>True when the entry belongs in the filtered result.</returns>
         /// <remarks>
         /// The error group covers Error, Exception, and Assert together, because the three mean the same thing
         /// to a caller diagnosing a failed run and Unity's own Console collapses them onto one toggle.
         /// </remarks>
+        /// <param name="type">The serialized log type carried by the entry.</param>
+        /// <param name="level">The requested level filter.</param>
+        /// <returns>True when the entry belongs in the filtered result.</returns>
         private static bool MatchesConsoleLevel(string type, string level)
         {
             if (string.Equals(level, "all", StringComparison.Ordinal))
@@ -2392,13 +2392,13 @@ namespace SL.Tasks
         }
 
         /// <summary>Returns the enabled flag of a component, or null when its type carries no such flag.</summary>
-        /// <param name="component">The component whose enabled state is read.</param>
-        /// <returns>The boxed flag, or null for a component type that cannot be disabled.</returns>
         /// <remarks>
         /// Unity spreads the flag across three unrelated base types instead of declaring it on Component, so the
         /// three are matched separately. A Transform or a MeshFilter matches none of them and reports null,
         /// which distinguishes "cannot be disabled" from "is disabled" at the call site.
         /// </remarks>
+        /// <param name="component">The component whose enabled state is read.</param>
+        /// <returns>The boxed flag, or null for a component type that cannot be disabled.</returns>
         private static object GetComponentEnabled(Component component)
         {
             return component switch
