@@ -97,7 +97,7 @@ and `localhost:8090` when the Unity Editor loads. The backing MCP server is `sls
 whose `interfaces/unity_tools.py` module relays each tool call to the bridge over HTTP. `UnityBridgeClient`
 (`sollertia-experiment`, `vr_task/bridge.py`) is a second client of the same listener, opening the scene, rebinding the
 actor's motion controller, and driving Play Mode during a session. A `Dispatch` case or response shape change therefore
-breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-interface`. The bridge dispatches 15
+breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-interface`. The bridge dispatches 18
 tools in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the
 source of truth. Four conventions bind any new tool:
 

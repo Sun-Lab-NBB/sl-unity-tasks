@@ -35,8 +35,9 @@ ___
 - Supports five stimulus trigger modes (interaction, collision, occupancy-disarm, occupancy-arm, occupancy-trigger)
   with optional guidance modes.
 - Supports probabilistic transitions between trial structures within a single task template.
-- Ships an HTTP-based McpBridge that exposes 15 Editor operations to AI agents (task lifecycle, scene management,
-  asset inspection, Play Mode control, parameter read/write, monitor refresh).
+- Ships an HTTP-based McpBridge that exposes 18 Editor operations to AI agents (task lifecycle, prefab inspection
+  and zone cloning, asset management, scene management, Play Mode control, parameter read/write, monitor refresh,
+  Console reads).
 - Maintains a bidirectional MQTT 5.0 contract with
   [sollertia-experiment](https://github.com/Sun-Lab-NBB/sollertia-experiment), centralized in a single `MQTTTopics`
   constant set.
@@ -392,25 +393,28 @@ operations to AI agents and to the acquisition runtime via JSON request/response
 from [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)) relays each agent tool call to
 this bridge over HTTP, and sollertia-experiment's `UnityBridgeClient` drives the same endpoints during a session.
 
-The bridge dispatches **15 tools**:
+The bridge dispatches **18 tools**:
 
-| Tool                    | Description                                                                       |
-|-------------------------|-----------------------------------------------------------------------------------|
-| `create_task`           | Builds the task prefab and the matching scene from a YAML template in one call    |
-| `delete_task`           | Removes the scene + companion + task prefab + every segment prefab for a template |
-| `inspect_prefab`        | Returns hierarchy, components, transforms, and collider details                   |
-| `clone_zone_prefab`     | Clones a base zone prefab into a new trigger-zone prefab (script + field swaps)   |
-| `delete_asset`          | Deletes a regenerable non-scene asset (refuses hand-authored protected paths)     |
-| `list_assets`           | Lists Unity assets by type filter within a search path                            |
-| `list_scenes`           | Enumerates every `.unity` asset and reports the active scene                      |
-| `open_scene`            | Opens a scene with explicit `unsaved_changes` policy                              |
-| `inspect_scene`         | Returns the active scene's root hierarchy and dirty flag                          |
-| `enter_play_mode`       | Triggers `EditorApplication.EnterPlaymode`                                        |
-| `exit_play_mode`        | Triggers `EditorApplication.ExitPlaymode`                                         |
-| `get_play_state`        | Returns `playing`, `compiling`, or `edit` plus the active scene name              |
-| `read_task_parameters`  | Snapshots Actor, MQTT, Display, Camera Mapping, and Task fields                   |
-| `write_task_parameters` | Applies a subset of Task Parameters fields and returns a new snapshot             |
-| `refresh_monitors`      | Re-detects the system monitors, preserving camera assignments, and re-snapshots   |
+| Tool                    | Description                                                                            |
+|-------------------------|----------------------------------------------------------------------------------------|
+| `create_task`           | Builds the task prefab and the matching scene from a YAML template in one call         |
+| `delete_task`           | Removes the scene + companion + task prefab + every segment prefab for a template      |
+| `inspect_prefab`        | Returns hierarchy, active state, components with enabled flags, and collider details   |
+| `clone_zone_prefab`     | Clones a base zone prefab into a new trigger-zone prefab (script + field swaps)        |
+| `delete_asset`          | Deletes a regenerable non-scene asset (refuses hand-authored protected paths)          |
+| `list_assets`           | Lists Unity assets by type filter within a search path                                 |
+| `refresh_assets`        | Imports pending asset changes and reports the compilation state                        |
+| `list_scenes`           | Enumerates every `.unity` asset and reports the active scene                           |
+| `open_scene`            | Opens a scene with explicit `unsaved_changes` policy                                   |
+| `save_scene`            | Saves the active scene to its existing asset path                                      |
+| `inspect_scene`         | Returns the active scene's root hierarchy, per-component enabled flags, and dirty flag |
+| `enter_play_mode`       | Triggers `EditorApplication.EnterPlaymode`                                             |
+| `exit_play_mode`        | Triggers `EditorApplication.ExitPlaymode`                                              |
+| `get_play_state`        | Returns `playing`, `compiling`, or `edit` plus the active scene name                   |
+| `read_task_parameters`  | Snapshots Actor, MQTT, Display, Camera Mapping, and Task fields                        |
+| `write_task_parameters` | Applies a subset of Task Parameters fields and returns a new snapshot                  |
+| `refresh_monitors`      | Re-detects the system monitors, preserving camera assignments, and re-snapshots        |
+| `read_console`          | Returns buffered Unity Console entries, filtered by level, limit, and sequence         |
 
 All responses are JSON objects carrying a `success` boolean plus a payload or error string. `delete_asset` is bounded
 by an allow-prefix list (`Assets/InfiniteCorridorTask/Tasks/`, `Prefabs/`, `Cues/`, `Materials/`) and rejects scene
