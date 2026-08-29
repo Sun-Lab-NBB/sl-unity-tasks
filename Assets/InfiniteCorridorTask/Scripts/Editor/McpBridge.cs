@@ -1448,9 +1448,10 @@ namespace SL.Tasks
         /// by passing the previous response's next_sequence back as since_sequence, which returns only entries
         /// logged after that point, oldest first, so repeated polls walk the buffer without skipping an entry. A
         /// call that omits since_sequence instead returns the newest matching entries, which is what a diagnosis
-        /// after a failure needs. Entries go missing through two channels: a non-zero dropped count means the
-        /// capacity bound evicted entries never read, and a matched count above count means limit truncated that
-        /// many further matching entries out of this response.
+        /// after a failure needs. Entries go missing through two channels. A dropped count that grew since the
+        /// previous call means the capacity bound evicted entries, which a caller lost only if its own polling
+        /// fell behind. A matched count above count means limit truncated that many further matching entries
+        /// out of this response.
         /// </remarks>
         /// <param name="arguments">The tool arguments containing optional level, limit, and since_sequence.</param>
         /// <returns>A JSON response with the matching entries or an error message.</returns>
