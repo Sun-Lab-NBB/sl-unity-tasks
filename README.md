@@ -573,8 +573,10 @@ requires a refresh of the `/mqtt-contract` catalog for the Unity end and of the 
 in the **experiment** plugin for the sollertia-experiment end.
 
 **Adding a new McpBridge tool** requires a new switch case in `McpBridge.Dispatch` and a handler method that returns
-`Ok(...)` or `Error(...)`. A tool that reads or writes scene state also integrates with `AcquireSceneComponents` and
-`BuildSnapshot`, and every tool needs a matching `@mcp.tool()` wrapper in
+`Ok(...)` or `Error(...)`. A tool that reads or writes Task Parameters state also integrates with
+`AcquireSceneComponents` and `BuildSnapshot`, while a tool that only opens, saves, or inspects the active scene calls
+the `EditorSceneManager` and `SceneManager` APIs directly, as `save_scene`, `open_scene`, and `inspect_scene` do. Every
+tool needs a matching `@mcp.tool()` wrapper in
 `sollertia-shared-assets/src/sollertia_shared_assets/interfaces/unity_tools.py`. The `/unity-mcp-environment-setup`
 skill owns the full contract, including the tool counts in this README that a new tool must bump.
 

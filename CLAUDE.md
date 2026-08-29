@@ -101,8 +101,10 @@ breaks the acquisition runtime as well as the relay. See `experiment:vr-driver-i
 tools in `McpBridge.Dispatch`, the README's "Editor MCP Bridge" section is the catalog, and `McpBridge.cs` is the
 source of truth. Four conventions bind any new tool:
 
-- Handlers run on the editor thread after `EditorApplication.update` drains the `ConcurrentQueue`, so they may call
-  Unity APIs freely.
+- Handlers run on the editor thread after `EditorApplication.update` drains the `PendingContexts` queue, so they may
+  call Unity APIs freely. A second queue, `ConsoleEntries`, crosses the same boundary the other way.
+  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` drains it on the editor
+  thread, so anything a new tool captures off-thread must be plain data rather than a Unity object.
 - Every response goes through the shared `Ok(payload)` and `Error(message)` helpers, which always include a `success`
   boolean.
 - `delete_asset` is bounded by `DeleteAllowedPrefixes` and `DeleteProtectedPaths` at the top of `McpBridge.cs`, and
@@ -110,8 +112,8 @@ source of truth. Four conventions bind any new tool:
   asset. Scene deletion goes through `delete_task` so the per-scene companion cascade is never bypassed, and any
   future per-scene companion joins `McpBridge.TryDeleteScenePerSceneCompanions` in the same change. Asset paths are
   built as forward-slash literals rather than through `Path.Combine`, whose Windows output fails those comparisons.
-- `read_task_parameters` and `write_task_parameters` share one `AcquireSceneComponents` walk per request, so reads and
-  writes see a consistent snapshot of the active scene.
+- `read_task_parameters`, `write_task_parameters`, and `refresh_monitors` each share one `AcquireSceneComponents` walk
+  per request, so reads and writes see a consistent snapshot of the active scene.
 
 For bridge connectivity issues invoke `/unity-mcp-environment-setup`, and for backing `slsa mcp` issues invoke
 `assets:assets-mcp-environment-setup`. The host-side reachability probe is `check_unity_bridge_tool`, which
