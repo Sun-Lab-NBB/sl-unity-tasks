@@ -254,8 +254,10 @@ bridge table in the same change.
 - **MQTT topics**: Topics are flat PascalCase identifiers with no hierarchical separators, declared as
   `public const string` in `MQTTTopics.cs`, and updated on both sides of the contract in the same release. The client
   connects with `MqttProtocolVersion.V500`, so brokers must accept MQTT 5.0 connections (Mosquitto `2.0+`).
-- **Inspector vs Parameters window**: The `Task` component's public fields are `[HideInInspector]`, so configure every
-  task field through `MainWindow` rather than the Inspector.
+- **Inspector vs Parameters window**: The `Task` component's public fields are `[HideInInspector]`, so configure
+  `requireInteraction`, `requireWait`, `trackLength`, and `trackSeed` through `MainWindow` rather than the Inspector.
+  The other two are not user-editable, because `actor` is auto-resolved from the active scene and `configPath` is
+  written by `CreateTask` at generation time.
 
 ### Workflow guidance
 

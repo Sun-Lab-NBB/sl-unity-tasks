@@ -351,7 +351,9 @@ five sections:
 | Task           | Require Interaction, Require Wait, Track Length, and Track Seed for the active scene's `Task` component       |
 
 The `Task` component's public fields are marked `[HideInInspector]`, and `TaskEditor` replaces the default Inspector
-with a HelpBox pointing at this window. Configure every task field through Task Parameters, not the Inspector. The
+with a HelpBox pointing at this window. Configure `Require Interaction`, `Require Wait`, `Track Length`, and
+`Track Seed` through Task Parameters, not the Inspector. The remaining two hidden fields are not user-editable, because
+`actor` is auto-resolved from the active scene and `configPath` is written by `CreateTask` at generation time. The
 `Require Interaction` and `Require Wait` controls are hidden when the active scene lacks the corresponding
 `GuidanceZone` or `OccupancyZone`.
 
@@ -361,7 +363,7 @@ monitor.
 
 For manual testing without hardware, select **Simulated Linear** as the Actor's controller. The
 `SimulatedLinearTreadmill` reads keyboard input via the Unity Input System and publishes a synthetic `Interaction`
-message on every press of the Jump action (spacebar).
+message on every press of the Jump action (spacebar) while it is the Actor's assigned controller.
 
 ### MQTT Contract
 
