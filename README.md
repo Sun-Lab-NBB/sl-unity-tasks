@@ -548,7 +548,7 @@ The project exposes six concentrated extension points. Each has a matching skill
 |--------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------|
 | New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`                                   |
 | New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`                                   |
-| New trigger zone type    | New zone script + prefab (via `/zone-prefabs`) + `ConfigLoader` literal + `CreateTask` branch   | `/zone-prefabs`                                     |
+| New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, `/unity-tests` fixtures       | `/zone-prefabs`                                     |
 | New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract` + `experiment:vr-driver-interface` |
 | New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup`                      |
 | New treadmill controller | `ControllerObject` subclass + `ControllerTypes` enum entry                                      | `/gimbl-framework`                                  |
@@ -561,12 +561,13 @@ copy-and-edit YAML route serves as the documented fallback. The new prefab path 
 `McpBridge.DeleteProtectedPaths`, a new branch must be added in `CreateTask.BuildSegmentPrefabs` with a matching
 `Place...Zone` helper, and `ConfigLoader.ValidateTemplate` must accept the new `trigger_type` literal. `CreateTask` sets
 the `TriggerMode` enum field on `StimulusTriggerZone` from the `trigger_type`, and the zone dispatches on that enum. The
-Python side requires a matching `TriggerType` registry update via the `/library-extension` skill in the **assets**
-plugin. Adding a `TriggerType` member does **not** require a `from_task_template` branch in every acquisition system:
-the platform `TriggerType` enum carries all members, but each system maps only the subset it supports and may leave a
-mode unmapped. A config that uses an unmapped mode raises a clear "not mapped to a runtime trial class" error. The
-Mesoscope-VR system, for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and `occupancy_disarm`
-(`MesoscopeGasPuffTrial`), and does not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
+fixtures that pin the enum, topic, protected-asset, and bridge-tool contracts are updated through `/unity-tests`. The
+Python side requires a matching `TriggerType` registry update via the `assets:library-extension` skill. Adding a
+`TriggerType` member does **not** require a `from_task_template` branch in every acquisition system: the platform
+`TriggerType` enum carries all members, but each system maps only the subset it supports and may leave a mode unmapped.
+A config that uses an unmapped mode raises a clear "not mapped to a runtime trial class" error. The Mesoscope-VR system,
+for example, maps `interaction` (`MesoscopeWaterRewardTrial`) and `occupancy_disarm` (`MesoscopeGasPuffTrial`), and does
+not map `collision`, `occupancy_arm`, or `occupancy_trigger`.
 
 **Adding a new MQTT topic** requires the constant in `MQTTTopics.cs` (with `Direction`, `Payload`, and `Callers`
 remarks), a runtime script that publishes or subscribes, and an in-lockstep update in sollertia-experiment. It also
@@ -596,9 +597,9 @@ Claude Code skills and other AI development assets for this project are distribu
   - **experiment** plugin, which owns the host half of the contracts this project sits on.
     `experiment:vr-driver-interface` documents the sollertia-experiment MQTT side, the `_VRTaskMQTTTopics` mirror, and
     the `UnityBridgeClient` that drives the McpBridge during a session. `experiment:system-design-pipeline` places this
-    project in the platform build flow as Phase 4, the corridor task, `/pipeline` routes the operate flow to the Unity
-    task, scene, and Play Mode skills, and `experiment:system-health-check` runs the host-side `check_unity_bridge_tool`
-    reachability probe before a session.
+    project in the platform build flow as Phase 4, the corridor task, `experiment:pipeline` routes the operate flow to
+    the Unity task, scene, and Play Mode skills, and `experiment:system-health-check` runs the host-side
+    `check_unity_bridge_tool` reachability probe before a session.
 - [ataraxis](https://github.com/Sun-Lab-NBB/ataraxis) marketplace:
   - **automation** plugin, the shared development skills that enforce coding conventions (C# style, README style,
     commit messages, project layout), audit source and documentation, and explore the codebase.

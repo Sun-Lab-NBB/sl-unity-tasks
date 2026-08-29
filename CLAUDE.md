@@ -237,8 +237,8 @@ bridge table in the same change.
   fields, and XML documentation on every public and private member. See `/csharp-style` for the full checklist.
 - Every script compiles into a named assembly declared by an `.asmdef`, because a test assembly is unable to reference
   Unity's predefined `Assembly-CSharp`. A new script folder sits inside an existing assembly's subtree or declares its
-  own `.asmdef` and is referenced from the assemblies that consume it. The README's "Assembly Definitions" section is
-  the catalog.
+  own `.asmdef` and is referenced from the assemblies that consume it. The `.asmdef` files are the source of truth,
+  and `/unity-tests` owns the prose catalog.
 
 ### Project-specific conventions
 
