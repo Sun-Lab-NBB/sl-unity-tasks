@@ -605,6 +605,45 @@ namespace SL.Tests.EditMode
             CollectionAssert.DoesNotContain(messages, "ZZTest_ConsoleBefore");
         }
 
+        /// <summary>Verifies that polling drains forward without skipping an entry the limit truncated.</summary>
+        [Test]
+        public void ReadConsole_PollingBelowTheBacklog_DrainsEveryEntryInOrder()
+        {
+            const string Marker = "ZZTest_ConsoleDrain";
+            long checkpoint = Convert.ToInt64(AssertSucceeded(CallTool("read_console"))["next_sequence"]);
+            List<string> logged = new List<string>();
+            for (int index = 0; index < 6; index++)
+            {
+                logged.Add($"{Marker}{index}");
+                Debug.Log(logged[index]);
+            }
+
+            // Polls with a limit below the backlog, so a run that returned the newest entries and advanced past
+            // the rest would drop the earlier markers instead of handing them back on the following poll.
+            List<string> drained = new List<string>();
+            for (int poll = 0; poll < 5; poll++)
+            {
+                Dictionary<string, object> arguments = new Dictionary<string, object>
+                {
+                    { "since_sequence", checkpoint },
+                    { "limit", 2 },
+                };
+                Dictionary<string, object> response = AssertSucceeded(CallTool("read_console", arguments));
+                foreach (object entry in (List<object>)response["entries"])
+                {
+                    string message = (string)ReadSection(entry)["message"];
+                    if (message.StartsWith(Marker, StringComparison.Ordinal))
+                    {
+                        drained.Add(message);
+                    }
+                }
+
+                checkpoint = Convert.ToInt64(response["next_sequence"]);
+            }
+
+            CollectionAssert.AreEqual(logged, drained);
+        }
+
         /// <summary>Verifies that read_console filters out the severities the level argument excludes.</summary>
         [Test]
         public void ReadConsole_WithWarningLevel_ExcludesPlainLogEntries()

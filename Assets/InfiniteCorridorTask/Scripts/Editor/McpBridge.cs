@@ -1446,7 +1446,11 @@ namespace SL.Tasks
         /// The buffer holds the last <see cref="ConsoleBufferCapacity"/> entries logged since the Editor loaded,
         /// so it answers what this session logged rather than what the Console window currently displays. Poll it
         /// by passing the previous response's next_sequence back as since_sequence, which returns only entries
-        /// logged after that point. A non-zero dropped count means the bound evicted entries never read.
+        /// logged after that point, oldest first, so repeated polls walk the buffer without skipping an entry. A
+        /// call that omits since_sequence instead returns the newest matching entries, which is what a diagnosis
+        /// after a failure needs. Entries go missing through two channels: a non-zero dropped count means the
+        /// capacity bound evicted entries never read, and a matched count above count means limit truncated that
+        /// many further matching entries out of this response.
         /// </remarks>
         /// <param name="arguments">The tool arguments containing optional level, limit, and since_sequence.</param>
         /// <returns>A JSON response with the matching entries or an error message.</returns>
@@ -1463,7 +1467,7 @@ namespace SL.Tasks
             {
                 if (!TryConvertInt(limitObject, out limit))
                 {
-                    return Error("The limit argument must be an integer.");
+                    return Error($"The limit argument must be an integer, but it is '{limitObject}'.");
                 }
 
                 if (limit < 1)
@@ -1473,12 +1477,17 @@ namespace SL.Tasks
             }
 
             int sinceSequence = 0;
+            bool polling = false;
             if (arguments.TryGetValue("since_sequence", out object sinceObject) && sinceObject != null)
             {
                 if (!TryConvertInt(sinceObject, out sinceSequence) || sinceSequence < 0)
                 {
-                    return Error("The since_sequence argument must be a non-negative integer.");
+                    string message =
+                        $"The since_sequence argument must be a non-negative integer, but it is '{sinceObject}'.";
+                    return Error(message);
                 }
+
+                polling = true;
             }
 
             Dictionary<string, object>[] buffered = ConsoleEntries.ToArray();
@@ -1486,10 +1495,20 @@ namespace SL.Tasks
                 .Where(entry => Convert.ToInt64(entry["sequence"]) > sinceSequence)
                 .Where(entry => MatchesConsoleLevel((string)entry["type"], level))
                 .ToList();
-            List<Dictionary<string, object>> returned = matching.Skip(Math.Max(0, matching.Count - limit)).ToList();
+            // A polling caller drains forward from its checkpoint so no entry is skipped between calls, while a
+            // one-shot caller takes the newest entries, which is what a diagnosis after a failure needs.
+            List<Dictionary<string, object>> returned = polling
+                ? matching.Take(limit).ToList()
+                : matching.Skip(Math.Max(0, matching.Count - limit)).ToList();
 
+            // Scans for the maximum rather than reading the tail, because assigning a sequence and enqueueing an
+            // entry are not one atomic step, so two logging threads can leave the queue out of sequence order.
+            long bufferedMaximum =
+                buffered.Length == 0 ? sinceSequence : buffered.Max(entry => Convert.ToInt64(entry["sequence"]));
             long nextSequence =
-                buffered.Length == 0 ? sinceSequence : Convert.ToInt64(buffered[buffered.Length - 1]["sequence"]);
+                polling && returned.Count > 0
+                    ? Convert.ToInt64(returned[returned.Count - 1]["sequence"])
+                    : bufferedMaximum;
 
             return Ok(
                 new Dictionary<string, object>
