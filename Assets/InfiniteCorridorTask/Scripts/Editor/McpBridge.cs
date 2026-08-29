@@ -1463,6 +1463,8 @@ namespace SL.Tasks
                         { "require_wait", components.Task.requireWait },
                         { "track_length", components.Task.trackLength },
                         { "track_seed", components.Task.trackSeed },
+                        { "actor", components.Task.actor == null ? null : components.Task.actor.gameObject.name },
+                        { "config_path", components.Task.configPath },
                     };
 
             List<string> modelOptions = new List<string>(GetValidActorModels());
