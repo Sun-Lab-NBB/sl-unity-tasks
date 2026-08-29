@@ -3,7 +3,7 @@
 Provides assets for creating and executing Virtual Reality (VR) tasks for Sollertia platform data acquisition systems.
 
 [![C#](https://tinyurl.com/bdd689s9)](https://docs.microsoft.com/en-us/dotnet/csharp/)
-[![Unity](https://img.shields.io/badge/Unity-6000.3.22f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
+[![Unity](https://img.shields.io/badge/Unity-6000.3.23f1_LTS-000000?logo=unity&logoColor=white)](https://unity.com/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 ___
@@ -76,7 +76,7 @@ ___
 
 External requirements that must be installed before working with this Unity project:
 
-- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.22f1 LTS** (Unity 6). Installed via
+- [Unity Game Engine](https://unity.com/products/unity-engine) **6000.3.23f1 LTS** (Unity 6). Installed via
   [Unity Hub](https://unity.com/download).
 - An [MQTT broker](https://mosquitto.org/) supporting **MQTT 5.0**, such as Mosquitto 2.0 or later. The project
   defaults to `127.0.0.1:1883` for the broker. Both the IP and port are configurable from the Task Parameters window.
@@ -102,7 +102,7 @@ ___
 This project is a Unity 6 application that is not distributed via package managers. To install:
 
 1. Install [Unity Hub](https://unity.com/download) and use it to install the required Unity Editor version
-   (**6000.3.22f1 LTS**).
+   (**6000.3.23f1 LTS**).
 2. Download this repository to the local machine using the preferred method, such as git-cloning. Use one of the
    [stable releases](https://github.com/Sun-Lab-NBB/sollertia-virtual-reality/tags) when available.
 3. From Unity Hub, select **Add project from disk** and navigate to the local folder containing the downloaded
