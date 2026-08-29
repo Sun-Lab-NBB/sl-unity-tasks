@@ -248,14 +248,17 @@ A task template defines:
 - **vr_environment**: The Unity corridor configuration, covering `corridor_spacing_cm`, `segments_per_corridor`,
   `padding_prefab_name`, `cm_per_unity_unit`, and `cue_offset_cm`.
 - **trial_structures**: A dictionary mapping trial names (e.g., `ABCD`) to their spatial configuration. Each entry
-  declares the cue sequence, the stimulus trigger zone start and end positions, the stimulus location, an optional
+  declares the cue sequence, the stimulus trigger zone start and end positions, the stimulus location, a
   collision-boundary visibility flag, and an optional probability distribution over successor trials. It also declares
   a trigger type, one of `"interaction"`, `"collision"`, `"occupancy_disarm"`, `"occupancy_arm"`, or
   `"occupancy_trigger"`. The three occupancy modes additionally require a positive `occupancy_duration_ms`.
 
 The five trigger modes share the same `Stimulus` event but differ in how that event is fired:
 
-- **interaction**: an animal interaction (e.g., a lick) detected while inside the trigger zone fires the stimulus.
+- **interaction**: with `requireInteraction` set, only a sensor interaction inside the trigger zone delivers the
+  stimulus, and a zone exit without one resolves the trial as `delivered: false`. With the flag clear, an
+  interaction anywhere in the zone delivers with `cause: behavior`, and reaching a nested `GuidanceZone`
+  delivers with `cause: guidance`. A zone carrying no `GuidanceZone` delivers on entry with `cause: guidance`.
 - **collision**: crossing an invisible boundary wall, a thin collider at `stimulus_location`, fires the stimulus
   unconditionally, with no sensor and no occupancy requirement. The `showStimulusCollisionBoundary` flag toggles the
   boundary's visibility.
