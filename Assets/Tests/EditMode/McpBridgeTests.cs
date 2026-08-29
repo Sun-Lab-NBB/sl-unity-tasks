@@ -140,7 +140,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that each covered tool name resolves to a handler, not to the fallback.</summary>
         /// <remarks>
-        /// The cases cover eleven of the sixteen dispatched names. enter_play_mode is excluded because dispatching
+        /// The cases cover twelve of the seventeen dispatched names. enter_play_mode is excluded because dispatching
         /// it here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it
         /// from inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
         /// write_task_parameters, and refresh_monitors are excluded because McpBridgeTaskParametersTests dispatches
@@ -154,6 +154,7 @@ namespace SL.Tests.EditMode
         [TestCase("clone_zone_prefab")]
         [TestCase("delete_asset")]
         [TestCase("list_assets")]
+        [TestCase("refresh_assets")]
         [TestCase("list_scenes")]
         [TestCase("open_scene")]
         [TestCase("inspect_scene")]
@@ -551,6 +552,17 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual(false, response["success"]);
             StringAssert.Contains("it has never been saved", (string)response["error"]);
+        }
+
+        /// <summary>Verifies that refresh_assets reports the post-import compilation state.</summary>
+        [Test]
+        public void RefreshAssets_AfterImport_ReportsTheCompilationState()
+        {
+            Dictionary<string, object> response = AssertSucceeded(CallTool("refresh_assets"));
+
+            Assert.AreEqual("Imported pending asset changes.", response["message"]);
+            Assert.AreEqual(EditorApplication.isCompiling, response["is_compiling"]);
+            Assert.AreEqual(EditorApplication.isUpdating, response["is_updating"]);
         }
 
         /// <summary>Verifies that open_scene rejects a path that holds no scene file.</summary>

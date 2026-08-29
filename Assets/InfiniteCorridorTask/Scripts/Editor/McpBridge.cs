@@ -246,6 +246,7 @@ namespace SL.Tasks
                 "clone_zone_prefab" => CloneZonePrefab(arguments),
                 "delete_asset" => DeleteAsset(arguments),
                 "list_assets" => ListAssets(arguments),
+                "refresh_assets" => RefreshAssets(),
                 "list_scenes" => ListScenes(),
                 "open_scene" => OpenScene(arguments),
                 "save_scene" => SaveScene(),
@@ -1127,6 +1128,28 @@ namespace SL.Tasks
                     { "asset_type", assetType },
                     { "search_path", searchPath },
                     { "assets", paths },
+                }
+            );
+        }
+
+        /// <summary>Imports pending asset changes and reports whether a script compilation followed.</summary>
+        /// <returns>A JSON response with the post-import compilation state.</returns>
+        /// <remarks>
+        /// The agentic counterpart of the Editor's automatic refresh on focus. A headless Editor never regains
+        /// focus, so a C# file written from outside stays uncompiled and its type stays unresolvable until this
+        /// runs. Compilation is queued rather than immediate, so a true is_compiling means the domain reload has
+        /// not finished and the caller polls get_play_state until it reports a state other than compiling.
+        /// </remarks>
+        private static string RefreshAssets()
+        {
+            AssetDatabase.Refresh();
+
+            return Ok(
+                new Dictionary<string, object>
+                {
+                    { "message", "Imported pending asset changes." },
+                    { "is_compiling", EditorApplication.isCompiling },
+                    { "is_updating", EditorApplication.isUpdating },
                 }
             );
         }
