@@ -140,7 +140,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that each covered tool name resolves to a handler, not to the fallback.</summary>
         /// <remarks>
-        /// The cases cover twelve of the seventeen dispatched names. enter_play_mode is excluded because dispatching
+        /// The cases cover thirteen of the eighteen dispatched names. enter_play_mode is excluded because dispatching
         /// it here would leave the Editor in Play Mode for the rest of the run, so McpBridgePlayModeTests covers it
         /// from inside the player loop, where the handler takes its already-playing branch. read_task_parameters,
         /// write_task_parameters, and refresh_monitors are excluded because McpBridgeTaskParametersTests dispatches
@@ -160,6 +160,7 @@ namespace SL.Tests.EditMode
         [TestCase("inspect_scene")]
         [TestCase("exit_play_mode")]
         [TestCase("get_play_state")]
+        [TestCase("read_console")]
         public void Dispatch_DeclaredToolName_DoesNotFallThroughToUnknownTool(string tool)
         {
             Dictionary<string, object> response = CallTool(tool);
@@ -563,6 +564,90 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("Imported pending asset changes.", response["message"]);
             Assert.AreEqual(EditorApplication.isCompiling, response["is_compiling"]);
             Assert.AreEqual(EditorApplication.isUpdating, response["is_updating"]);
+        }
+
+        /// <summary>Verifies that read_console returns a logged message with its severity and stack trace.</summary>
+        [Test]
+        public void ReadConsole_AfterLogging_ReturnsTheCapturedEntry()
+        {
+            string marker = "ZZTest_ConsoleMarker";
+            Debug.Log(marker);
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("read_console"));
+
+            List<object> entries = (List<object>)response["entries"];
+            Dictionary<string, object> captured = entries
+                .Select(ReadSection)
+                .Last(entry => string.Equals((string)entry["message"], marker, StringComparison.Ordinal));
+            Assert.AreEqual("Log", captured["type"]);
+            Assert.IsNotNull(captured["stack_trace"]);
+            int capacity = PrivateAccess.GetStaticField<int>(typeof(McpBridge), "ConsoleBufferCapacity");
+            Assert.AreEqual(capacity, Convert.ToInt32(response["capacity"]));
+        }
+
+        /// <summary>Verifies that read_console returns only the entries logged after a given sequence number.</summary>
+        [Test]
+        public void ReadConsole_WithSinceSequence_ReturnsOnlyTheNewerEntries()
+        {
+            Debug.Log("ZZTest_ConsoleBefore");
+            Dictionary<string, object> first = AssertSucceeded(CallTool("read_console"));
+            long checkpoint = Convert.ToInt64(first["next_sequence"]);
+            Debug.Log("ZZTest_ConsoleAfter");
+
+            Dictionary<string, object> response = AssertSucceeded(
+                CallTool("read_console", BuildArguments("since_sequence", checkpoint))
+            );
+
+            List<string> messages = ((List<object>)response["entries"])
+                .Select(entry => (string)ReadSection(entry)["message"])
+                .ToList();
+            CollectionAssert.Contains(messages, "ZZTest_ConsoleAfter");
+            CollectionAssert.DoesNotContain(messages, "ZZTest_ConsoleBefore");
+        }
+
+        /// <summary>Verifies that read_console filters out the severities the level argument excludes.</summary>
+        [Test]
+        public void ReadConsole_WithWarningLevel_ExcludesPlainLogEntries()
+        {
+            Debug.Log("ZZTest_ConsoleFilteredOut");
+            Debug.LogWarning("ZZTest_ConsoleWarning");
+
+            Dictionary<string, object> response = AssertSucceeded(
+                CallTool("read_console", BuildArguments("level", "warning"))
+            );
+
+            List<Dictionary<string, object>> entries = ((List<object>)response["entries"]).Select(ReadSection).ToList();
+            CollectionAssert.AreEquivalent(
+                new List<string> { "Warning" },
+                entries.Select(entry => (string)entry["type"]).Distinct().ToList()
+            );
+            CollectionAssert.Contains(
+                entries.Select(entry => (string)entry["message"]).ToList(),
+                "ZZTest_ConsoleWarning"
+            );
+        }
+
+        /// <summary>Verifies that read_console rejects a level filter it does not define.</summary>
+        [Test]
+        public void ReadConsole_UnknownLevel_ReportsTheAcceptedValues()
+        {
+            Dictionary<string, object> response = CallTool("read_console", BuildArguments("level", "fatal"));
+
+            Assert.AreEqual(false, response["success"]);
+            Assert.AreEqual(
+                "Unknown level: fatal. The accepted values are all, log, warning, and error.",
+                response["error"]
+            );
+        }
+
+        /// <summary>Verifies that read_console rejects a limit below one.</summary>
+        [Test]
+        public void ReadConsole_ZeroLimit_ReportsTheMinimum()
+        {
+            Dictionary<string, object> response = CallTool("read_console", BuildArguments("limit", 0));
+
+            Assert.AreEqual(false, response["success"]);
+            Assert.AreEqual("The limit argument must be at least 1, but it is 0.", response["error"]);
         }
 
         /// <summary>Verifies that open_scene rejects a path that holds no scene file.</summary>
