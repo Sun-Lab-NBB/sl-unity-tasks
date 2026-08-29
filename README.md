@@ -502,16 +502,21 @@ reference.
 
 ### Testing
 
-The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds three groups. The first drives the runtime
+The suite runs on the Unity Test Framework. `Assets/Tests/EditMode/` holds four groups. The first drives the runtime
 state machines directly through their private lifecycle callbacks, which keeps them deterministic and free of frame
-timing. The second covers the editor-only surface (`CreateTask`, `McpBridge`, `MainWindow`, `Monitor`, the full-screen
-view classes). The third covers the pure schema and serialization classes (`ConfigLoader`, `TaskTemplate`, `Cue`,
-`TrialStructure`, `VREnvironment`, `MiniJson`, `MQTTTopics`). Edit Mode is the only place the editor group can live,
-because `Sollertia.Tests.EditMode` is the only test assembly that references `Sollertia.Gimbl.Editor` and
-`Sollertia.InfiniteCorridorTask.Editor`. `Assets/Tests/PlayMode/` holds the tests that need real frames, real physics
-trigger callbacks, and real elapsed time. `Assets/Tests/Support/` holds the helpers both share: a reflection accessor
-for private Unity callbacks, a staged template-and-texture workspace, a task template YAML builder, an in-process MQTT
-harness, and a trigger zone rig.
+timing. The second covers the editor-only surface: `CreateTask`, `McpBridge`, `MiniJson`, and `MainWindow` compile into
+the two `Editor`-platform assemblies, while `Monitor`, `TagsAndLayers`, and the full-screen view classes sit in
+`Sollertia.Gimbl` behind `#if UNITY_EDITOR`. The third covers the pure schema and serialization classes (`ConfigLoader`,
+`TaskTemplate`, `Cue`, `TrialStructure`, `VREnvironment`, `MQTTTopics`, `TriggerMode`, and `DisplaySettings`). The
+fourth covers the stateless helpers, meaning `Utility`. An editor-surface fixture that needs no player loop belongs in
+Edit Mode, because `Sollertia.Tests.EditMode` is the only test assembly that references `Sollertia.Gimbl.Editor` and
+`Sollertia.InfiniteCorridorTask.Editor`. `McpBridgePlayModeTests` is the exception, because it must observe the bridge's
+already-playing branch, so it resolves `McpBridge` by assembly-qualified name and dispatches through reflection.
+`Assets/Tests/PlayMode/` holds the tests that need real frames, real physics trigger callbacks, real elapsed time, the
+engine-invoked `Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering, or the Editor actually being in Play Mode.
+`Assets/Tests/Support/` holds the helpers the two assemblies draw on, a reflection accessor for private Unity callbacks,
+a task template YAML builder, an in-process MQTT harness, and a trigger zone rig, plus a staged template-and-texture
+workspace the Edit Mode `ConfigLoader` fixture uses.
 
 The MQTT harness needs no broker. `MQTTClient.Publish` routes to in-process subscribers whenever the client is
 disconnected, so a test observes exactly what the production publish path produced and drives the real listeners the
