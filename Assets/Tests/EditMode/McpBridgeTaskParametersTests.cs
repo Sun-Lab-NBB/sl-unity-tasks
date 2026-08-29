@@ -439,7 +439,7 @@ namespace SL.Tests.EditMode
             UnityEngine.Object.DestroyImmediate(display.gameObject);
         }
 
-        /// <summary>Verifies that the task state reports all four task fields at their component values.</summary>
+        /// <summary>Verifies that the task state reports all six task fields at their component values.</summary>
         [Test]
         public void ReadTaskParameters_TaskPresent_ReportsEveryTaskField()
         {

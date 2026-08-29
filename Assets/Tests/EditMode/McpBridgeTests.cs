@@ -562,8 +562,10 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = AssertSucceeded(CallTool("refresh_assets"));
 
             Assert.AreEqual("Imported pending asset changes.", response["message"]);
-            Assert.AreEqual(EditorApplication.isCompiling, response["is_compiling"]);
-            Assert.AreEqual(EditorApplication.isUpdating, response["is_updating"]);
+            // Asserts the shape rather than the value, because comparing against a second read of the same
+            // Editor globals passes vacuously and races whenever the refresh does start a compilation.
+            Assert.IsInstanceOf<bool>(response["is_compiling"]);
+            Assert.IsInstanceOf<bool>(response["is_updating"]);
         }
 
         /// <summary>Verifies that read_console returns a logged message with its severity and stack trace.</summary>
@@ -578,7 +580,8 @@ namespace SL.Tests.EditMode
             List<object> entries = (List<object>)response["entries"];
             Dictionary<string, object> captured = entries
                 .Select(ReadSection)
-                .Last(entry => string.Equals((string)entry["message"], marker, StringComparison.Ordinal));
+                .LastOrDefault(entry => string.Equals((string)entry["message"], marker, StringComparison.Ordinal));
+            Assert.IsNotNull(captured, "The logged marker was not captured in the console buffer.");
             Assert.AreEqual("Log", captured["type"]);
             Assert.IsNotNull(captured["stack_trace"]);
             int capacity = PrivateAccess.GetStaticField<int>(typeof(McpBridge), "ConsoleBufferCapacity");
