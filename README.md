@@ -344,7 +344,7 @@ five sections:
 
 | Section        | Controls                                                                                                      |
 |----------------|---------------------------------------------------------------------------------------------------------------|
-| Actor          | Animal model selection and active controller (Linear or Simulated Linear)                                     |
+| Actor          | Animal model selection and active controller (None, Linear, or Simulated Linear)                                     |
 | MQTT           | Broker IP and port, and the Test Connection button performs a one-shot connect/disconnect probe               |
 | Display        | Brightness, height in VR, and a Blank/Show toggle for the active display                                      |
 | Camera Mapping | Refresh Monitor Positions, one row per OS-detected monitor with a camera dropdown, and Show Full-Screen Views |
@@ -434,7 +434,8 @@ matching `Assets/VRSettings/Displays/<scene>-savedFullScreenViews.asset` compani
 protected-paths set covers the three hand-authored prefabs (`StimulusTriggerZone.prefab`,
 `OccupancyTriggerZone.prefab`, `Padding.prefab`), the four hand-authored materials (`_CueShaderReference.mat`,
 `Floor.mat`, `Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Both
-`delete_asset` and `delete_task` consult that set, and path traversal sequences and absolute paths are rejected.
+`delete_asset` and `delete_task` consult that set, and path traversal sequences, absolute paths, and directory
+targets are rejected.
 
 ***Note,*** the listener has two clients. AI agents reach it through the `slsa mcp` server's Unity relay tools, which
 are listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README, rather than
