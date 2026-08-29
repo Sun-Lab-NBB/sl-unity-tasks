@@ -2130,6 +2130,7 @@ namespace SL.Tasks
             Dictionary<string, object> result = new Dictionary<string, object>
             {
                 { "name", gameObject.name },
+                { "active_self", gameObject.activeSelf },
                 { "position", FormatVector3(gameObject.transform.localPosition) },
                 { "rotation", FormatVector3(gameObject.transform.localEulerAngles) },
                 { "scale", FormatVector3(gameObject.transform.localScale) },
@@ -2141,6 +2142,17 @@ namespace SL.Tasks
                 .Select(component => component.GetType().Name)
                 .ToList();
             result["components"] = componentNames;
+            // Carries the per-component enabled flag beside the existing type-name list rather than replacing it,
+            // because a disabled Task or a disabled boundary MeshRenderer is the symptom behind most runtime
+            // bailouts and the name list alone cannot express it.
+            result["component_states"] = components
+                .Where(component => component != null)
+                .Select(component => new Dictionary<string, object>
+                {
+                    { "type", component.GetType().Name },
+                    { "enabled", GetComponentEnabled(component) },
+                })
+                .ToList();
 
             BoxCollider collider = gameObject.GetComponent<BoxCollider>();
             if (collider != null)
@@ -2162,6 +2174,25 @@ namespace SL.Tasks
             }
 
             return result;
+        }
+
+        /// <summary>Returns the enabled flag of a component, or null when its type carries no such flag.</summary>
+        /// <param name="component">The component whose enabled state is read.</param>
+        /// <returns>The boxed flag, or null for a component type that cannot be disabled.</returns>
+        /// <remarks>
+        /// Unity spreads the flag across three unrelated base types instead of declaring it on Component, so the
+        /// three are matched separately. A Transform or a MeshFilter matches none of them and reports null,
+        /// which distinguishes "cannot be disabled" from "is disabled" at the call site.
+        /// </remarks>
+        private static object GetComponentEnabled(Component component)
+        {
+            return component switch
+            {
+                Behaviour behaviour => (object)behaviour.enabled,
+                Collider collider => collider.enabled,
+                Renderer renderer => renderer.enabled,
+                _ => null,
+            };
         }
 
         /// <summary>Formats a Vector3 as a serializable dictionary.</summary>

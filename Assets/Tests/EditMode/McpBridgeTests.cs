@@ -442,11 +442,45 @@ namespace SL.Tests.EditMode
 
             Dictionary<string, object> root = ReadSection(response["hierarchy"]);
             CollectionAssert.AreEquivalent(
-                new List<string> { "name", "position", "rotation", "scale", "components" },
+                new List<string>
+                {
+                    "name",
+                    "active_self",
+                    "position",
+                    "rotation",
+                    "scale",
+                    "components",
+                    "component_states",
+                },
                 root.Keys.ToList()
             );
             Assert.AreEqual("ZZTest_Bare", root["name"]);
+            Assert.AreEqual(true, root["active_self"]);
             CollectionAssert.AreEqual(new List<string> { "Transform" }, ReadStringList(root["components"]));
+        }
+
+        /// <summary>Verifies that inspect_prefab reports the enabled flag beside each component type.</summary>
+        [Test]
+        public void InspectPrefab_HandAuthoredStimulusZone_ReportsThePerComponentEnabledFlags()
+        {
+            Dictionary<string, object> arguments = BuildArguments("prefab_path", StimulusZonePath);
+
+            Dictionary<string, object> response = AssertSucceeded(CallTool("inspect_prefab", arguments));
+
+            Dictionary<string, object> root = ReadSection(response["hierarchy"]);
+            List<object> states = (List<object>)root["component_states"];
+            CollectionAssert.AreEqual(
+                ReadStringList(root["components"]),
+                states.Select(entry => (string)ReadSection(entry)["type"]).ToList()
+            );
+
+            Dictionary<string, object> transform = ReadSection(states[0]);
+            Assert.AreEqual("Transform", transform["type"]);
+            Assert.IsNull(transform["enabled"], "A Transform carries no enabled flag and must report null.");
+
+            Dictionary<string, object> zone = ReadSection(states[states.Count - 1]);
+            Assert.AreEqual("StimulusTriggerZone", zone["type"]);
+            Assert.AreEqual(true, zone["enabled"]);
         }
 
         /// <summary>Verifies that inspect_scene reports a freshly saved active scene as clean.</summary>
