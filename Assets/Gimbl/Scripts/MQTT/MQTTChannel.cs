@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the MQTTChannel classes for trigger-based and type-safe MQTT messaging.
 ///
-/// Includes the base MQTTChannel for simple trigger messages and the generic MQTTChannel&lt;TMessage&gt;
-/// for JSON-serialized typed messages.
+/// Channels wrap the publish and subscribe surface of MQTTClient, carrying the message contract shared with
+/// sollertia-experiment.
 /// </summary>
 using System;
 using System.Text;
@@ -15,7 +15,7 @@ namespace Gimbl
     public class MQTTChannel
     {
         /// <summary>The MQTT topic string for this channel.</summary>
-        public readonly string topic;
+        internal readonly string topic;
 
         /// <summary>The reference to the MQTTClient managing the broker connection.</summary>
         public readonly MQTTClient client;
@@ -24,7 +24,7 @@ namespace Gimbl
         public readonly UnityEvent receivedEvent = new UnityEvent();
 
         /// <summary>Creates a new MQTT channel for the specified topic.</summary>
-        /// <param name="topicString">The MQTT topic to subscribe to or publish on.</param>
+        /// <param name="topicString">The MQTT topic on which this channel subscribes or publishes.</param>
         /// <param name="isListener">Determines whether to subscribe to receive messages on this topic.</param>
         /// <param name="qosLevel">The Quality of Service level for the subscription.</param>
         /// <exception cref="InvalidOperationException">No <see cref="MQTTClient"/> singleton is available.</exception>
@@ -34,7 +34,10 @@ namespace Gimbl
             client = MQTTClient.Instance;
             if (client == null)
             {
-                throw new InvalidOperationException("MQTTChannel: MQTTClient.Instance not available.");
+                string message =
+                    $"Unable to create the MQTT channel for topic '{topic}'. The active scene must host an "
+                    + "MQTTClient component, but MQTTClient.Instance is null.";
+                throw new InvalidOperationException(message);
             }
 
             if (isListener)
@@ -44,14 +47,14 @@ namespace Gimbl
         }
 
         /// <summary>Handles received messages by invoking the receivedEvent.</summary>
-        /// <param name="messageString">The received message string (ignored for trigger channels).</param>
-        public virtual void ReceivedMessage(string messageString)
+        /// <param name="messageString">The received payload, which a trigger channel ignores.</param>
+        internal virtual void ReceivedMessage(string messageString)
         {
             receivedEvent.Invoke();
         }
 
         /// <summary>Publishes a trigger message (null payload) to this channel's topic.</summary>
-        public void Send()
+        internal void Send()
         {
             client.Publish(topic, null);
         }
@@ -74,7 +77,7 @@ namespace Gimbl
         public new readonly ChannelEvent receivedEvent = new ChannelEvent();
 
         /// <summary>Creates a new typed MQTT channel for the specified topic.</summary>
-        /// <param name="topicString">The MQTT topic to subscribe to or publish on.</param>
+        /// <param name="topicString">The MQTT topic on which this channel subscribes or publishes.</param>
         /// <param name="isListener">Determines whether to subscribe to receive messages on this topic.</param>
         /// <param name="qosLevel">The Quality of Service level for the subscription.</param>
         public MQTTChannel(string topicString, bool isListener = true, byte qosLevel = 2)
@@ -85,9 +88,9 @@ namespace Gimbl
         /// The event is invoked outside the try block so that an exception raised by a subscriber propagates as
         /// itself, leaving the deserialization failure message for payloads the parser actually rejected.
         /// </remarks>
-        /// <param name="messageString">The received JSON message string.</param>
+        /// <param name="messageString">The received JSON payload.</param>
         /// <exception cref="InvalidOperationException">The payload cannot be deserialized into TMessage.</exception>
-        public override void ReceivedMessage(string messageString)
+        internal override void ReceivedMessage(string messageString)
         {
             TMessage message;
             try
@@ -96,10 +99,10 @@ namespace Gimbl
             }
             catch (Exception exception)
             {
-                throw new InvalidOperationException(
-                    $"MQTTChannel<{typeof(TMessage).Name}>: Failed to deserialize message: {exception.Message}",
-                    exception
-                );
+                string failureMessage =
+                    $"Unable to deserialize the payload received on topic '{topic}' into {typeof(TMessage).Name}. "
+                    + $"The payload must be valid JSON, but parsing failed with: {exception.Message}";
+                throw new InvalidOperationException(failureMessage, exception);
             }
 
             receivedEvent.Invoke(message);

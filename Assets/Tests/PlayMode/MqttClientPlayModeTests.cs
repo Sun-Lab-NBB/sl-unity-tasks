@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using Gimbl;
+using MQTTnet.Client;
 using NUnit.Framework;
 using SL.Tasks;
 using SL.UI;
@@ -25,10 +26,10 @@ namespace SL.Tests.PlayMode
     [TestFixture]
     public class MqttClientPlayModeTests
     {
-        /// <summary>The loopback address the connector tests point the client at.</summary>
+        /// <summary>The loopback address at which the connector tests point the client.</summary>
         private const string UnreachableBrokerAddress = "127.0.0.1";
 
-        /// <summary>The port the connector tests point the client at, because nothing listens on it.</summary>
+        /// <summary>The port at which the connector tests point the client, because nothing listens on it.</summary>
         private const int UnreachableBrokerPort = 47999;
 
         /// <summary>The pattern matching either failure message Connect logs for an unreachable broker.</summary>
@@ -37,10 +38,10 @@ namespace SL.Tests.PlayMode
         /// <see cref="UnreachableBrokerPort"/>, and the pattern stops before the exception detail so it matches
         /// both the timeout message and the refused-connection message.
         /// </remarks>
-        private const string ConnectionFailurePattern = @"Could not connect to MQTT broker at 127\.0\.0\.1:47999";
+        private const string ConnectionFailurePattern = @"Unable to connect to the MQTT broker at 127\.0\.0\.1:47999";
 
         /// <summary>The pattern matching the error the connector logs when no client singleton is installed.</summary>
-        private const string MissingInstancePattern = @"MQTTConnectorObject: MQTTClient\.Instance not available";
+        private const string MissingInstancePattern = @"Unable to connect to the MQTT broker on enable";
 
         /// <summary>The seconds to wait before the session-start delay elapses, staying short of one second.</summary>
         private const float BeforeSessionStartSeconds = 0.5f;
@@ -64,7 +65,7 @@ namespace SL.Tests.PlayMode
         /// <summary>The harness hosting the client singleton for the spawner rig.</summary>
         private MqttTestHarness _harness;
 
-        /// <summary>The canvas the spawner parents its indicators to.</summary>
+        /// <summary>The canvas to which the spawner parents its indicators.</summary>
         private Canvas _canvas;
 
         /// <summary>The indicator prefab the spawner instantiates for a lick event.</summary>
@@ -104,10 +105,16 @@ namespace SL.Tests.PlayMode
             // attempt assigned is released here rather than by the Unity lifecycle.
             foreach (MQTTClient client in _clients)
             {
-                if (client != null && client.client != null)
+                if (client == null)
                 {
-                    client.client.Dispose();
-                    client.client = null;
+                    continue;
+                }
+
+                IMqttClient handle = PrivateAccess.GetField<IMqttClient>(client, "_client");
+                if (handle != null)
+                {
+                    handle.Dispose();
+                    PrivateAccess.SetField(client, "_client", null);
                 }
             }
             _clients.Clear();
@@ -150,8 +157,8 @@ namespace SL.Tests.PlayMode
 
             client.gameObject.SetActive(true);
 
-            Assert.IsNull(client.client);
-            Assert.IsFalse(client.IsConnected());
+            Assert.IsNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
+            Assert.IsFalse((bool)PrivateAccess.Invoke(client, "IsConnected"));
         }
 
         /// <summary>Verifies that activating a second client leaves the first client installed as the singleton.
@@ -380,7 +387,7 @@ namespace SL.Tests.PlayMode
 
             host.SetActive(true);
 
-            Assert.IsFalse(client.IsConnected());
+            Assert.IsFalse((bool)PrivateAccess.Invoke(client, "IsConnected"));
         }
 
         /// <summary>Verifies that a failed connection attempt still leaves the broker handle and handler wired.
@@ -397,7 +404,7 @@ namespace SL.Tests.PlayMode
 
             host.SetActive(true);
 
-            Assert.IsNotNull(client.client);
+            Assert.IsNotNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
             Assert.IsNotNull(PrivateAccess.GetField<object>(client, "_messageReceivedHandler"));
         }
 
@@ -413,13 +420,13 @@ namespace SL.Tests.PlayMode
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             host.SetActive(true);
-            object firstHandle = client.client;
+            object firstHandle = PrivateAccess.GetField<IMqttClient>(client, "_client");
 
             host.SetActive(false);
             host.SetActive(true);
 
-            Assert.IsNotNull(client.client);
-            Assert.AreNotSame(firstHandle, client.client);
+            Assert.IsNotNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
+            Assert.AreNotSame(firstHandle, PrivateAccess.GetField<IMqttClient>(client, "_client"));
         }
 
         /// <summary>Verifies that re-enabling the connector disposes the handle the first attempt left behind.
@@ -435,7 +442,7 @@ namespace SL.Tests.PlayMode
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             LogAssert.Expect(LogType.Error, new Regex(ConnectionFailurePattern));
             host.SetActive(true);
-            object firstHandle = client.client;
+            object firstHandle = PrivateAccess.GetField<IMqttClient>(client, "_client");
             Assert.IsFalse(IsHandleDisposed(firstHandle));
 
             host.SetActive(false);
@@ -649,8 +656,6 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Creates an inactive host object registered for teardown, so no callback has run on it.</summary>
-        /// <param name="hostName">The name given to the host object.</param>
-        /// <returns>The inactive host object.</returns>
         private GameObject CreateDormantHost(string hostName)
         {
             GameObject host = new GameObject(hostName);
@@ -660,7 +665,6 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Creates a client component on an inactive host, so Awake and Start have not run yet.</summary>
-        /// <param name="hostName">The name given to the host object.</param>
         /// <returns>The client component the test activates itself.</returns>
         private MQTTClient CreateDormantClient(string hostName)
         {
@@ -670,7 +674,6 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Creates a dormant client and installs it as the singleton without running any callback.</summary>
-        /// <param name="hostName">The name given to the host object.</param>
         /// <returns>The client every channel constructed afterwards resolves.</returns>
         private MQTTClient CreateSuspendedClient(string hostName)
         {
@@ -746,8 +749,8 @@ namespace SL.Tests.PlayMode
             _harness.Publish(MQTTTopics.Stimulus, message);
         }
 
-        /// <summary>Returns the number of channels the client currently routes messages to.</summary>
-        /// <param name="client">The client whose routing list to read.</param>
+        /// <summary>Returns the number of channels to which the client currently routes messages.</summary>
+        /// <param name="client">The client whose routing list is read.</param>
         /// <returns>The registered channel count, including any harness capture channels.</returns>
         private static int RegisteredChannelCount(MQTTClient client)
         {
@@ -756,8 +759,8 @@ namespace SL.Tests.PlayMode
 
         /// <summary>Determines whether a broker handle has already been disposed.</summary>
         /// <remarks>
-        /// MQTTnet carries its disposal flag on the protected IsDisposed property of the internal base class every
-        /// client derives from, and the IMqttClient interface surfaces no such member, so the getter is reached
+        /// MQTTnet carries its disposal flag on the protected IsDisposed property of the internal base class from which
+        /// every client derives, and the IMqttClient interface surfaces no such member, so the getter is reached
         /// through reflection.
         /// </remarks>
         /// <param name="handle">The broker handle to inspect.</param>
@@ -767,7 +770,7 @@ namespace SL.Tests.PlayMode
             return (bool)PrivateAccess.Invoke(handle, "get_IsDisposed");
         }
 
-        /// <summary>Records every payload routed to its topic together with the frame it arrived on.</summary>
+        /// <summary>Records every payload routed to its topic together with the frame on which it arrived.</summary>
         private sealed class FrameRecordingChannel : MQTTChannel
         {
             /// <summary>The payloads routed to this channel, oldest first.</summary>
@@ -776,10 +779,10 @@ namespace SL.Tests.PlayMode
             /// <summary>The frame counter value captured as each payload arrived, oldest first.</summary>
             private readonly List<int> _frames = new List<int>();
 
-            /// <summary>The payloads routed to this channel, oldest first.</summary>
+            /// <summary>Returns the payloads routed to this channel.</summary>
             public IReadOnlyList<string> Payloads => _payloads;
 
-            /// <summary>The frame counter value captured as each payload arrived, oldest first.</summary>
+            /// <summary>Returns the frame counter value captured as each payload arrived.</summary>
             public IReadOnlyList<int> Frames => _frames;
 
             /// <summary>Creates a channel on a topic, optionally subscribing it to the installed client.</summary>
@@ -790,7 +793,7 @@ namespace SL.Tests.PlayMode
 
             /// <summary>Records the routed payload and its frame, then invokes the base trigger event.</summary>
             /// <param name="messageString">The routed payload string.</param>
-            public override void ReceivedMessage(string messageString)
+            internal override void ReceivedMessage(string messageString)
             {
                 _payloads.Add(messageString);
                 _frames.Add(Time.frameCount);

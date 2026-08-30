@@ -11,10 +11,10 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the MQTTChannel and MQTTChannel&lt;TMessage&gt; classes.</summary>
     /// <remarks>
-    /// No broker participates. MQTTClient.Publish falls back to in-process delivery while disconnected, so a
-    /// publish reaches every channel registered on the matching topic and the harness observes exactly what the
-    /// production publish path produced. The first publish per topic logs a broker-unreachable warning, which
-    /// the Test Framework does not require a declaration for.
+    /// No broker participates. MQTTClient.Publish falls back to in-process delivery while disconnected, so a publish
+    /// reaches every channel registered on the matching topic and the harness observes exactly what the production
+    /// publish path produced. The first publish per topic logs a broker-unreachable warning, for which the Test
+    /// Framework requires no declaration.
     /// </remarks>
     [TestFixture]
     public class MQTTChannelTests
@@ -50,7 +50,7 @@ namespace SL.Tests.EditMode
                 new MQTTChannel(ProbeTopic)
             );
 
-            StringAssert.Contains("MQTTClient.Instance not available", exception.Message);
+            StringAssert.Contains("Unable to create the MQTT channel", exception.Message);
         }
 
         /// <summary>Verifies that constructing a typed channel without a client singleton throws.</summary>
@@ -61,7 +61,7 @@ namespace SL.Tests.EditMode
                 new MQTTChannel<ProbeMessage>(ProbeTopic)
             );
 
-            StringAssert.Contains("MQTTClient.Instance not available", exception.Message);
+            StringAssert.Contains("Unable to create the MQTT channel", exception.Message);
         }
 
         /// <summary>Verifies that a constructed channel stores its topic and the resolved client singleton.</summary>
@@ -127,8 +127,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that omitting the listener flag registers the channel, so the default is true.
-        /// </summary>
+        /// <summary>Verifies that omitting the listener flag registers the channel, so the default is true.</summary>
         [Test]
         public void Constructor_OmittedListenerFlag_RegistersTheChannelWithTheClient()
         {
@@ -143,8 +142,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the base channel constructor defaults its quality of service level to two.
-        /// </summary>
+        /// <summary>Verifies that the base channel constructor defaults its quality of service level to two.</summary>
         /// <remarks>
         /// The subscription value itself is unobservable here, because <c>MQTTClient.Subscribe</c> takes the
         /// not-connected early return before it converts the level and the registration record keeps only the topic
@@ -163,8 +161,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual((byte)2, parameters[2].DefaultValue);
         }
 
-        /// <summary>Verifies that the typed channel constructor defaults its quality of service level to two.
-        /// </summary>
+        /// <summary>Verifies that the typed channel constructor defaults its quality of service level to two.</summary>
         [Test]
         public void Constructor_TypedChannelOmittedQosLevel_DefaultsToExactlyOnceDelivery()
         {
@@ -225,8 +222,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the base channel invokes its parameterless event when a message arrives.
-        /// </summary>
+        /// <summary>Verifies that the base channel invokes its parameterless event when a message arrives.</summary>
         [Test]
         public void ReceivedMessage_BaseChannel_InvokesTheParameterlessEvent()
         {
@@ -362,8 +358,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the typed channel wraps a deserialization failure in an InvalidOperation.
-        /// </summary>
+        /// <summary>Verifies that the typed channel wraps a deserialization failure in an InvalidOperation.</summary>
         [Test]
         public void ReceivedMessage_TypedChannelWithMalformedJson_ThrowsInvalidOperationWrappingTheFailure()
         {
@@ -376,7 +371,7 @@ namespace SL.Tests.EditMode
                 );
 
                 StringAssert.StartsWith(
-                    "MQTTChannel<ProbeMessage>: Failed to deserialize message: ",
+                    "Unable to deserialize the payload received on topic 'ProbeTopic' into ProbeMessage.",
                     exception.Message
                 );
                 Assert.IsNotNull(exception.InnerException);
@@ -400,8 +395,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that an exception a listener raises propagates with its own type and message.
-        /// </summary>
+        /// <summary>Verifies that an exception a listener raises propagates with its own type and message.</summary>
         /// <remarks>
         /// The typed event is invoked below the try block, so a subscriber failure reaches the caller as itself
         /// rather than as a deserialization failure that misnames the JSON parser as the culprit.
@@ -434,7 +428,7 @@ namespace SL.Tests.EditMode
                 Exception exception = Assert.Catch<Exception>(() => channel.ReceivedMessage(ProbeJson));
 
                 Assert.IsNotInstanceOf<InvalidOperationException>(exception);
-                StringAssert.DoesNotContain("Failed to deserialize message", exception.Message);
+                StringAssert.DoesNotContain("Unable to deserialize the payload", exception.Message);
             }
         }
 
@@ -452,8 +446,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a listener bound through a base reference never fires on a typed channel.
-        /// </summary>
+        /// <summary>Verifies that a listener bound through a base reference never fires on a typed channel.</summary>
         /// <remarks>
         /// This is the documented shadowing hazard. A caller that binds a listener through a base MQTTChannel
         /// reference subscribes to the parameterless event, which the typed override never invokes.
@@ -493,8 +486,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a typed message published on a listening channel arrives back unchanged.
-        /// </summary>
+        /// <summary>Verifies that a typed message published on a listening channel arrives back unchanged.</summary>
         [Test]
         public void Send_TypedChannelListeningOnItsOwnTopic_LoopsTheDeserializedMessageBackToItself()
         {
@@ -531,8 +523,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the rejected parameterless Send publishes nothing on the channel's topic.
-        /// </summary>
+        /// <summary>Verifies that the rejected parameterless Send publishes nothing on the channel's topic.</summary>
         [Test]
         public void Send_TypedChannelParameterlessOverload_PublishesNothing()
         {
@@ -562,7 +553,7 @@ namespace SL.Tests.EditMode
             Assert.IsNotNull(method);
         }
 
-        /// <summary>Returns the routing records the client currently delivers received messages to.</summary>
+        /// <summary>Returns the routing records to which the client currently delivers received messages.</summary>
         /// <param name="client">The client whose channel registration list to read.</param>
         /// <returns>The registration records, oldest first.</returns>
         private static IList Registrations(MQTTClient client)
@@ -570,9 +561,8 @@ namespace SL.Tests.EditMode
             return PrivateAccess.GetField<IList>(client, "_channelList");
         }
 
-        /// <summary>Returns the number of channels the client currently routes messages to.</summary>
+        /// <summary>Returns the number of channels to which the client currently routes messages.</summary>
         /// <param name="client">The client whose channel registration list to read.</param>
-        /// <returns>The registered channel count.</returns>
         private static int RegisteredChannelCount(MQTTClient client)
         {
             return Registrations(client).Count;

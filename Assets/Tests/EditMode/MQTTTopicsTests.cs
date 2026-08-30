@@ -65,8 +65,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("Motion", MQTTTopics.Motion);
         }
 
-        /// <summary>Verifies that the sensor interaction topic matches the experiment-side contract literal.
-        /// </summary>
+        /// <summary>Verifies that the sensor interaction topic matches the experiment-side contract literal.</summary>
         [Test]
         public void Interaction_Constant_EqualsTheContractLiteral()
         {
@@ -95,24 +94,21 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("CueSequenceTrigger", MQTTTopics.CueSequenceTrigger);
         }
 
-        /// <summary>Verifies that the cue sequence reply topic matches the experiment-side contract literal.
-        /// </summary>
+        /// <summary>Verifies that the cue sequence reply topic matches the experiment-side contract literal.</summary>
         [Test]
         public void CueSequence_Constant_EqualsTheContractLiteral()
         {
             Assert.AreEqual("CueSequence", MQTTTopics.CueSequence);
         }
 
-        /// <summary>Verifies that the scene name request topic matches the experiment-side contract literal.
-        /// </summary>
+        /// <summary>Verifies that the scene name request topic matches the experiment-side contract literal.</summary>
         [Test]
         public void SceneNameTrigger_Constant_EqualsTheContractLiteral()
         {
             Assert.AreEqual("SceneNameTrigger", MQTTTopics.SceneNameTrigger);
         }
 
-        /// <summary>Verifies that the scene name reply topic matches the experiment-side contract literal.
-        /// </summary>
+        /// <summary>Verifies that the scene name reply topic matches the experiment-side contract literal.</summary>
         [Test]
         public void SceneName_Constant_EqualsTheContractLiteral()
         {
@@ -127,8 +123,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("RequireInteraction", MQTTTopics.RequireInteraction);
         }
 
-        /// <summary>Verifies that the wait requirement toggle matches the experiment-side contract literal.
-        /// </summary>
+        /// <summary>Verifies that the wait requirement toggle matches the experiment-side contract literal.</summary>
         [Test]
         public void RequireWait_Constant_EqualsTheContractLiteral()
         {
@@ -287,7 +282,6 @@ namespace SL.Tests.EditMode
         /// therefore turns a reflection lookup that stopped seeing the catalog into a failure in every test that relies
         /// on it.
         /// </remarks>
-        /// <returns>The declared topic fields.</returns>
         private static FieldInfo[] DeclaredTopicFields()
         {
             FieldInfo[] fields = typeof(MQTTTopics).GetFields(BindingFlags.Public | BindingFlags.Static);
@@ -304,7 +298,6 @@ namespace SL.Tests.EditMode
         /// being a compile-time constant still yields a value here and fails the dedicated constness test with a
         /// readable message instead of throwing out of this helper.
         /// </remarks>
-        /// <returns>The declared topic values.</returns>
         private static List<string> DeclaredTopicValues()
         {
             List<string> values = new List<string>();

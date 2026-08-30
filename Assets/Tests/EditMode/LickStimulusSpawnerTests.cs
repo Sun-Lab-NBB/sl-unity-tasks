@@ -80,7 +80,7 @@ namespace SL.Tests.EditMode
 
             InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => InvokeStart());
 
-            StringAssert.Contains("MQTTClient.Instance not available", exception.Message);
+            StringAssert.Contains("Unable to create the MQTT channel", exception.Message);
         }
 
         /// <summary>Verifies that Start subscribes the lick channel to the Interaction topic.</summary>
@@ -157,8 +157,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1.0f, indicator.destroyTime, 1e-6f);
         }
 
-        /// <summary>Verifies that a delivered stimulus spawns exactly one stimulus indicator on the canvas.
-        /// </summary>
+        /// <summary>Verifies that a delivered stimulus spawns exactly one stimulus indicator on the canvas.</summary>
         [Test]
         public void Update_AfterDeliveredStimulus_SpawnsOneStimulusIndicatorOnCanvas()
         {
@@ -173,8 +172,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(indicator.GetComponent<LickMessage>());
         }
 
-        /// <summary>Verifies that the spawned stimulus indicator carries the default four second lifetime.
-        /// </summary>
+        /// <summary>Verifies that the spawned stimulus indicator carries the default four second lifetime.</summary>
         [Test]
         public void Update_AfterDeliveredStimulus_SpawnsIndicatorCarryingDefaultLifetime()
         {
@@ -257,8 +255,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(2, _canvas.transform.childCount);
         }
 
-        /// <summary>Verifies that each lick event raises the pending count the following Update consumes.
-        /// </summary>
+        /// <summary>Verifies that each lick event raises the pending count the following Update consumes.</summary>
         [Test]
         public void OnLick_ThreeEventsBeforeUpdate_RaisesThePendingCountToThree()
         {
@@ -272,8 +269,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
-        /// <summary>Verifies that the pending count is consumed, so a later frame spawns no second indicator.
-        /// </summary>
+        /// <summary>Verifies that the pending count is consumed, so a later frame spawns no second indicator.</summary>
         [Test]
         public void Update_SecondFrameAfterSpawn_SpawnsNoAdditionalIndicator()
         {
@@ -315,8 +311,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, _canvas.transform.childCount);
         }
 
-        /// <summary>Verifies that OnDestroy stops the spawner from reacting to further stimulus outcomes.
-        /// </summary>
+        /// <summary>Verifies that OnDestroy stops the spawner from reacting to further stimulus outcomes.</summary>
         [Test]
         public void OnDestroy_AfterStart_StopsRespondingToStimulusEvents()
         {
@@ -342,8 +337,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(baseline, ClientSubscriptionCount());
         }
 
-        /// <summary>Verifies that a second OnDestroy removes no further entry from the client routing list.
-        /// </summary>
+        /// <summary>Verifies that a second OnDestroy removes no further entry from the client routing list.</summary>
         [Test]
         public void OnDestroy_CalledTwice_LeavesTheClientRoutingListUnchanged()
         {
@@ -472,8 +466,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1, PendingLickCount());
         }
 
-        /// <summary>Verifies that an unassigned stimulus prefab leaves the lick indicator spawning normally.
-        /// </summary>
+        /// <summary>Verifies that an unassigned stimulus prefab leaves the lick indicator spawning normally.</summary>
         [Test]
         public void Update_StimulusPrefabMissing_StillSpawnsTheLickIndicator()
         {
@@ -528,14 +521,12 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Returns the number of lick indicators the spawner holds for its next Update.</summary>
-        /// <returns>The pending lick indicator count.</returns>
         private int PendingLickCount()
         {
             return PrivateAccess.GetField<int>(_spawner, "_pendingLickCount");
         }
 
         /// <summary>Returns the number of stimulus indicators the spawner holds for its next Update.</summary>
-        /// <returns>The pending stimulus indicator count.</returns>
         private int PendingStimulusCount()
         {
             return PrivateAccess.GetField<int>(_spawner, "_pendingStimulusCount");

@@ -19,7 +19,7 @@ namespace Gimbl
     /// <summary>Manages the MQTT broker connection and routes messages to subscribed channels.</summary>
     /// <remarks>
     /// Expects a host GameObject named "MQTT Client". Connection settings (IP and port) are loaded from Unity
-    /// EditorPrefs. Access via the static Instance property.
+    /// EditorPrefs.
     /// </remarks>
     public class MQTTClient : MonoBehaviour
     {
@@ -56,7 +56,7 @@ namespace Gimbl
         public int port = 1883;
 
         /// <summary>The underlying MQTTnet client instance.</summary>
-        public IMqttClient client;
+        private IMqttClient _client;
 
         /// <summary>The list of all subscribed channels for message routing.</summary>
         private List<Channel> _channelList = new List<Channel>();
@@ -87,7 +87,11 @@ namespace Gimbl
         {
             if (Instance != null && Instance != this)
             {
-                Debug.LogWarning("MQTTClient: Multiple instances found, using existing instance");
+                string message =
+                    "Unable to register this MQTTClient as the singleton instance. The active scene must host "
+                    + "exactly one MQTTClient component, but another instance is already registered, so that "
+                    + "instance remains in use.";
+                Debug.LogWarning(message);
                 return;
             }
             Instance = this;
@@ -97,12 +101,11 @@ namespace Gimbl
             port = UnityEditor.EditorPrefs.GetInt("SollertiaVR_MQTT_Port");
 #endif
 
-            // Falls back to localhost defaults so a fresh project always attempts a connection. The
-            // Task Parameters window applies the same fallback when its UI is opened, and mirroring it
-            // here ensures users who have not yet visited that window still get a working broker setup
-            // when mosquitto (or another local broker) is running on standard ports. The port fallback
-            // covers the whole out-of-range span, because a port outside it reaches the options builder
-            // as a value no socket can bind.
+            // Falls back to localhost defaults so a fresh project always attempts a connection. The Task Parameters
+            // window applies the same fallback when its UI is opened. Mirroring it here ensures users who have not yet
+            // visited that window still get a working broker setup when mosquitto (or another local broker) is running
+            // on standard ports. The port fallback covers the whole out-of-range span, because a port outside it
+            // reaches the options builder as a value no socket can bind.
             if (string.IsNullOrEmpty(ipAddress))
             {
                 ipAddress = "127.0.0.1";
@@ -139,20 +142,20 @@ namespace Gimbl
                 {
                     unsubscribeOptions.WithTopicFilter(topic);
                 }
-                client.UnsubscribeAsync(unsubscribeOptions.Build()).GetAwaiter().GetResult();
+                _client.UnsubscribeAsync(unsubscribeOptions.Build()).GetAwaiter().GetResult();
             }
 
             _channelList = new List<Channel>();
 
-            if (client != null && _messageReceivedHandler != null)
+            if (_client != null && _messageReceivedHandler != null)
             {
-                client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
+                _client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
             }
 
             Disconnect();
 
-            client?.Dispose();
-            client = null;
+            _client?.Dispose();
+            _client = null;
 
             if (Instance == this)
             {
@@ -173,13 +176,13 @@ namespace Gimbl
         {
             _channelList = new List<Channel>();
 
-            if (client != null && _messageReceivedHandler != null)
+            if (_client != null && _messageReceivedHandler != null)
             {
-                client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
+                _client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
             }
 
-            client?.Dispose();
-            client = null;
+            _client?.Dispose();
+            _client = null;
 
             if (Instance == this)
             {
@@ -190,23 +193,23 @@ namespace Gimbl
         /// <summary>Establishes a connection to the MQTT broker.</summary>
         /// <remarks>
         /// Each call unhooks and disposes the handle its predecessor installed before it builds the replacement, so
-        /// repeated enable cycles hold one broker handle at a time rather than accumulating them.
+        /// repeated enable cycles hold one broker handle at a time.
         /// </remarks>
         /// <param name="verbose">Determines whether to log successful connection to the console.</param>
         public void Connect(bool verbose)
         {
-            if (client != null)
+            if (_client != null)
             {
                 if (_messageReceivedHandler != null)
                 {
-                    client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
+                    _client.ApplicationMessageReceivedAsync -= _messageReceivedHandler;
                 }
-                client.Dispose();
-                client = null;
+                _client.Dispose();
+                _client = null;
             }
 
             MqttFactory factory = new MqttFactory();
-            client = factory.CreateMqttClient();
+            _client = factory.CreateMqttClient();
 
             // Routes received messages to the appropriate subscribed channels.
             _messageReceivedHandler = e =>
@@ -230,7 +233,7 @@ namespace Gimbl
 
                 return Task.CompletedTask;
             };
-            client.ApplicationMessageReceivedAsync += _messageReceivedHandler;
+            _client.ApplicationMessageReceivedAsync += _messageReceivedHandler;
 
             MqttClientOptions options = new MqttClientOptionsBuilder()
                 .WithTcpServer(ipAddress, port)
@@ -239,12 +242,15 @@ namespace Gimbl
                 .Build();
 
             // Waits on the connect task so a timeout and a refused connection both report before channels subscribe.
-            Task connectionTask = Task.Run(() => client.ConnectAsync(options));
+            Task connectionTask = Task.Run(() => _client.ConnectAsync(options));
             try
             {
                 if (!connectionTask.Wait(ConnectTimeoutMilliseconds))
                 {
-                    Debug.LogError($"Could not connect to MQTT broker at {ipAddress}:{port}");
+                    string message =
+                        $"Unable to connect to the MQTT broker at {ipAddress}:{port}. The connection attempt must "
+                        + $"resolve within {ConnectTimeoutMilliseconds} milliseconds, but it did not.";
+                    Debug.LogError(message);
                 }
                 else if (verbose)
                 {
@@ -254,7 +260,8 @@ namespace Gimbl
             catch (AggregateException exception)
             {
                 string message =
-                    $"Could not connect to MQTT broker at {ipAddress}:{port}: {exception.InnerException?.Message}";
+                    $"Unable to connect to the MQTT broker at {ipAddress}:{port}. The broker must accept an "
+                    + $"MQTT 5.0 connection, but the attempt failed with: {exception.InnerException?.Message}";
                 Debug.LogError(message);
             }
         }
@@ -264,21 +271,24 @@ namespace Gimbl
         {
             if (IsConnected())
             {
-                client.DisconnectAsync().GetAwaiter().GetResult();
+                _client.DisconnectAsync().GetAwaiter().GetResult();
             }
         }
 
         /// <summary>Checks whether the client is currently connected to the broker.</summary>
         /// <returns>True if connected, false otherwise.</returns>
-        public bool IsConnected()
+        private bool IsConnected()
         {
             try
             {
-                return client != null && client.IsConnected;
+                return _client != null && _client.IsConnected;
             }
             catch (Exception exception)
             {
-                Debug.LogWarning($"MQTTClient.IsConnected check failed: {exception.Message}");
+                string message =
+                    "Unable to determine whether the MQTT client is connected. The client handle must report its "
+                    + $"connection state, but the check failed with: {exception.Message}";
+                Debug.LogWarning(message);
                 return false;
             }
         }
@@ -292,10 +302,10 @@ namespace Gimbl
         /// once the broker comes online. Callers that need broker-delivered messages after a late connect
         /// must re-create the channel or trigger a new subscribe pass.
         /// </remarks>
-        /// <param name="channel">The MQTTChannel to receive messages.</param>
+        /// <param name="channel">The channel on which the topic delivers messages.</param>
         /// <param name="topic">The MQTT topic to subscribe to.</param>
         /// <param name="qosLevel">The Quality of Service level for the subscription.</param>
-        public void Subscribe(MQTTChannel channel, string topic, byte qosLevel)
+        internal void Subscribe(MQTTChannel channel, string topic, byte qosLevel)
         {
             lock (_channelList)
             {
@@ -308,7 +318,7 @@ namespace Gimbl
             }
 
             MqttQualityOfServiceLevel qualityOfServiceLevel = (MqttQualityOfServiceLevel)qosLevel;
-            client
+            _client
                 .SubscribeAsync(
                     new MqttClientSubscribeOptionsBuilder()
                         .WithTopicFilter(f => f.WithTopic(topic).WithQualityOfServiceLevel(qualityOfServiceLevel))
@@ -318,7 +328,9 @@ namespace Gimbl
                 {
                     if (t.IsFaulted)
                     {
-                        string message = $"MQTT subscribe failed for '{topic}': {t.Exception?.InnerException?.Message}";
+                        string message =
+                            $"Unable to subscribe to the MQTT topic '{topic}'. The broker must accept the "
+                            + $"subscription request, but it failed with: {t.Exception?.InnerException?.Message}";
                         Debug.LogError(message);
                     }
                 });
@@ -332,7 +344,7 @@ namespace Gimbl
         /// broker-side subscription is left in place, because several channels may share one topic and the broker
         /// filter is per topic rather than per channel.
         /// </remarks>
-        /// <param name="channel">The channel to stop routing messages to.</param>
+        /// <param name="channel">The channel whose routing entries are removed.</param>
         public void Unsubscribe(MQTTChannel channel)
         {
             if (channel == null)
@@ -347,9 +359,9 @@ namespace Gimbl
         }
 
         /// <summary>Publishes a message to the specified topic.</summary>
-        /// <param name="topic">The MQTT topic to publish to.</param>
-        /// <param name="payload">The message payload as a byte array, or null for trigger messages.</param>
-        public void Publish(string topic, byte[] payload)
+        /// <param name="topic">The topic that receives the published message.</param>
+        /// <param name="payload">The serialized message body, or null for a trigger message.</param>
+        internal void Publish(string topic, byte[] payload)
         {
             // When the broker is unreachable (typical for keyboard-only test runs without mosquitto),
             // routes the message directly to in-process subscribers on the matching topic. Production
@@ -359,10 +371,10 @@ namespace Gimbl
                 if (_loopbackWarnedTopics.Add(topic))
                 {
                     string warning =
-                        $"MQTTClient: broker unreachable, so '{topic}' is delivered to in-process "
-                        + "subscribers only and will not reach sollertia-experiment. This is expected for "
-                        + "keyboard-only testing, but a topic that works only this way has no wired "
-                        + "experiment-side counterpart.";
+                        $"Unable to deliver '{topic}' to the MQTT broker at {ipAddress}:{port}. The broker must "
+                        + "be reachable for the message to reach sollertia-experiment, but it is not, so the "
+                        + "message reaches in-process subscribers only. This is expected for keyboard-only "
+                        + "testing, but a topic that works only this way has no wired experiment-side counterpart.";
                     Debug.LogWarning(warning);
                 }
 
@@ -386,22 +398,24 @@ namespace Gimbl
                 .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.ExactlyOnce)
                 .Build();
 
-            client
+            _client
                 .PublishAsync(message)
                 .ContinueWith(t =>
                 {
                     if (t.IsFaulted)
                     {
-                        Debug.LogError($"MQTT publish failed on '{topic}': {t.Exception?.InnerException?.Message}");
+                        string message =
+                            $"Unable to publish to the MQTT topic '{topic}'. The broker must accept the publish "
+                            + $"request, but it failed with: {t.Exception?.InnerException?.Message}";
+                        Debug.LogError(message);
                     }
                 });
         }
 
         /// <summary>Sends the session start message after a brief delay.</summary>
         /// <remarks>
-        /// Returns <see cref="Task"/> rather than <c>void</c> so exceptions thrown after the awaited delay
-        /// surface through normal Task-error propagation if a future caller ever decides to observe them.
-        /// The body still catches and logs internally because the only current caller fires-and-forgets.
+        /// Failures are caught and logged inside the method, so the returned task completes successfully even when the
+        /// publish fails.
         /// </remarks>
         /// <returns>A task that completes once the session-start message has been published.</returns>
         private async Task StartSessionAsync()
@@ -413,14 +427,17 @@ namespace Gimbl
             }
             catch (Exception exception)
             {
-                Debug.LogError($"MQTTClient.StartSessionAsync failed: {exception.Message}");
+                string message =
+                    "Unable to broadcast the MQTT session-start message. The start channel must publish once the "
+                    + $"startup delay elapses, but the publish failed with: {exception.Message}";
+                Debug.LogError(message);
             }
         }
 
         /// <summary>Maps a topic string to its corresponding channel handler.</summary>
         private class Channel
         {
-            /// <summary>The MQTT topic this channel is subscribed to.</summary>
+            /// <summary>The topic on which this channel is registered.</summary>
             public string topic;
 
             /// <summary>The MQTTChannel instance that handles messages for this topic.</summary>

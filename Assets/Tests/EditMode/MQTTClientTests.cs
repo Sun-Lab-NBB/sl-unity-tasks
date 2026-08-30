@@ -37,10 +37,10 @@ namespace SL.Tests.EditMode
         private const string LowercaseTopic = "motion";
 
         /// <summary>The message fragment identifying the duplicate-singleton warning.</summary>
-        private const string DuplicateWarningFragment = "Multiple instances found";
+        private const string DuplicateWarningFragment = "another instance is already registered";
 
         /// <summary>The message fragment identifying the no-broker loopback warning.</summary>
-        private const string LoopbackWarningFragment = "broker unreachable";
+        private const string LoopbackWarningFragment = "in-process subscribers only";
 
         /// <summary>The host objects a test created, destroyed once the test finishes.</summary>
         private List<GameObject> _hosts;
@@ -168,8 +168,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1883, secondClient.port);
         }
 
-        /// <summary>Verifies that Awake applies the broker address and port stored in the editor preferences.
-        /// </summary>
+        /// <summary>Verifies that Awake applies the broker address and port stored in the editor preferences.</summary>
         [Test]
         public void Awake_ConfiguredPreferences_AppliesStoredAddressAndPort()
         {
@@ -322,10 +321,10 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient("MQTT Client");
 
-            bool connected = client.IsConnected();
+            bool connected = (bool)PrivateAccess.Invoke(client, "IsConnected");
 
             Assert.IsFalse(connected);
-            Assert.IsNull(client.client);
+            Assert.IsNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
         }
 
         /// <summary>Verifies that IsConnected reports false for an underlying client that never connected.</summary>
@@ -334,9 +333,9 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient("MQTT Client");
             IMqttClient brokerClient = new MqttFactory().CreateMqttClient();
-            client.client = brokerClient;
+            PrivateAccess.SetField(client, "_client", brokerClient);
 
-            bool connected = client.IsConnected();
+            bool connected = (bool)PrivateAccess.Invoke(client, "IsConnected");
 
             Assert.IsFalse(connected);
         }
@@ -349,8 +348,8 @@ namespace SL.Tests.EditMode
 
             Assert.DoesNotThrow(() => client.Disconnect());
 
-            Assert.IsNull(client.client);
-            Assert.IsFalse(client.IsConnected());
+            Assert.IsNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
+            Assert.IsFalse((bool)PrivateAccess.Invoke(client, "IsConnected"));
         }
 
         /// <summary>Verifies that Disconnect on an unconnected handle leaves that same handle installed.</summary>
@@ -359,12 +358,12 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient("MQTT Client");
             IMqttClient brokerClient = new MqttFactory().CreateMqttClient();
-            client.client = brokerClient;
+            PrivateAccess.SetField(client, "_client", brokerClient);
 
             client.Disconnect();
 
-            Assert.AreSame(brokerClient, client.client);
-            Assert.IsFalse(client.IsConnected());
+            Assert.AreSame(brokerClient, PrivateAccess.GetField<IMqttClient>(client, "_client"));
+            Assert.IsFalse((bool)PrivateAccess.Invoke(client, "IsConnected"));
         }
 
         /// <summary>Verifies that Subscribe records the channel in the routing list while disconnected.</summary>
@@ -374,7 +373,7 @@ namespace SL.Tests.EditMode
             MQTTClient client = CreateClient("MQTT Client");
             InstallSingleton(client);
             RecordingChannel channel = new RecordingChannel(MQTTTopics.Motion, isListener: false);
-            Assert.IsFalse(client.IsConnected());
+            Assert.IsFalse((bool)PrivateAccess.Invoke(client, "IsConnected"));
 
             client.Subscribe(channel, MQTTTopics.Motion, 2);
 
@@ -402,8 +401,7 @@ namespace SL.Tests.EditMode
             Assert.AreSame(secondChannel, PrivateAccess.GetField<MQTTChannel>(channels[1], "mqttChannel"));
         }
 
-        /// <summary>Verifies that Publish routes the payload to every subscriber holding the published topic.
-        /// </summary>
+        /// <summary>Verifies that Publish routes the payload to every subscriber holding the published topic.</summary>
         [Test]
         public void Publish_MatchingTopic_RoutesPayloadToEverySubscriber()
         {
@@ -536,11 +534,11 @@ namespace SL.Tests.EditMode
         {
             MQTTClient client = CreateClient("MQTT Client");
             InstallSingleton(client);
-            client.client = new MqttFactory().CreateMqttClient();
+            PrivateAccess.SetField(client, "_client", new MqttFactory().CreateMqttClient());
 
             PrivateAccess.Invoke(client, "OnDestroy");
 
-            Assert.IsNull(client.client);
+            Assert.IsNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
         }
 
         /// <summary>Verifies that OnDestroy leaves a singleton another client installed in place.</summary>
@@ -608,18 +606,17 @@ namespace SL.Tests.EditMode
             Assert.IsNull(MQTTClient.Instance);
         }
 
-        /// <summary>Verifies that a quit reached before Start still releases the underlying client handle.
-        /// </summary>
+        /// <summary>Verifies that a quit reached before Start still releases the underlying client handle.</summary>
         [Test]
         public void OnApplicationQuit_SessionChannelsNotYetCreated_ClearsClientHandle()
         {
             MQTTClient client = CreateClient("MQTT Client");
             InstallSingleton(client);
-            client.client = new MqttFactory().CreateMqttClient();
+            PrivateAccess.SetField(client, "_client", new MqttFactory().CreateMqttClient());
 
             PrivateAccess.Invoke(client, "OnApplicationQuit");
 
-            Assert.IsNull(client.client);
+            Assert.IsNull(PrivateAccess.GetField<IMqttClient>(client, "_client"));
         }
 
         /// <summary>Verifies that a quit reached before Start still empties the routing list.</summary>
@@ -686,7 +683,7 @@ namespace SL.Tests.EditMode
 
             /// <summary>Records the routed payload, then invokes the base trigger event.</summary>
             /// <param name="messageString">The routed payload string.</param>
-            public override void ReceivedMessage(string messageString)
+            internal override void ReceivedMessage(string messageString)
             {
                 _payloads.Add(messageString);
                 base.ReceivedMessage(messageString);
