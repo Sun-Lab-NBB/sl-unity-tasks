@@ -344,6 +344,17 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("Restore them from version control", error);
         }
 
+        /// <summary>Verifies that the required hand-authored set carries the cue shader reference.</summary>
+        [Test]
+        public void BuildRequiredHandAuthoredPaths_AnyTemplate_CarriesTheCueShaderReference()
+        {
+            TaskTemplate template = BuildInMemoryTemplate("ZZTest_Shader", CmPerUnityUnit, 1, "Padding", 30f);
+
+            string[] requiredPaths = BuildRequiredHandAuthoredPaths(template);
+
+            CollectionAssert.Contains(requiredPaths, MaterialsFolder + "/_CueShaderReference.mat");
+        }
+
         /// <summary>Verifies that two templates declaring one cue identity with two textures block generation.
         /// </summary>
         [Test]
@@ -1374,6 +1385,14 @@ namespace SL.Tests.EditMode
         private static string ValidateHandAuthoredAssets(TaskTemplate template)
         {
             return (string)PrivateAccess.InvokeStatic(typeof(CreateTask), "ValidateHandAuthoredAssets", template);
+        }
+
+        /// <summary>Invokes the private hand-authored path builder for the supplied template.</summary>
+        /// <param name="template">The template whose padding prefab the builder resolves.</param>
+        /// <returns>The required hand-authored asset paths.</returns>
+        private static string[] BuildRequiredHandAuthoredPaths(TaskTemplate template)
+        {
+            return (string[])PrivateAccess.InvokeStatic(typeof(CreateTask), "BuildRequiredHandAuthoredPaths", template);
         }
 
         /// <summary>Invokes the private occupancy trigger mode resolver for the supplied literal.</summary>

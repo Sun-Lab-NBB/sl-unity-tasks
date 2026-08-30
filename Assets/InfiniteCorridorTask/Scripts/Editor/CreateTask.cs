@@ -698,14 +698,7 @@ namespace SL.Tasks
         /// <returns>An error message naming every missing asset, otherwise null.</returns>
         private static string ValidateHandAuthoredAssets(TaskTemplate template)
         {
-            string[] requiredPaths =
-            {
-                Path.Combine(MaterialsFolder, "Floor.mat"),
-                Path.Combine(MaterialsFolder, "Wall.mat"),
-                Path.Combine(PrefabsFolder, "StimulusTriggerZone.prefab"),
-                Path.Combine(PrefabsFolder, "OccupancyTriggerZone.prefab"),
-                Path.Combine(PrefabsFolder, $"{template.vrEnvironment.paddingPrefabName}.prefab"),
-            };
+            string[] requiredPaths = BuildRequiredHandAuthoredPaths(template);
 
             List<string> missingPaths = new List<string>();
             foreach (string requiredPath in requiredPaths)
@@ -724,6 +717,22 @@ namespace SL.Tasks
             return "Generation requires hand-authored assets that are missing from the project:\n  - "
                 + string.Join("\n  - ", missingPaths)
                 + "\nRestore them from version control before generating.";
+        }
+
+        /// <summary>Returns the hand-authored asset paths a generation run resolves before writing any asset.</summary>
+        /// <param name="template">The loaded task template, which names the padding prefab.</param>
+        /// <returns>The project-relative path of every hand-authored asset the build consumes.</returns>
+        private static string[] BuildRequiredHandAuthoredPaths(TaskTemplate template)
+        {
+            return new[]
+            {
+                Path.Combine(MaterialsFolder, "Floor.mat"),
+                Path.Combine(MaterialsFolder, "Wall.mat"),
+                Path.Combine(PrefabsFolder, "StimulusTriggerZone.prefab"),
+                Path.Combine(PrefabsFolder, "OccupancyTriggerZone.prefab"),
+                Path.Combine(PrefabsFolder, $"{template.vrEnvironment.paddingPrefabName}.prefab"),
+                CueShaderReferenceMaterialPath,
+            };
         }
 
         /// <summary>
