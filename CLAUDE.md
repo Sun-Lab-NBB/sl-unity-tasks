@@ -66,7 +66,10 @@ bridge contracts. The ataraxis marketplace ships the `automation` plugin. Instal
 | `assets:experiment-configuration`     | Author per-project experiment configurations that reference a template    |
 | `assets:library-extension`            | Orchestrate cross-cutting changes to the shared-assets vocabulary         |
 | `assets:assets-mcp-environment-setup` | Diagnose and resolve `slsa mcp` server connectivity issues                |
+| `assets:working-directory`            | Prerequisite for other assets skills, owning the task templates directory |
 | `experiment:vr-driver-interface`      | Host-side VR driver, bridge client, and the experiment end of MQTT        |
+| `experiment:system-health-check`      | Verify platform config, storage, hardware, and Unity bridge readiness     |
+| `experiment:acquisition-system-setup` | Discover and verify cameras, microcontrollers, motors, and MQTT brokers   |
 | `experiment:system-design-pipeline`   | Platform build flow that makes this project Phase 4, the corridor task    |
 | `experiment:pipeline`                 | Platform operate flow that routes to the Unity task and scene skills      |
 | `/explore-codebase`                   | Perform in-depth codebase exploration at session start                    |
@@ -103,7 +106,7 @@ source of truth. Four conventions bind any new tool:
 
 - Handlers run on the editor thread after `EditorApplication.update` drains the `PendingContexts` queue, so they may
   call Unity APIs freely. A second queue, `ConsoleEntries`, crosses the same boundary the other way.
-  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` drains it on the editor
+  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` reads it on the editor
   thread, so anything a new tool captures off-thread must be plain data rather than a Unity object.
 - Every response goes through the shared `Ok(payload)` and `Error(message)` helpers, which always include a `success`
   boolean.
@@ -159,26 +162,26 @@ by `sollertia-experiment`.
 
 ### Key areas
 
-| Directory                                     | Purpose                                                             |
-|-----------------------------------------------|---------------------------------------------------------------------|
-| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zones, `ConfigLoader`, schema mirror classes)   |
-| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask`, `McpBridge`, `TaskEditor`, `MiniJson`                 |
-| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                 |
-| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)    |
-| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs and generated segment prefabs            |
-| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                           |
-| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials and the canonical `_CueShaderReference.mat` |
-| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art           |
-| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                         |
-| `Assets/Gimbl/`                               | Inlined GIMBL runtime plus the `MainWindow` Task Parameters editor  |
-| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes           |
-| `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions    |
-| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                          |
-| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers  |
+| Directory                                     | Purpose                                                                                                                |
+|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zones, `ConfigLoader`, schema mirror classes)                                                      |
+| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask`, `McpBridge`, `TaskEditor`, `MiniJson`                                                                    |
+| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                                                                    |
+| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)                                                       |
+| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs and `Padding.prefab`, plus generated segment prefabs                                        |
+| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                                                                              |
+| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials plus the hand-authored `_CueShaderReference.mat`, `Floor.mat`, `Wall.mat`, and `TargetMat.mat` |
+| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art                                                              |
+| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                                                                            |
+| `Assets/Gimbl/`                               | Inlined GIMBL runtime plus the `MainWindow` Task Parameters editor                                                     |
+| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes                                                              |
+| `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions                                                       |
+| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                                                             |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers                                                     |
 
 ### Architecture
 
-- **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python `YamlConfig`
+- **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python task template schema
   classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates the
   template, trial, and cue name patterns, cue code range and uniqueness, cue name uniqueness, and a positive finite
   `length_cm`. It also checks that each `texture` is named and exists under `Textures/`, that each `cue_sequence` is

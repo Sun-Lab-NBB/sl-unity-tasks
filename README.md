@@ -125,24 +125,24 @@ ___
 The runtime and editor code lives under `Assets/`. Hand-authored assets are protected from agentic deletion via the
 McpBridge's protected-paths list. Generated assets live under separate folders and are rebuilt on demand.
 
-| Directory                                     | Purpose                                                                    |
-|-----------------------------------------------|----------------------------------------------------------------------------|
-| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zone scripts, `ConfigLoader`, schema mirror classes)   |
-| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask` pipeline, `McpBridge` HTTP listener, `TaskEditor`, `MiniJson` |
-| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                        |
-| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)           |
-| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs and generated segment prefabs                   |
-| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                                  |
-| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials and the canonical `_CueShaderReference.mat`        |
-| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art                  |
-| `Assets/InfiniteCorridorTask/Models/`         | Blender source mesh for the corridor tunnel segment                        |
-| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                                |
-| `Assets/Gimbl/`                               | Inlined GIMBL runtime and the consolidated Task Parameters window          |
-| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes                  |
-| `Assets/Textures/`                            | Wall texture source art (`woodplank.psd`, used by `Wall.mat`)              |
-| `Assets/VRSettings/`                          | Display settings plus per-scene `savedFullScreenViews` companions          |
-| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                 |
-| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their shared support helpers  |
+| Directory                                     | Purpose                                                                                                                |
+|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zone scripts, `ConfigLoader`, schema mirror classes)                                               |
+| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask` pipeline, `McpBridge` HTTP listener, `TaskEditor`, `MiniJson`                                             |
+| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                                                                    |
+| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)                                                       |
+| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs, the hand-authored `Padding.prefab`, and generated segment prefabs                          |
+| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                                                                              |
+| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials plus the hand-authored `_CueShaderReference.mat`, `Floor.mat`, `Wall.mat`, and `TargetMat.mat` |
+| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art                                                              |
+| `Assets/InfiniteCorridorTask/Models/`         | Blender source mesh for the corridor tunnel segment                                                                    |
+| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                                                                            |
+| `Assets/Gimbl/`                               | Inlined GIMBL runtime and the consolidated Task Parameters window                                                      |
+| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes                                                              |
+| `Assets/Textures/`                            | Wall texture source art (`woodplank.psd`, used by `Wall.mat`)                                                          |
+| `Assets/VRSettings/`                          | Display settings plus per-scene `savedFullScreenViews` companions                                                      |
+| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                                                             |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their shared support helpers                                              |
 
 ### Task Runtime Structure
 
@@ -256,10 +256,11 @@ A task template defines:
 The five trigger modes share the same `Stimulus` event but differ in how that event is fired:
 
 - **interaction**: with `requireInteraction` set, only a sensor interaction inside the trigger zone delivers the
-  stimulus, and a zone exit without one resolves the trial as `delivered: false`. With the flag clear, an
-  interaction anywhere in the zone delivers with `cause: behavior`, and reaching a nested `GuidanceZone`
-  delivers with `cause: guidance`. A zone carrying no `GuidanceZone` delivers on entry with `cause: guidance`.
-- **collision**: crossing an invisible boundary wall, a thin collider at `stimulus_location`, fires the stimulus
+  stimulus. With the flag clear, an interaction anywhere in the zone delivers with `cause: behavior`, and reaching a
+  nested `GuidanceZone` delivers with `cause: guidance`. A zone carrying no `GuidanceZone` delivers on entry with
+  `cause: guidance`. Leaving the zone before the trial resolves publishes `cause: behavior`, with `delivered` reporting
+  whether the animal engaged the sensor inside the zone.
+- **collision**: crossing an invisible boundary wall, a thin collider at `stimulus_location_cm`, fires the stimulus
   unconditionally, with no sensor and no occupancy requirement. The `showStimulusCollisionBoundary` flag toggles the
   boundary's visibility.
 - **occupancy_disarm**: colliding with the boundary while the occupancy requirement is **not** met fires the stimulus.
@@ -284,9 +285,9 @@ and the prefix for every generated segment prefab. Each template must include a 
 # Related: SSO_Shared_Base_40cm (ABC base training), SSO_Merging_Base (AGFE base training)
 ```
 
-***Note,*** detailed schema authoring guidance is owned by the `/task-templates` skill in the sollertia marketplace's
-**assets** plugin. See [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) for the
-authoritative dataclass definitions.
+***Note,*** detailed schema authoring guidance is owned by the `assets:task-templates` skill in the sollertia
+marketplace's **assets** plugin. See [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets)
+for the authoritative dataclass definitions.
 
 ### Creating Tasks
 
@@ -434,8 +435,8 @@ matching `Assets/VRSettings/Displays/<scene>-savedFullScreenViews.asset` compani
 protected-paths set covers the three hand-authored prefabs (`StimulusTriggerZone.prefab`,
 `OccupancyTriggerZone.prefab`, `Padding.prefab`), the four hand-authored materials (`_CueShaderReference.mat`,
 `Floor.mat`, `Wall.mat`, `TargetMat.mat`), and the scene base template (`ExperimentTemplate.unity`). Both
-`delete_asset` and `delete_task` consult that set, and path traversal sequences, absolute paths, and directory
-targets are rejected.
+`delete_asset` and `delete_task` consult that set. `delete_asset` additionally rejects path traversal sequences,
+absolute paths, and directory targets.
 
 ***Note,*** the listener has two clients. AI agents reach it through the `slsa mcp` server's Unity relay tools, which
 are listed in the [sollertia-shared-assets](https://github.com/Sun-Lab-NBB/sollertia-shared-assets) README, rather than
@@ -546,8 +547,8 @@ The project exposes six concentrated extension points. Each has a matching skill
 
 | Extension                | Touch points                                                                                    | Owner skill                                         |
 |--------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `/task-templates`                                   |
-| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `/task-templates`                                   |
+| New task template        | YAML in `Configurations/`, generated via `/task-prefabs`                                        | `assets:task-templates`                             |
+| New cue texture          | PNG in `Textures/`, referenced from a YAML `texture` field                                      | `assets:task-templates`                             |
 | New trigger zone type    | Zone script, prefab, `ConfigLoader` literal, `CreateTask` branch, `/unity-tests` fixtures       | `/zone-prefabs`                                     |
 | New MQTT topic           | `MQTTTopics` constant + matching publisher / subscriber on Unity and sollertia-experiment sides | `/mqtt-contract` + `experiment:vr-driver-interface` |
 | New `McpBridge` tool     | `Dispatch` switch case + handler method + `@mcp.tool()` wrapper in `unity_tools.py`             | `/unity-mcp-environment-setup`                      |
