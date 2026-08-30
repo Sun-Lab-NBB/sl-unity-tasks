@@ -10,12 +10,9 @@ namespace Gimbl
     /// invalidate the serialized scene reference.
     /// </summary>
     /// <remarks>
-    /// The <see cref="ActorObject.Controller"/> property (whose serialized backing field is the Inspector slot) is
-    /// typed as <see cref="ControllerOutput"/> rather than the concrete <see cref="ControllerObject"/> subclass so that
-    /// swapping controller types (LinearTreadmill ↔ SimulatedLinearTreadmill, or any future subclass) does not
-    /// invalidate the scene's serialized reference. Unity treats subclass slots as incompatible when the underlying
-    /// type changes. The <see cref="master"/> indirection erases that distinction by funneling every controller through
-    /// a single stable component type.
+    /// Unity treats a serialized slot typed as a concrete subclass as incompatible once the underlying type changes.
+    /// Funneling every controller through this single component type keeps a scene reference valid across a
+    /// controller-type swap.
     /// </remarks>
     public class ControllerOutput : MonoBehaviour
     {

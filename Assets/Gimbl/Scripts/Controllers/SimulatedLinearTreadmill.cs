@@ -29,7 +29,7 @@ namespace Gimbl
         }
 
         /// <summary>Processes simulated input and movement each frame, with spacebar presses as interactions.</summary>
-        public override void Update()
+        protected override void Update()
         {
             GetSimulatedInput();
             if (actor != null && _input.Player.Jump.WasPressedThisFrame())
@@ -50,7 +50,7 @@ namespace Gimbl
         }
 
         /// <summary>Reads keyboard input and converts it to treadmill movement values.</summary>
-        public void GetSimulatedInput()
+        private void GetSimulatedInput()
         {
             float moveControl =
                 _input.Player.Movement.ReadValue<Vector2>().y * Time.deltaTime * MovementSpeedMultiplier;

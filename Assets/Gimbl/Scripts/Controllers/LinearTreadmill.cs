@@ -11,7 +11,7 @@ namespace Gimbl
     /// <summary>Handles linear treadmill input from MQTT and updates actor position.</summary>
     public class LinearTreadmill : ControllerObject
     {
-        /// <summary>The accumulated movement since last frame.</summary>
+        /// <summary>The accumulated movement since the last frame.</summary>
         private float _moved;
 
         /// <summary>The cached actor position for updates.</summary>
@@ -26,8 +26,7 @@ namespace Gimbl
         /// does not chain to it, so the hardware subscription stays inactive for keyboard runs. The lifecycle contract
         /// relies on Unity dispatching <c>Start</c> per most-derived type only. Promoting <c>Start</c> to
         /// <c>protected virtual</c>, or wiring a base call from the simulated subclass, would subscribe the simulated
-        /// rig to <see cref="MQTTTopics.Motion"/>, a hardware-only topic it must never listen on. If a third controller
-        /// subclass appears, follow the same pattern (hide via its own <c>Start</c>, without chaining).
+        /// rig to <see cref="MQTTTopics.Motion"/>, a hardware-only topic on which that rig must never listen.
         /// </remarks>
         private void Start()
         {
@@ -36,7 +35,7 @@ namespace Gimbl
         }
 
         /// <summary>Processes accumulated movement each frame.</summary>
-        public virtual void Update()
+        protected virtual void Update()
         {
             ProcessMovement();
         }
@@ -48,7 +47,7 @@ namespace Gimbl
         }
 
         /// <summary>Applies accumulated movement to the actor's position.</summary>
-        public void ProcessMovement()
+        protected void ProcessMovement()
         {
             lock (movement)
             {
@@ -68,7 +67,7 @@ namespace Gimbl
 
         /// <summary>Receives movement data from the treadmill via MQTT callback.</summary>
         /// <param name="message">Carries the treadmill movement value to accumulate.</param>
-        public void OnMessage(TreadmillMessage message)
+        private void OnMessage(TreadmillMessage message)
         {
             lock (movement)
             {
@@ -77,7 +76,7 @@ namespace Gimbl
         }
 
         /// <summary>Defines the MQTT message structure for treadmill movement data.</summary>
-        public class TreadmillMessage
+        private class TreadmillMessage
         {
             /// <summary>The movement value received from the treadmill device.</summary>
             public float movement;
