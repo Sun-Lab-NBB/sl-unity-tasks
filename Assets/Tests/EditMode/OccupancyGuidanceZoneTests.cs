@@ -445,7 +445,9 @@ namespace SL.Tests.EditMode
             return rig;
         }
 
-        /// <summary>Returns every known topic the rig captured at least one payload on, in declaration order.</summary>
+        /// <summary>
+        /// Returns every known topic on which the rig captured at least one payload, in declaration order.
+        /// </summary>
         /// <param name="rig">The rig whose captured payloads to survey.</param>
         /// <returns>The topics carrying at least one payload.</returns>
         private static List<string> TopicsCarryingPayloads(ZoneRig rig)

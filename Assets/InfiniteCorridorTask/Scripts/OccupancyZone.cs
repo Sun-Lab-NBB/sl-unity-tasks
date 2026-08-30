@@ -11,10 +11,6 @@ namespace SL.Tasks
     /// <summary>
     /// Tracks animal occupancy duration within a zone and exposes whether the occupancy requirement was met.
     /// </summary>
-    /// <remarks>
-    /// The occupancy mode specifies how a stimulus is triggered rather than which stimulus is delivered, because any
-    /// stimulus type pairs with any trigger mode.
-    /// </remarks>
     public class OccupancyZone : MonoBehaviour, IResettable
     {
         /// <summary>
@@ -86,7 +82,7 @@ namespace SL.Tasks
 
             inZone = true;
             _occupancyTimer.Restart();
-            Debug.Log("OccupancyZone: Animal entered, timer started.");
+            Debug.Log("Animal entered the occupancy zone, timer started.");
         }
 
         /// <summary>Stops the timer and checks the result when the animal exits the zone collider.</summary>
@@ -134,13 +130,13 @@ namespace SL.Tasks
         {
             _occupancyTimer.Stop();
             occupancyMet = true;
-            Debug.Log("OccupancyZone: Occupancy requirement met.");
+            Debug.Log("Occupancy requirement met.");
         }
 
-        /// <summary>Logs a message when the animal leaves the zone before meeting the occupancy requirement.</summary>
+        /// <summary>Records the early departure for the run log.</summary>
         private void OnOccupancyFailed()
         {
-            Debug.Log("OccupancyZone: Occupancy failed - animal left early.");
+            Debug.Log("Occupancy failed, the animal left before the requirement was met.");
         }
     }
 }

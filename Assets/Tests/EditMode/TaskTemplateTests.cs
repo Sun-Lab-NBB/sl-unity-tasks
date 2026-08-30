@@ -234,86 +234,6 @@ namespace SL.Tests.EditMode
             Assert.Throws<ArgumentException>(() => _template.GetCueByName());
         }
 
-        /// <summary>Verifies that GetCueLengthsUnity converts every cue in the cues list order.</summary>
-        [Test]
-        public void GetCueLengthsUnity_DefaultScaleFactor_ConvertsEachCueInCuesListOrder()
-        {
-            float[] lengths = _template.GetCueLengthsUnity();
-
-            Assert.AreEqual(3, lengths.Length);
-            Assert.AreEqual(3.0f, lengths[0]);
-            Assert.AreEqual(4.5f, lengths[1]);
-            Assert.AreEqual(2.5f, lengths[2]);
-        }
-
-        /// <summary>Verifies that GetCueLengthsUnity divides by a non-integral centimeters-per-unit factor.</summary>
-        [Test]
-        public void GetCueLengthsUnity_NonIntegralScaleFactor_ConvertsWithThatFactor()
-        {
-            _template.vrEnvironment.cmPerUnityUnit = 2.5f;
-
-            float[] lengths = _template.GetCueLengthsUnity();
-
-            Assert.AreEqual(12.0f, lengths[0]);
-            Assert.AreEqual(18.0f, lengths[1]);
-            Assert.AreEqual(10.0f, lengths[2]);
-        }
-
-        /// <summary>
-        /// Verifies that GetCueLengthsUnity returns an empty array when the template declares no cues.
-        /// </summary>
-        [Test]
-        public void GetCueLengthsUnity_NoCues_ReturnsEmptyArray()
-        {
-            _template.cues = new List<Cue>();
-
-            float[] lengths = _template.GetCueLengthsUnity();
-
-            Assert.AreEqual(0, lengths.Length);
-        }
-
-        /// <summary>
-        /// Verifies that GetCueLengthsUnity returns the identical cached array instance on a second call.
-        /// </summary>
-        [Test]
-        public void GetCueLengthsUnity_CalledTwice_ReturnsTheSameCachedInstance()
-        {
-            float[] first = _template.GetCueLengthsUnity();
-            float[] second = _template.GetCueLengthsUnity();
-
-            Assert.AreSame(first, second);
-        }
-
-        /// <summary>
-        /// Verifies that changing the scale factor after the first call leaves the cached lengths stale.
-        /// </summary>
-        [Test]
-        public void GetCueLengthsUnity_ScaleFactorChangedAfterFirstCall_ReturnsStaleLengths()
-        {
-            float[] first = _template.GetCueLengthsUnity();
-            Assert.AreEqual(3.0f, first[0]);
-
-            _template.vrEnvironment.cmPerUnityUnit = 1.0f;
-            float[] second = _template.GetCueLengthsUnity();
-
-            Assert.AreSame(first, second);
-            Assert.AreEqual(3.0f, second[0]);
-            Assert.AreEqual(4.5f, second[1]);
-        }
-
-        /// <summary>Verifies that adding a cue after the first call leaves the cached length array stale.</summary>
-        [Test]
-        public void GetCueLengthsUnity_CueAppendedAfterFirstCall_ReturnsStaleLengths()
-        {
-            float[] first = _template.GetCueLengthsUnity();
-
-            _template.cues.Add(NewCue("D", 4, 90.0f));
-            float[] second = _template.GetCueLengthsUnity();
-
-            Assert.AreSame(first, second);
-            Assert.AreEqual(3, second.Length);
-        }
-
         /// <summary>
         /// Verifies that GetSegmentLengthsUnity sums each trial's cue sequence into a segment length.
         /// </summary>
@@ -417,7 +337,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that a cue instance swapped after the cue map cached leaves the segment sums stale.
+        /// Verifies that a cue instance swapped after the cue map was cached leaves the segment sums stale.
         /// </summary>
         [Test]
         public void GetSegmentLengthsUnity_CueInstanceReplacedAfterCueMapCached_UsesStaleCueMap()
@@ -479,7 +399,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that a first GetTrialNames call populates only its own cache, leaving the other four unset.
+        /// Verifies that a first GetTrialNames call populates only its own cache, leaving the other three unset.
         /// </summary>
         [Test]
         public void Getters_FirstCallOnOneGetter_LeavesTheUnrelatedCachesUnpopulated()
@@ -488,7 +408,6 @@ namespace SL.Tests.EditMode
 
             Assert.IsNull(PrivateAccess.GetField<Dictionary<string, byte>>(_template, "_cueNameToCodeCache"));
             Assert.IsNull(PrivateAccess.GetField<Dictionary<string, Cue>>(_template, "_cueByNameCache"));
-            Assert.IsNull(PrivateAccess.GetField<float[]>(_template, "_cueLengthsUnityCache"));
             Assert.IsNull(PrivateAccess.GetField<float[]>(_template, "_segmentLengthsUnityCache"));
             Assert.AreSame(names, PrivateAccess.GetField<string[]>(_template, "_trialNamesCache"));
         }

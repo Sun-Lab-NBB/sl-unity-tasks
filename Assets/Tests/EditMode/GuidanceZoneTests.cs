@@ -99,8 +99,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that a guidance zone the actor has left no longer delivers the parent stimulus.
-        /// </summary>
+        /// <summary>Verifies that a guidance zone the actor has left no longer delivers the parent stimulus.</summary>
         [Test]
         public void InZone_ClearedAfterAnExit_StopsDrivingTheParentDelivery()
         {

@@ -28,7 +28,7 @@ namespace SL.Tasks
     public class Task : MonoBehaviour
     {
         /// <summary>The sentinel value for <see cref="trackSeed"/> requesting a nondeterministic seed.</summary>
-        public const int RandomSeedSentinel = -1;
+        private const int RandomSeedSentinel = -1;
 
         /// <summary>The default length of the pre-generated segment sequence in Unity units.</summary>
         public const float DefaultTrackLength = 15000f;
@@ -130,9 +130,6 @@ namespace SL.Tasks
         /// <summary>The lengths of each segment type in Unity units, indexed positionally by trial.</summary>
         private float[] _segmentLengths;
 
-        /// <summary>The lengths of each cue type in Unity units.</summary>
-        private float[] _cueLengths;
-
         /// <summary>
         /// Maps a base-<see cref="_trialCount"/> encoding of the current corridor's segment indices to its (x-position,
         /// first segment length). Indexed by <see cref="ComputeCorridorKey"/>. The encoding lets the runtime avoid
@@ -179,9 +176,9 @@ namespace SL.Tasks
             if (transform.position != Vector3.zero)
             {
                 string message =
-                    $"Task is positioned at {transform.position}. Automatically Setting Task position to "
-                    + "(0,0,0) for this runtime but it is recommended to permanently set the task position to "
-                    + "(0,0,0) in Editor Mode.";
+                    "Unable to use the authored Task position. The Task transform must sit at (0,0,0), but it "
+                    + $"is at {transform.position}. The position resets to (0,0,0) for this runtime, and setting "
+                    + "the task position to (0,0,0) in Editor Mode makes the reset permanent.";
                 Debug.LogWarning(message);
                 transform.position = Vector3.zero;
             }
@@ -194,9 +191,10 @@ namespace SL.Tasks
             if (string.IsNullOrEmpty(sanitizedConfigPath) || !File.Exists(globalConfigPath))
             {
                 string message =
-                    $"Task: configuration YAML not found. configPath='{configPath}', resolved='{globalConfigPath}'. "
-                    + "Disabling Task to prevent runtime errors. Regenerate this task prefab via the "
-                    + "CreateTask pipeline or assign a valid template path.";
+                    "Unable to load the task configuration. The configPath must resolve to an existing YAML "
+                    + $"file, but configPath='{configPath}' resolved to '{globalConfigPath}', which names no file. "
+                    + "Regenerate this task prefab through the CreateTask pipeline or assign a valid template "
+                    + "path. Disabling Task to prevent runtime errors.";
                 Debug.LogError(message);
                 enabled = false;
                 return;
@@ -209,8 +207,9 @@ namespace SL.Tasks
             catch (Exception exception)
             {
                 string message =
-                    $"Failed to load task template from YAML file '{globalConfigPath}': {exception.Message}. "
-                    + "Disabling Task to prevent runtime errors.";
+                    $"Unable to load the task template from YAML file '{globalConfigPath}'. The file must hold "
+                    + $"a valid template, but deserialization failed with: {exception.Message}. Disabling Task "
+                    + "to prevent runtime errors.";
                 Debug.LogError(message);
                 enabled = false;
                 return;
@@ -225,7 +224,6 @@ namespace SL.Tasks
             }
             _cueIds = _template.GetCueNameToCode();
             _segmentLengths = _template.GetSegmentLengthsUnity();
-            _cueLengths = _template.GetCueLengthsUnity();
             _depth = _template.vrEnvironment.segmentsPerCorridor;
 
             long combinationCount = 1;
@@ -237,9 +235,10 @@ namespace SL.Tasks
             if (combinationCount > MaximumCorridorCount)
             {
                 string message =
-                    $"Task: template '{_template.templateName}' declares {_trialCount} trials over a corridor depth "
-                    + $"of {_depth}, which needs more corridor combinations than the {MaximumCorridorCount} entries "
-                    + "the corridor map holds. Lower segments_per_corridor or the number of trial structures. "
+                    $"Unable to build the corridor map for template '{_template.templateName}', which declares "
+                    + $"{_trialCount} trials over a corridor depth of {_depth}. The corridor combination count "
+                    + $"must stay at or below the {MaximumCorridorCount} entries the map holds, but that "
+                    + "combination needs more. Lower segments_per_corridor or the number of trial structures. "
                     + "Disabling Task to prevent runtime errors.";
                 Debug.LogError(message);
                 enabled = false;
@@ -276,11 +275,11 @@ namespace SL.Tasks
             if (_segmentSequenceArray.Length < _depth)
             {
                 string message =
-                    $"Task: trackLength {trackLength} is too short for template '{_template.templateName}'. Maze "
-                    + $"generation produced {_segmentSequenceArray.Length} segments, but segments_per_corridor "
-                    + $"requires at least {_depth}. The shortest segment measures {_segmentLengths.Min()} Unity "
-                    + "units. Raise Track Length in Window > Task Parameters. Disabling Task to prevent runtime "
-                    + "errors.";
+                    $"Unable to start the task for template '{_template.templateName}'. Maze generation must "
+                    + $"produce at least {_depth} segments to fill one corridor, but trackLength {trackLength} "
+                    + $"produced {_segmentSequenceArray.Length}. The shortest segment measures "
+                    + $"{_segmentLengths.Min()} Unity units. Raise Track Length in Window > Task Parameters. "
+                    + "Disabling Task to prevent runtime errors.";
                 Debug.LogError(message);
                 enabled = false;
                 return;
@@ -303,9 +302,10 @@ namespace SL.Tasks
                 }
                 else
                 {
-                    Debug.LogError(
-                        $"Task: Corridor key '{_currentCorridorKey}' out of bounds [0, {_corridorMap.Length})."
-                    );
+                    string message =
+                        "Unable to place the actor in the starting corridor. The corridor key must fall "
+                        + $"within [0, {_corridorMap.Length}), but it is {_currentCorridorKey}.";
+                    Debug.LogError(message);
                 }
             }
 
@@ -318,13 +318,9 @@ namespace SL.Tasks
             _sceneNameTrigger.receivedEvent.AddListener(OnSceneNameTrigger);
             _sceneNameChannel = new MQTTChannel<SceneNameMessage>(MQTTTopics.SceneName, isListener: false);
 
-            // Sets up the MQTT channel for interaction guidance mode control. The payload's bool value sets
-            // the requirement flag directly: true enables (interaction required), false disables (guidance).
             _requireInteractionChannel = new MQTTChannel<BoolMessage>(MQTTTopics.RequireInteraction, isListener: true);
             _requireInteractionChannel.receivedEvent.AddListener(OnRequireInteraction);
 
-            // Sets up the MQTT channel for occupancy guidance mode control. The payload's bool value sets
-            // the wait-requirement flag directly: true enables (wait required), false disables (guidance).
             _requireWaitChannel = new MQTTChannel<BoolMessage>(MQTTTopics.RequireWait, isListener: true);
             _requireWaitChannel.receivedEvent.AddListener(OnRequireWait);
         }
@@ -338,8 +334,9 @@ namespace SL.Tasks
             if (_currentCorridorKey < 0 || _currentCorridorKey >= _corridorMap.Length)
             {
                 string message =
-                    $"Task: Corridor key '{_currentCorridorKey}' out of bounds [0, {_corridorMap.Length}). The key "
-                    + "stays out of range for every later frame, so the Task is disabled to prevent runtime errors.";
+                    "Unable to read the current corridor. The corridor key must fall within "
+                    + $"[0, {_corridorMap.Length}), but it is {_currentCorridorKey}. The key stays out of range "
+                    + "for every later frame, so the Task is disabled to prevent runtime errors.";
                 Debug.LogError(message);
                 enabled = false;
                 return;
@@ -362,8 +359,10 @@ namespace SL.Tasks
                 else
                 {
                     string message =
-                        "Animal ran through all generated segments. Raise Track Length in Window > Task Parameters "
-                        + "to cover a longer run. Disabling Task to prevent runtime errors.";
+                        "Unable to advance to the next corridor. The generated segment sequence must extend "
+                        + "past the current segment index, but the animal ran through every generated segment. "
+                        + "Raise Track Length in Window > Task Parameters to cover a longer run. Disabling Task "
+                        + "to prevent runtime errors.";
                     Debug.LogError(message);
                     enabled = false;
                     return;
@@ -378,9 +377,10 @@ namespace SL.Tasks
                 }
                 else
                 {
-                    Debug.LogError(
-                        $"Task: New corridor key '{_currentCorridorKey}' out of bounds [0, {_corridorMap.Length})."
-                    );
+                    string message =
+                        "Unable to teleport the actor to the next corridor. The new corridor key must fall "
+                        + $"within [0, {_corridorMap.Length}), but it is {_currentCorridorKey}.";
+                    Debug.LogError(message);
                 }
             }
         }
@@ -397,7 +397,7 @@ namespace SL.Tasks
         /// <summary>Sends the cue sequence in response to the MQTT trigger.</summary>
         private void OnCueSequenceTrigger()
         {
-            Debug.Log("Task: Received request for cue sequence.");
+            Debug.Log("Received a request for the cue sequence.");
             _cueSequenceChannel.Send(new SequenceMessage() { cueSequence = _cueSequenceArray });
         }
 
@@ -535,7 +535,6 @@ namespace SL.Tasks
 
                 sequenceLength += _segmentLengths[choice];
 
-                // Uses transition probabilities if defined, otherwise uniform random over all trials.
                 if (
                     trial.HasTransitions
                     && TrySampleFromTransitions(trial.transitions, random, out string nextTrialName)

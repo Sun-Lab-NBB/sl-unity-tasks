@@ -14,14 +14,14 @@ namespace SL.Tasks
         [HideInInspector]
         public bool inZone = false;
 
-        /// <summary>Sets the zone state to active when the animal enters the guidance zone collider.</summary>
+        /// <summary>Records that the animal is inside the guidance zone collider.</summary>
         /// <param name="other">The object that entered the trigger zone.</param>
         private void OnTriggerEnter(Collider other)
         {
             inZone = true;
         }
 
-        /// <summary>Sets the zone state to inactive when the animal exits the guidance zone collider.</summary>
+        /// <summary>Records that the animal has left the guidance zone collider.</summary>
         /// <param name="other">The object that exited the trigger zone.</param>
         private void OnTriggerExit(Collider other)
         {

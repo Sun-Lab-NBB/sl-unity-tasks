@@ -107,8 +107,6 @@ namespace SL.Config
                 throw new InvalidDataException("No trial structures defined in template.");
             }
 
-            // Validates each cue's name pattern and uniqueness, code range and uniqueness, positive finite length, and
-            // texture presence and existence.
             HashSet<int> seenCodes = new HashSet<int>();
             HashSet<string> seenNames = new HashSet<string>();
 
@@ -129,8 +127,8 @@ namespace SL.Config
                 }
 
                 // Cue names reach the generated cue prefab and material filenames verbatim, and the duplicate-sequence
-                // signature below joins them with a space, so a name carrying a space or a separator corrupts an asset
-                // path or makes two distinct sequences compare equal.
+                // signature below joins them with a space. A name carrying a space or a separator therefore corrupts
+                // an asset path or makes two distinct sequences compare equal.
                 if (!SegmentNameComponentPattern.IsMatch(cue.name))
                 {
                     string message =
@@ -177,8 +175,6 @@ namespace SL.Config
                 }
             }
 
-            // Validates each trial's name, non-empty cue sequence, cue references, trigger type, and occupancy
-            // duration.
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
                 string trialName = trialEntry.Key;
@@ -264,8 +260,8 @@ namespace SL.Config
                 }
             }
 
-            // Validates that no two trials share an identical cue sequence. Identical cue sequences are
-            // indistinguishable to the experiment's cue-stream decomposer, which would silently merge them.
+            // Identical cue sequences are indistinguishable to the experiment's cue-stream decomposer, which would
+            // silently merge them.
             Dictionary<string, string> seenSequences = new Dictionary<string, string>();
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
@@ -282,7 +278,6 @@ namespace SL.Config
                 seenSequences[signature] = trialName;
             }
 
-            // Validates transitions reference defined trial names and sum to 1.0 when provided.
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
                 string trialName = trialEntry.Key;

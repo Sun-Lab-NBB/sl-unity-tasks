@@ -209,8 +209,8 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Verifies that a freshly attached zone carries the field-initializer defaults its Start and CreateTask
-        /// both layer on top of.
+        /// Verifies that a freshly attached zone carries the field-initializer defaults that Start and CreateTask later
+        /// overwrite.
         /// </summary>
         [Test]
         public void SerializedDefaults_FreshlyAttachedZone_AreArmedInteractionModeWithNoTrialName()

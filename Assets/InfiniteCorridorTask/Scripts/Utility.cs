@@ -20,7 +20,11 @@ namespace SL.Tasks
 
             if (renderers.Length == 0)
             {
-                Debug.LogWarning($"Utility.GetPrefabLength: No renderers found on prefab '{prefab.name}'.");
+                string message =
+                    $"Unable to measure the z-axis length of prefab '{prefab.name}'. The prefab must carry at "
+                    + "least one renderer on itself or an active child, but it carries none, so the measured "
+                    + "length is 0.";
+                Debug.LogWarning(message);
                 return 0f;
             }
 

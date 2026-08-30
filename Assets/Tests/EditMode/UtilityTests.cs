@@ -42,7 +42,7 @@ namespace SL.Tests.EditMode
             GameObject prefab = CreateEmptyObject("EmptyPrefab", null, Vector3.zero);
             LogAssert.Expect(
                 LogType.Warning,
-                new Regex(@"Utility\.GetPrefabLength: No renderers found on prefab 'EmptyPrefab'\.")
+                new Regex(@"Unable to measure the z-axis length of prefab 'EmptyPrefab'\.")
             );
 
             float length = Utility.GetPrefabLength(prefab);
@@ -111,8 +111,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(11f, length, Tolerance);
         }
 
-        /// <summary>Verifies that GetPrefabLength is independent of the order the renderers are enumerated in.
-        /// </summary>
+        /// <summary>Verifies that GetPrefabLength is independent of the renderer enumeration order.</summary>
         [Test]
         public void GetPrefabLength_FarChildEnumeratedFirst_ReturnsSameCombinedLength()
         {
@@ -196,7 +195,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(1f, length, Tolerance);
         }
 
-        /// <summary>Verifies that GetPrefabLength does not guard against a null prefab argument.</summary>
+        /// <summary>Verifies that GetPrefabLength throws a null reference exception for a null prefab.</summary>
         [Test]
         public void GetPrefabLength_NullPrefab_ThrowsNullReference()
         {

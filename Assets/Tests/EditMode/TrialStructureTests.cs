@@ -72,7 +72,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(2, trial.transitions.Count);
         }
 
-        /// <summary>Verifies that HasTransitions keys off entry count rather than the probability values.</summary>
+        /// <summary>Verifies that HasTransitions keys off entry count.</summary>
         [Test]
         public void HasTransitions_SingleZeroProbabilityEntry_ReturnsTrue()
         {
@@ -99,7 +99,7 @@ namespace SL.Tests.EditMode
             Assert.IsFalse(trial.HasTransitions);
         }
 
-        /// <summary>Verifies that HasTransitions re-evaluates the map on each read rather than caching it.</summary>
+        /// <summary>Verifies that HasTransitions re-evaluates the map on each read.</summary>
         [Test]
         public void HasTransitions_EntryAddedAfterFirstRead_ReturnsTrue()
         {

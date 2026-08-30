@@ -7,10 +7,8 @@ using System.Collections.Generic;
 namespace SL.Config
 {
     /// <summary>
-    /// Defines the spatial configuration of a trial structure for Unity prefabs.
-    /// Contains the trial's cue sequence, zone positions, trigger type, occupancy duration, optional transition
-    /// probabilities, and visibility settings.
-    /// Mirrors the TrialStructure class from sollertia-shared-assets vr_configuration module.
+    /// Defines the spatial configuration of a trial structure for Unity prefabs. Mirrors the TrialStructure class
+    /// from sollertia-shared-assets vr_configuration module.
     /// </summary>
     [Serializable]
     public class TrialStructure
@@ -32,10 +30,6 @@ namespace SL.Config
 
         /// <summary>
         /// Determines whether the stimulus collision boundary is visible to the animal during this trial type.
-        /// When true, Unity enables the MeshRenderer on the trigger zone root, so the marker sits wherever the trigger
-        /// type places that root. A collision trial anchors the root's leading edge on the stimulus location. An
-        /// interaction trial places the root at the trigger-zone midpoint, and an occupancy trial offsets it from the
-        /// stimulus location by half the zone length.
         /// </summary>
         public bool showStimulusCollisionBoundary = false;
 

@@ -25,7 +25,7 @@ namespace SL.Tests.PlayMode
     [TestFixture]
     public class ZonePlayModeTests
     {
-        /// <summary>The dataPath-relative directory the staged template is written into.</summary>
+        /// <summary>The dataPath-relative directory into which the staged template is written.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the template every rig's task loads so its Start succeeds quietly.</summary>
@@ -34,10 +34,10 @@ namespace SL.Tests.PlayMode
         /// <summary>The texture the staged cue references, which already ships under Textures.</summary>
         private const string StagedTextureName = "Gray Cue 2x1.png";
 
-        /// <summary>The track length the staged task generates its maze with, in Unity units.</summary>
+        /// <summary>The track length with which the staged task generates its maze, in Unity units.</summary>
         private const float ZoneTrackLength = 100f;
 
-        /// <summary>The seed the staged task generates its maze with.</summary>
+        /// <summary>The seed with which the staged task generates its maze.</summary>
         private const int ZoneSeed = 4242;
 
         /// <summary>The width and height of every zone collider, in Unity units.</summary>
@@ -678,7 +678,6 @@ namespace SL.Tests.PlayMode
         /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so the staged template
         /// lives under the project's own Configurations directory.
         /// </remarks>
-        /// <returns>The absolute path of the staged template file.</returns>
         private static string AbsoluteTemplatePath()
         {
             return Path.Combine(
@@ -690,7 +689,6 @@ namespace SL.Tests.PlayMode
         }
 
         /// <summary>Resizes and repositions a zone's trigger collider so the actor can enter it alone.</summary>
-        /// <param name="zone">The zone whose collider is placed.</param>
         /// <param name="centerZ">The world z position of the collider's center.</param>
         /// <param name="depth">The collider's extent along z.</param>
         private static void PlaceZone(Component zone, float centerZ, float depth)
@@ -753,8 +751,7 @@ namespace SL.Tests.PlayMode
         /// The transform sync makes the moved collider visible to the next simulation step, and waiting on two fixed
         /// updates guarantees that step and its trigger callbacks ran before the caller resumes.
         /// </remarks>
-        /// <param name="z">The world z position the actor moves to.</param>
-        /// <returns>The enumerator the calling test yields on.</returns>
+        /// <param name="z">The world z position to which the actor moves.</param>
         private IEnumerator MoveActorTo(float z)
         {
             _actorObject.transform.position = new Vector3(0f, 0f, z);
