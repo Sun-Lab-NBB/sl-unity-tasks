@@ -18,9 +18,9 @@ namespace Gimbl
     /// <remarks>
     /// Camera assignments are persisted in per-scene asset files. The constructor unconditionally calls
     /// <see cref="LoadCameras"/>, which leaves <see cref="_savedFullScreenViews"/> non-null whenever the active scene
-    /// has a non-empty name. An untitled active scene leaves the field null (no persistence path exists yet), and
-    /// <see cref="SaveCameras"/> no-ops in that state instead of writing an orphan asset with a hyphen-prefixed
-    /// filename.
+    /// has a non-empty name. An untitled active scene leaves the field null, because <see cref="LoadCameras"/> skips
+    /// the asset create that would orphan a hyphen-prefixed companion, and <see cref="SaveCameras"/> no-ops in that
+    /// state, because no persistence target exists.
     /// </remarks>
     public class FullScreenViewManager
     {

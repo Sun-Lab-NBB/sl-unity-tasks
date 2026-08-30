@@ -14,7 +14,7 @@ namespace Gimbl
         /// <summary>The movement speed multiplier for input scaling.</summary>
         private const float MovementSpeedMultiplier = 8.0f;
 
-        /// <summary>The Unity Input System action map for keyboard simulation.</summary>
+        /// <summary>The SimulatedInput action asset whose Player action map supplies the keyboard bindings.</summary>
         private SimulatedInput _input;
 
         /// <summary>The MQTT channel for sending simulated interaction-sensor trigger events.</summary>

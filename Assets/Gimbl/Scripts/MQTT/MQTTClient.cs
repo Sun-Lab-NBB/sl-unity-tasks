@@ -189,9 +189,8 @@ namespace Gimbl
 
         /// <summary>Establishes a connection to the MQTT broker.</summary>
         /// <remarks>
-        /// Any handle an earlier call left installed is unhooked and disposed before the replacement is built,
-        /// so a component that connects on every enable releases one broker handle per disable rather than
-        /// accumulating them for the lifetime of the client.
+        /// Each call unhooks and disposes the handle its predecessor installed before it builds the replacement, so
+        /// repeated enable cycles hold one broker handle at a time rather than accumulating them.
         /// </remarks>
         /// <param name="verbose">Determines whether to log successful connection to the console.</param>
         public void Connect(bool verbose)

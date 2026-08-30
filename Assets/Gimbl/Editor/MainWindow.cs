@@ -51,7 +51,7 @@ namespace Gimbl
         /// <summary>The cached <see cref="OccupancyZone"/> reference for the active scene.</summary>
         private OccupancyZone _cachedOccupancyZone;
 
-        /// <summary>Initializes the scene, full-screen view manager, and scene change handlers.</summary>
+        /// <summary>Initializes the scene, full-screen view manager, scene change and play mode handlers.</summary>
         private void OnEnable()
         {
             TagsAndLayers.AddTag("VRDisplay");
@@ -63,7 +63,7 @@ namespace Gimbl
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
-        /// <summary>Removes scene change handlers when disabled.</summary>
+        /// <summary>Removes the scene change and play mode handlers when disabled.</summary>
         private void OnDisable()
         {
             EditorSceneManager.activeSceneChangedInEditMode -= OnActiveSceneChanged;
@@ -110,8 +110,9 @@ namespace Gimbl
         /// none of that exact type already exists. The created GameObject is named after the controller's
         /// display name (which equals the enum value only for members without a BuildControllerSpecs
         /// override), and <see cref="ControllerObject.InitiateController"/> reparents it under the scene's
-        /// "Controllers" root and registers it for undo. The Actor.Controller assignment is left untouched
-        /// so user-chosen swaps survive auto-create.
+        /// "Controllers" root and registers it for undo. Each created controller additionally receives a
+        /// <see cref="ControllerOutput"/> whose master points at the controller, and the Actor dropdown enumerates
+        /// those outputs. The Actor.Controller assignment is left untouched so user-chosen swaps survive auto-create.
         /// </remarks>
         public static void EnsureControllers()
         {
@@ -389,8 +390,8 @@ namespace Gimbl
                             new GUIContent(
                                 "Require Interaction: ",
                                 "When on, the animal must engage an interaction sensor inside the stimulus zone "
-                                    + "to trigger the reward. When off, reaching the guidance zone automatically "
-                                    + "triggers the reward. Addressable via MQTT at runtime."
+                                    + "to trigger the stimulus. When off, reaching the guidance zone automatically "
+                                    + "triggers the stimulus. Addressable via MQTT at runtime."
                             ),
                             task.requireInteraction,
                             LayoutSettings.EditFieldOption
@@ -402,9 +403,10 @@ namespace Gimbl
                         newRequireWait = EditorGUILayout.Toggle(
                             new GUIContent(
                                 "Require Wait: ",
-                                "When on, the animal must remain in the occupancy zone to disarm the stimulus trigger. "
-                                    + "When off, the VR emits a warning to the experiment controller via MQTT, "
-                                    + "enabling it to interfere by activating brakes. Addressable via MQTT at runtime."
+                                "When on, the animal must remain in the occupancy zone, and the zone's mode resolves "
+                                    + "the trial by disarming, arming, or triggering the stimulus. When off, the VR "
+                                    + "emits a warning to the experiment controller via MQTT, enabling it to interfere "
+                                    + "by activating brakes. Addressable via MQTT at runtime."
                             ),
                             task.requireWait,
                             LayoutSettings.EditFieldOption
@@ -762,7 +764,7 @@ namespace Gimbl
             EnsureMqttDefaults();
         }
 
-        /// <summary>Ensures the active scene contains exactly one Actor and one Display, wired together.</summary>
+        /// <summary>Creates an Actor and a Display when the active scene lacks them, and links the two.</summary>
         /// <remarks>
         /// Creates a default Actor with the first prefab under <c>Resources/Actors/Prefabs/</c> and a default
         /// Display from the first prefab under <c>Resources/Displays/</c> whenever the active scene lacks
