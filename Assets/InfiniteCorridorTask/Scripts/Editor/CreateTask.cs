@@ -553,9 +553,12 @@ namespace SL.Tasks
         /// runs on every generation call so drift introduced between runs is caught at the earliest possible moment.
         /// </remarks>
         /// <param name="errorMessage">
-        /// Receives a human-readable description of every detected conflict on failure.
+        /// Receives every detected conflict, or the load failure that aborted the scan.
         /// </param>
-        /// <returns>True when no conflicts are detected, false otherwise.</returns>
+        /// <returns>
+        /// True when every template loads and no conflicts are detected, false when a template fails to load or a
+        /// conflict is found.
+        /// </returns>
         private static bool ValidateCueDefinitionsAcrossTemplates(out string errorMessage)
         {
             errorMessage = null;
@@ -1226,7 +1229,8 @@ namespace SL.Tasks
 
         /// <summary>
         /// Instantiates and configures an OccupancyTriggerZone within a segment.
-        /// The root is positioned at the stimulus boundary (past the occupancy zone).
+        /// The root is centered half a zone length past the stimulus boundary, so its collider spans forward from that
+        /// boundary across the zone size.
         /// The OccupancyRegion child covers the start-to-end range where the animal must wait.
         /// </summary>
         /// <param name="parent">The parent segment GameObject.</param>

@@ -11,7 +11,8 @@ namespace SL.Tasks
 {
     /// <summary>
     /// Provides a minimal JSON serializer and deserializer for MCP bridge communication.
-    /// Handles dictionaries, sequences, strings, numbers, booleans, and null values.
+    /// Handles dictionaries, sequences, strings, booleans, and null values, emits int, long, float, and double as bare
+    /// numbers, and quotes every other numeric type.
     /// </summary>
     public static class MiniJson
     {
@@ -19,6 +20,10 @@ namespace SL.Tasks
         /// <param name="json">The payload whose top-level object is decoded.</param>
         /// <returns>The decoded top-level object, empty when the payload holds none.</returns>
         /// <exception cref="ArgumentNullException">The <paramref name="json"/> argument is null.</exception>
+        /// <exception cref="FormatException">
+        /// The payload holds a malformed number literal, a literal other than true, false, or null, or a unicode escape
+        /// whose four characters are not hexadecimal digits.
+        /// </exception>
         public static Dictionary<string, object> Deserialize(string json)
         {
             if (json == null)
@@ -31,8 +36,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Serializes a dictionary, sequence, string, number, boolean, or null value to a JSON string, and serializes
-        /// any other value as its quoted ToString representation.
+        /// Serializes a dictionary, sequence, string, boolean, null, int, long, float, or double value to JSON text,
+        /// and serializes any other value, every other numeric type included, as its quoted ToString representation.
         /// </summary>
         /// <param name="value">The value whose JSON encoding is produced.</param>
         /// <returns>The JSON text encoding the value.</returns>
@@ -359,6 +364,10 @@ namespace SL.Tasks
         /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed number.</param>
         /// <returns>The parsed number as a long or double.</returns>
+        /// <exception cref="FormatException">
+        /// A literal carrying a decimal point or an exponent marker fails to parse as a double, or a literal carrying
+        /// neither fails to parse as a long, which covers an integer outside the long range.
+        /// </exception>
         private static object ParseNumber(string json, ref int index)
         {
             int start = index;

@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the McpBridge editor plugin that exposes Unity Editor operations to external MCP relay servers.
 ///
-/// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the
-/// sollertia-virtual-reality MCP relay.
+/// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the slsa mcp
+/// server's Unity relay in sollertia-shared-assets and from the sollertia-experiment UnityBridgeClient.
 /// </summary>
 using System;
 using System.Collections.Concurrent;
@@ -46,7 +46,7 @@ namespace SL.Tasks
         /// <summary>The number of Unity log entries the console buffer retains before evicting the oldest.</summary>
         private const int ConsoleBufferCapacity = 500;
 
-        /// <summary>The number of console entries a read_console call returns when it requests no limit.</summary>
+        /// <summary>The maximum number of console entries a read_console call returns when it omits limit.</summary>
         private const int DefaultConsoleReadLimit = 100;
 
         /// <summary>
@@ -127,7 +127,9 @@ namespace SL.Tasks
         /// </remarks>
         private static FullScreenViewManager _cachedFullScreenManager;
 
-        /// <summary>Starts the HTTP listener and registers the editor update and scene-change callbacks.</summary>
+        /// <summary>
+        /// Starts the HTTP listener and registers the editor update, scene-change, and threaded log callbacks.
+        /// </summary>
         static McpBridge()
         {
             EditorSceneManager.activeSceneChangedInEditMode += (Scene oldScene, Scene newScene) =>
@@ -346,8 +348,8 @@ namespace SL.Tasks
             }
 
             // The path is stored on the Task component and resolved at runtime as ``Path.Combine(Application.dataPath,
-            // configPath)``. A leading ``/`` would make Path.Combine treat the value as absolute on Linux/macOS and
-            // discard the data path.
+            // configPath)``, with Task trimming leading separators from the stored value first. Building this literal
+            // without a leading ``/`` keeps the stored value canonical.
             string relativeConfigPath = Path.Combine("InfiniteCorridorTask", "Configurations", $"{templateName}.yaml");
 
             // AssetDatabase paths are forward-slash by contract, so these are built as literals rather than through
@@ -735,7 +737,9 @@ namespace SL.Tasks
         /// <summary>Resolves a MonoBehaviour type by its simple name across compiled assemblies.</summary>
         /// <param name="typeName">The simple class name to resolve.</param>
         /// <param name="resolved">The resolved type on success, otherwise null.</param>
-        /// <returns>An error message when the name is unknown or ambiguous, otherwise null.</returns>
+        /// <returns>
+        /// An error message when the name is unknown, ambiguous, or names an abstract type, otherwise null.
+        /// </returns>
         private static string ResolveMonoBehaviourType(string typeName, out Type resolved)
         {
             resolved = null;
@@ -1253,10 +1257,10 @@ namespace SL.Tasks
 
         /// <summary>Saves the active scene to its existing asset path.</summary>
         /// <remarks>
-        /// Clears the dirty flag that every write_task_parameters call sets, which the play-mode preflight
-        /// requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
-        /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is
-        /// likewise rejected, since edits made there are discarded on exit and saving them is never intended.
+        /// Clears the dirty flag that any write_task_parameters call actually writing a value sets, which the play-mode
+        /// preflight requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
+        /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is likewise
+        /// rejected, since edits made there are discarded on exit and saving them is never intended.
         /// </remarks>
         /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
         private static string SaveScene()
@@ -1378,7 +1382,7 @@ namespace SL.Tasks
         /// modifies, and writes back values does not race against a separate enumeration pass. Cameras are
         /// filtered to match the GUI dropdown (Main Camera excluded). Monitor mapping is sourced from the
         /// open Parameters window's FullScreenViewManager when available, falling back to a fresh manager
-        /// loaded from <c>savedFullScreenViews.asset</c> when the window is closed.
+        /// loaded from the per-scene <c>savedFullScreenViews</c> companion when the window is closed.
         /// </remarks>
         /// <returns>A JSON response with state, options, and visibility nested dictionaries.</returns>
         private static string ReadTaskParameters()
@@ -1388,7 +1392,7 @@ namespace SL.Tasks
 
         /// <summary>Applies the supplied parameter subset and returns the post-write snapshot.</summary>
         /// <remarks>
-        /// Each section is optional and individual fields within a section are also optional. The whole request is
+        /// Each section is optional and each field in a field-subset section is also optional. The whole request is
         /// validated before any section applies, so a rejected value leaves the scene untouched rather than partly
         /// written. Validation rejects values outside the enumeration reported by <see cref="ReadTaskParameters"/>,
         /// and rejects require_interaction / require_wait writes when the corresponding zone is absent from the
@@ -1397,8 +1401,9 @@ namespace SL.Tasks
         /// final <see cref="EditorSceneManager.MarkSceneDirty"/> when any write succeeded.
         /// </remarks>
         /// <param name="arguments">
-        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>, <c>display</c>,
-        /// <c>camera_mapping</c>, and <c>task</c>, each carrying the field subset to write.
+        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>, <c>display</c>, and
+        /// <c>task</c>, each carrying the field subset to write, plus <c>camera_mapping</c>, carrying a list of
+        /// per-monitor rows keyed by <c>monitor</c> and <c>camera</c>.
         /// </param>
         /// <returns>A JSON response carrying the post-write snapshot from <see cref="ReadTaskParameters"/>.</returns>
         private static string WriteTaskParameters(Dictionary<string, object> arguments)
@@ -1567,8 +1572,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Performs the single scene walk shared by <see cref="ReadTaskParameters"/> and
-        /// <see cref="WriteTaskParameters"/>.
+        /// Performs the single scene walk shared by <see cref="ReadTaskParameters"/>,
+        /// <see cref="WriteTaskParameters"/>, and <see cref="RefreshMonitors"/>.
         /// </summary>
         /// <returns>A snapshot of every component the Task Parameters endpoints consume.</returns>
         private static SceneComponents AcquireSceneComponents()
@@ -2001,7 +2006,9 @@ namespace SL.Tasks
 
         /// <summary>Converts a boxed argument value to a finite single-precision number.</summary>
         /// <param name="value">The boxed value from the request payload.</param>
-        /// <param name="converted">The converted value on success, otherwise zero.</param>
+        /// <param name="converted">
+        /// The converted value on success, zero when the conversion throws, and the non-finite result otherwise.
+        /// </param>
         /// <returns>True when the value converts to a finite float.</returns>
         private static bool TryConvertSingle(object value, out float converted)
         {
@@ -2292,7 +2299,10 @@ namespace SL.Tasks
 
         /// <summary>Determines whether the given asset path is permitted for deletion.</summary>
         /// <param name="assetPath">The project-relative asset path to check.</param>
-        /// <returns>True when the path lies under an allowed prefix and is not in the protected set.</returns>
+        /// <returns>
+        /// True when the path is relative, free of traversal sequences and trailing separators, lies under an allowed
+        /// prefix, and stays out of the protected set.
+        /// </returns>
         private static bool IsDeleteAllowed(string assetPath)
         {
             // Rejects path traversal sequences, absolute paths, and directory targets to bound the blast radius.
@@ -2326,7 +2336,7 @@ namespace SL.Tasks
 
         /// <summary>Resolves how to handle unsaved changes in the active scene before switching scenes.</summary>
         /// <param name="unsavedChanges">
-        /// The handling policy: "save" persists the active scene, "discard" abandons unsaved edits, and an
+        /// The handling policy: "save" persists every open scene, "discard" abandons unsaved edits, and an
         /// empty string leaves the policy unspecified so the caller can prompt the user.
         /// </param>
         /// <returns>
@@ -2477,10 +2487,10 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Aggregates the per-scene component references read by both <see cref="ReadTaskParameters"/> and
-        /// <see cref="WriteTaskParameters"/>. Built once per request via <see cref="AcquireSceneComponents"/>
-        /// so each tool invocation walks the scene exactly once, regardless of how many sections the writer
-        /// touches.
+        /// Aggregates the per-scene component references read by <see cref="ReadTaskParameters"/>,
+        /// <see cref="WriteTaskParameters"/>, and <see cref="RefreshMonitors"/>. Built once per request via
+        /// <see cref="AcquireSceneComponents"/> so each tool invocation walks the scene exactly once, regardless of how
+        /// many sections the writer touches.
         /// </summary>
         private struct SceneComponents
         {
