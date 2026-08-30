@@ -78,7 +78,7 @@ namespace SL.Tests.PlayMode
             string json = Dispatch("not_a_tool");
 
             StringAssert.Contains("\"success\":false", json);
-            StringAssert.Contains("Unknown tool: not_a_tool", json);
+            StringAssert.Contains("Unable to dispatch 'not_a_tool'.", json);
         }
 
         /// <summary>Dispatches a tool that carries no arguments through the bridge's private entry point.</summary>

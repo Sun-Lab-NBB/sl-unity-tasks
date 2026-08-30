@@ -158,28 +158,28 @@ namespace SL.Tests.EditMode
         [Test]
         public void FormatCueLengthLabel_IntegralLength_OmitsTheDecimalSeparator()
         {
-            Assert.AreEqual("30", CreateTask.FormatCueLengthLabel(30f));
+            Assert.AreEqual("30", FormatCueLengthLabel(30f));
         }
 
         /// <summary>Verifies that FormatCueLengthLabel keeps a single significant decimal.</summary>
         [Test]
         public void FormatCueLengthLabel_OneDecimalLength_KeepsTheSingleDecimal()
         {
-            Assert.AreEqual("37.5", CreateTask.FormatCueLengthLabel(37.5f));
+            Assert.AreEqual("37.5", FormatCueLengthLabel(37.5f));
         }
 
         /// <summary>Verifies that FormatCueLengthLabel rounds a length carrying more than two decimals.</summary>
         [Test]
         public void FormatCueLengthLabel_ThreeDecimalLength_RoundsToTwoDecimals()
         {
-            Assert.AreEqual("30.46", CreateTask.FormatCueLengthLabel(30.456f));
+            Assert.AreEqual("30.46", FormatCueLengthLabel(30.456f));
         }
 
         /// <summary>Verifies that FormatCueLengthLabel keeps a two decimal length intact.</summary>
         [Test]
         public void FormatCueLengthLabel_TwoDecimalLength_KeepsBothDecimals()
         {
-            Assert.AreEqual("12.25", CreateTask.FormatCueLengthLabel(12.25f));
+            Assert.AreEqual("12.25", FormatCueLengthLabel(12.25f));
         }
 
         /// <summary>Verifies that CanonicalSegmentName joins the template and trial with exactly one hyphen.</summary>
@@ -188,7 +188,7 @@ namespace SL.Tests.EditMode
         {
             TaskTemplate template = BuildInMemoryTemplate("ZZTest_Alpha", CmPerUnityUnit, 1, "Padding", 30f);
 
-            string segmentName = CreateTask.CanonicalSegmentName(template, FirstTrialName);
+            string segmentName = CanonicalSegmentName(template, FirstTrialName);
 
             Assert.AreEqual("ZZTest_Alpha-T1", segmentName);
             string[] halves = segmentName.Split('-');
@@ -205,8 +205,8 @@ namespace SL.Tests.EditMode
             TaskTemplate outerTemplate = BuildInMemoryTemplate("ZZTest_Base", CmPerUnityUnit, 1, "Padding", 30f);
             TaskTemplate nestedTemplate = BuildInMemoryTemplate("ZZTest_Base_Extra", CmPerUnityUnit, 1, "Padding", 30f);
 
-            string outerName = CreateTask.CanonicalSegmentName(outerTemplate, FirstTrialName);
-            string nestedName = CreateTask.CanonicalSegmentName(nestedTemplate, FirstTrialName);
+            string outerName = CanonicalSegmentName(outerTemplate, FirstTrialName);
+            string nestedName = CanonicalSegmentName(nestedTemplate, FirstTrialName);
 
             Assert.AreEqual("ZZTest_Base-T1", outerName);
             Assert.AreEqual("ZZTest_Base_Extra-T1", nestedName);
@@ -273,8 +273,8 @@ namespace SL.Tests.EditMode
             string error = ValidateTrackLengthCoversCorridor(template);
 
             Assert.IsNotNull(error);
-            StringAssert.Contains("Template 'ZZTest_Short' declares a longest segment", error);
-            StringAssert.Contains("at most 2 segments where segments_per_corridor requires 3", error);
+            StringAssert.Contains("Unable to generate from template 'ZZTest_Short'.", error);
+            StringAssert.Contains("must cover the segments_per_corridor value of 3", error);
         }
 
         /// <summary>Verifies that the track length check passes when the segment count exceeds the corridor depth.
@@ -298,9 +298,9 @@ namespace SL.Tests.EditMode
             string error = ValidateTrackLengthCoversCorridor(template);
 
             Assert.IsNotNull(error);
-            StringAssert.Contains("longest segment of 6000 Unity units", error);
+            StringAssert.Contains("longest segment of 6000 Unity units yields at most 2", error);
             StringAssert.Contains("default track length 15000", error);
-            StringAssert.Contains("at most 2 segments where segments_per_corridor requires 3", error);
+            StringAssert.Contains("must cover the segments_per_corridor value of 3", error);
         }
 
         /// <summary>Verifies that a template whose segments carry no length reports a positive length error.</summary>
@@ -312,8 +312,8 @@ namespace SL.Tests.EditMode
             string error = ValidateTrackLengthCoversCorridor(template);
 
             Assert.IsNotNull(error);
-            StringAssert.Contains("Template 'ZZTest_ZeroLength' declares a longest segment of 0 Unity units", error);
-            StringAssert.Contains("every segment length must be positive", error);
+            StringAssert.Contains("longest segment measures 0 Unity units", error);
+            StringAssert.Contains("Every segment length must be positive", error);
         }
 
         /// <summary>Verifies that the hand-authored asset check passes when every required asset is present.</summary>
@@ -342,7 +342,7 @@ namespace SL.Tests.EditMode
             string error = ValidateHandAuthoredAssets(template);
 
             Assert.IsNotNull(error);
-            StringAssert.Contains("Generation requires hand-authored assets that are missing", error);
+            StringAssert.Contains("Every hand-authored asset the pipeline references must exist", error);
             StringAssert.Contains("ZZTest_AbsentPadding.prefab", error);
             StringAssert.Contains("Restore them from version control", error);
         }
@@ -368,7 +368,7 @@ namespace SL.Tests.EditMode
 
             string result = Generate("ZZTest_ConflictOne");
 
-            StringAssert.StartsWith("error: Cross-template cue-texture conflict detected.", result);
+            StringAssert.StartsWith("error: Unable to generate. Each cue identity must declare one texture", result);
             StringAssert.Contains("Cue 'ZZA at 33cm'", result);
             StringAssert.Contains($"ZZTest_ConflictOne -> '{FirstTextureName}'", result);
             StringAssert.Contains($"ZZTest_ConflictTwo -> '{SecondTextureName}'", result);
@@ -440,7 +440,7 @@ namespace SL.Tests.EditMode
 
             string result = Generate("ZZTest_Good");
 
-            StringAssert.StartsWith("error: Cross-template cue-texture preflight aborted: failed to load", result);
+            StringAssert.StartsWith("error: Unable to run the cross-template cue-texture preflight.", result);
             StringAssert.Contains("ZZTest_Broken", result);
             StringAssert.Contains("No cues defined in template.", result);
         }
@@ -510,7 +510,11 @@ namespace SL.Tests.EditMode
 
             string result = Generate("ZZTest_Swap");
 
-            Assert.AreEqual("error: Failed to build cue prefabs.", result);
+            Assert.AreEqual(
+                "error: Unable to generate the task. Every cue prefab the template declares must build, but "
+                    + "at least one failed. The preceding error names the cue.",
+                result
+            );
         }
 
         /// <summary>Verifies that the cue build abort leaves the previous generation's assets on disk.</summary>
@@ -542,11 +546,15 @@ namespace SL.Tests.EditMode
             template.cues.Add(TestCue(FirstCueName, FirstCueCode, FirstCueLengthCm, decoyTextureName));
             template.trials.Add(TestTrial(FirstTrialName, "collision", FirstCueName));
             WriteTemplate("ZZTest_BadTexture", template);
-            LogAssert.Expect(LogType.Error, new Regex("BuildCuePrefabs: Failed to load texture"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to build the cue prefab for"));
 
             string result = Generate("ZZTest_BadTexture");
 
-            Assert.AreEqual("error: Failed to build cue prefabs.", result);
+            Assert.AreEqual(
+                "error: Unable to generate the task. Every cue prefab the template declares must build, but "
+                    + "at least one failed. The preceding error names the cue.",
+                result
+            );
             Assert.IsNull(LoadAsset<GameObject>($"{PrefabsFolder}/ZZTest_BadTexture-T1.prefab"));
         }
 
@@ -577,9 +585,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that the rebuilt cue prefab points its wall renderers at the rebuilt material.</summary>
         /// <remarks>
-        /// Deleting a Cue_*.mat is reachable through the bridge's delete_asset tool, whose allowed prefixes include the
-        /// Materials folder, so an operator can leave a cue prefab standing over a material that no longer exists. The
-        /// regeneration repairing that state has to land the new material on both wall renderers.
+        /// The regeneration repairing that state has to land the new material on both wall renderers.
         /// </remarks>
         [Test]
         public void CreateFromTemplate_CuePrefabSurvivesWithoutItsMaterial_RelinksTheRebuiltMaterial()
@@ -1242,7 +1248,7 @@ namespace SL.Tests.EditMode
             trial.stimulusLocationCm = 100f;
             template.trials.Add(trial);
             WriteTemplate("ZZTest_Mismatch", template);
-            LogAssert.Expect(LogType.Warning, new Regex("For trial T1, there is a mismatch between the prefab"));
+            LogAssert.Expect(LogType.Warning, new Regex("Unable to reconcile the measured length of trial T1"));
 
             string result = Generate("ZZTest_Mismatch");
 
@@ -1261,8 +1267,8 @@ namespace SL.Tests.EditMode
 
             string result = Generate("ZZTest_TooLong");
 
-            StringAssert.StartsWith("error: Template 'ZZTest_TooLong' declares a longest segment", result);
-            StringAssert.Contains("at most 0 segments where segments_per_corridor requires 1", result);
+            StringAssert.StartsWith("error: Unable to generate from template 'ZZTest_TooLong'.", result);
+            StringAssert.Contains("must cover the segments_per_corridor value of 1", result);
             Assert.IsNull(LoadAsset<GameObject>($"{CuesFolder}/{FirstCueAssetStem}.prefab"));
         }
 
@@ -1277,7 +1283,11 @@ namespace SL.Tests.EditMode
             );
 
             Assert.IsFalse(result.Success);
-            Assert.AreEqual("Scene save path must not be null or empty.", result.Message);
+            Assert.AreEqual(
+                "Unable to create the scene. The scene save path must name a project-relative scene file, but "
+                    + "it is null or empty.",
+                result.Message
+            );
         }
 
         /// <summary>Verifies that scene creation rejects a null save path.</summary>
@@ -1291,7 +1301,11 @@ namespace SL.Tests.EditMode
             );
 
             Assert.IsFalse(result.Success);
-            Assert.AreEqual("Scene save path must not be null or empty.", result.Message);
+            Assert.AreEqual(
+                "Unable to create the scene. The scene save path must name a project-relative scene file, but "
+                    + "it is null or empty.",
+                result.Message
+            );
         }
 
         /// <summary>Verifies that scene creation strips the template's default Main Camera.</summary>
@@ -1351,7 +1365,28 @@ namespace SL.Tests.EditMode
             );
 
             Assert.IsFalse(result.Success);
-            Assert.AreEqual($"Scene already exists at: {sceneSavePath}", result.Message);
+            Assert.AreEqual(
+                "Unable to create the scene. The save path must be free, but a scene already exists at "
+                    + $"{sceneSavePath}.",
+                result.Message
+            );
+        }
+
+        /// <summary>Invokes the private cue length label formatter for the supplied length.</summary>
+        /// <param name="lengthCm">The cue length in centimeters.</param>
+        /// <returns>The length label used inside cue asset filenames.</returns>
+        private static string FormatCueLengthLabel(float lengthCm)
+        {
+            return (string)PrivateAccess.InvokeStatic(typeof(CreateTask), "FormatCueLengthLabel", lengthCm);
+        }
+
+        /// <summary>Invokes the private canonical segment name builder for the supplied template and trial.</summary>
+        /// <param name="template">The task template owning the trial, which supplies the template name.</param>
+        /// <param name="trialName">The trial key under trial_structures.</param>
+        /// <returns>The canonical segment prefab name, without the .prefab extension.</returns>
+        private static string CanonicalSegmentName(TaskTemplate template, string trialName)
+        {
+            return (string)PrivateAccess.InvokeStatic(typeof(CreateTask), "CanonicalSegmentName", template, trialName);
         }
 
         /// <summary>Invokes the private cross-template segment cleanup for the supplied template.</summary>
@@ -1400,7 +1435,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Invokes the private occupancy trigger mode resolver for the supplied literal.</summary>
         /// <param name="triggerType">The trigger type literal to resolve.</param>
-        /// <returns>The resolved trigger mode.</returns>
         private static TriggerMode ResolveOccupancyTriggerMode(string triggerType)
         {
             return (TriggerMode)
@@ -1472,7 +1506,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>
         /// Builds an in-memory template whose single trial declares the supplied trigger type over the first test
-        /// cue, so a literal ConfigLoader rejects still reaches the segment build.
+        /// cue, so a literal that ConfigLoader rejects still reaches the segment build.
         /// </summary>
         /// <param name="templateName">The template name the generated segment name is derived from.</param>
         /// <param name="triggerType">The trigger type literal the trial declares.</param>
@@ -1671,7 +1705,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the success message the pipeline reports for the supplied template.</summary>
         /// <param name="templateName">The template name driving the task prefab path.</param>
-        /// <returns>The expected status message.</returns>
         private static string SuccessMessage(string templateName)
         {
             return $"success: Task prefab saved to {TasksFolder}/{templateName}.prefab";
@@ -1679,7 +1712,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the absolute path of a template written into the project's Configurations folder.</summary>
         /// <param name="templateName">The template name, which becomes the YAML filename.</param>
-        /// <returns>The absolute template path.</returns>
         private static string AbsoluteTemplatePath(string templateName)
         {
             return AbsolutePath($"{ConfigurationsFolder}/{templateName}.yaml");
@@ -1687,7 +1719,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Converts a project-relative asset path into an absolute filesystem path.</summary>
         /// <param name="projectRelativePath">The project-relative path, which starts with the Assets folder.</param>
-        /// <returns>The absolute filesystem path.</returns>
         private static string AbsolutePath(string projectRelativePath)
         {
             return Path.Combine(Application.dataPath, projectRelativePath.Substring("Assets/".Length));
@@ -1704,9 +1735,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Loads the segment prefab a template generated for one of its trials.</summary>
-        /// <param name="templateName">The owning template name.</param>
         /// <param name="trialName">The trial whose segment prefab the template generated.</param>
-        /// <returns>The loaded segment prefab.</returns>
         private static GameObject LoadSegment(string templateName, string trialName)
         {
             GameObject segment = LoadAsset<GameObject>($"{PrefabsFolder}/{templateName}-{trialName}.prefab");
@@ -1715,7 +1744,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Returns the material the first cue instance of a generated segment renders with.</summary>
-        /// <param name="templateName">The owning template name.</param>
         /// <param name="trialName">The trial whose segment prefab the template generated.</param>
         /// <returns>The shared material of the first cue instance's wall renderer.</returns>
         private static Material FirstCueMaterial(string templateName, string trialName)
@@ -1731,7 +1759,6 @@ namespace SL.Tests.EditMode
         /// <summary>Returns the boundary renderer of the trigger zone a generated single-trial segment carries.
         /// </summary>
         /// <param name="templateName">The owning template name.</param>
-        /// <returns>The MeshRenderer sharing the trigger zone root's GameObject.</returns>
         private static MeshRenderer BoundaryRenderer(string templateName)
         {
             GameObject segment = LoadSegment(templateName, FirstTrialName);

@@ -516,7 +516,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":1,}"));
 
-            StringAssert.Contains("'' is not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal, but it is ''.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize rejects a pair whose value is missing before the closing brace.</summary>
@@ -525,7 +525,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":}"));
 
-            StringAssert.Contains("not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize yields a null value when the input ends right after the colon.</summary>
@@ -555,7 +555,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{a:1}"));
 
-            StringAssert.Contains("not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize keeps the last value written for a repeated key.</summary>
@@ -652,7 +652,9 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("u1", parsed["a"]);
         }
 
-        /// <summary>Verifies that Deserialize reads four characters past a unicode escape marker.</summary>
+        /// <summary>
+        /// Verifies that Deserialize rejects an escape whose four characters past the marker are not hexadecimal.
+        /// </summary>
         [Test]
         public void Deserialize_UnicodeEscapeShorterThanFourDigits_ThrowsFormat()
         {
@@ -742,7 +744,7 @@ namespace SL.Tests.EditMode
             );
 
             StringAssert.Contains("9223372036854775808", exception.Message);
-            StringAssert.Contains("not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize rejects a lone minus sign as an integer literal.</summary>
@@ -751,7 +753,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":-}"));
 
-            StringAssert.Contains("'-' is not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal, but it is '-'.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize rejects an integer literal carrying an interior sign.</summary>
@@ -760,7 +762,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":5-5}"));
 
-            StringAssert.Contains("'5-5' is not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal, but it is '5-5'.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize yields a double for a literal carrying a decimal point.</summary>
@@ -819,7 +821,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":1.2.3}"));
 
-            StringAssert.Contains("'1.2.3' is not a valid floating-point literal", exception.Message);
+            StringAssert.Contains("must be a valid floating-point literal, but it is '1.2.3'.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize rejects a bare exponent marker as a floating-point literal.</summary>
@@ -828,7 +830,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":e}"));
 
-            StringAssert.Contains("'e' is not a valid floating-point literal", exception.Message);
+            StringAssert.Contains("must be a valid floating-point literal, but it is 'e'.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize stops a number at the first character outside the literal set.</summary>
@@ -884,7 +886,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":truX}"));
 
-            StringAssert.Contains("expected 'true' or 'false' at index 5", exception.Message);
+            StringAssert.Contains("at index 5. It must be 'true' or 'false'", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize rejects a literal that only begins like false.</summary>
@@ -893,7 +895,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"ab\":fals}"));
 
-            StringAssert.Contains("expected 'true' or 'false' at index 6", exception.Message);
+            StringAssert.Contains("at index 6. It must be 'true' or 'false'", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize yields a null value and resumes parsing after a null literal.</summary>
@@ -914,7 +916,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":nul}"));
 
-            StringAssert.Contains("expected 'null' at index 5", exception.Message);
+            StringAssert.Contains("at index 5. It must be 'null'", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize parses a nested object into a nested dictionary.</summary>
@@ -1052,7 +1054,7 @@ namespace SL.Tests.EditMode
         {
             FormatException exception = Assert.Throws<FormatException>(() => MiniJson.Deserialize("{\"a\":[1,]}"));
 
-            StringAssert.Contains("'' is not a valid integer literal", exception.Message);
+            StringAssert.Contains("must be a valid integer literal, but it is ''.", exception.Message);
         }
 
         /// <summary>Verifies that Deserialize resumes the enclosing object after the array closes.</summary>
@@ -1275,7 +1277,6 @@ namespace SL.Tests.EditMode
         private sealed class UnrecognizedValue
         {
             /// <summary>Returns a text form carrying a quote and a backslash.</summary>
-            /// <returns>The text form the serializer falls back to.</returns>
             public override string ToString()
             {
                 return "raw\"text\\here";

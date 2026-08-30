@@ -21,7 +21,7 @@ namespace SL.Tasks
     /// Creates Task prefabs from task template files via Unity Editor.
     /// Generates all corridor combinations by instantiating segment prefabs and configuring zones.
     /// </summary>
-    public static class CreateTask
+    internal static class CreateTask
     {
         /// <summary>The tolerance for comparing measured prefab lengths against configured lengths.</summary>
         private const float LengthComparisonEpsilon = 0.01f;
@@ -66,9 +66,7 @@ namespace SL.Tasks
         /// This material lives in source control and is protected from deletion via the McpBridge's protected-paths
         /// list. Its shader (built-in fileID 10708, a legacy diffuse variant) renders both walls of a cue correctly
         /// even when the Right wall uses a negative geometry scale to mirror its texture. The Standard shader breaks
-        /// under negative scales, and Unlit shaders drop lighting altogether. The reference is loaded by
-        /// <see cref="LoadReferenceCueShader"/> so a fresh project clone produces visually identical cues without
-        /// needing a pre-existing legacy material to bootstrap from.
+        /// under negative scales, and Unlit shaders drop lighting altogether.
         /// </remarks>
         private const string CueShaderReferenceMaterialPath = MaterialsFolder + "/_CueShaderReference.mat";
 
@@ -90,7 +88,7 @@ namespace SL.Tasks
         /// </summary>
         /// <param name="lengthCm">The cue length in centimeters.</param>
         /// <returns>The length label used inside ``Cue_{name}_{label}cm`` asset filenames.</returns>
-        public static string FormatCueLengthLabel(float lengthCm) =>
+        private static string FormatCueLengthLabel(float lengthCm) =>
             lengthCm.ToString("0.##", CultureInfo.InvariantCulture);
 
         /// <summary>
@@ -105,7 +103,7 @@ namespace SL.Tasks
         /// <param name="template">The task template owning the trial, which supplies the template name.</param>
         /// <param name="trialName">The trial key under ``trial_structures``.</param>
         /// <returns>The canonical segment prefab name (without the ``.prefab`` extension).</returns>
-        public static string CanonicalSegmentName(TaskTemplate template, string trialName) =>
+        private static string CanonicalSegmentName(TaskTemplate template, string trialName) =>
             $"{template.templateName}-{trialName}";
 
         /// <summary>
@@ -140,7 +138,10 @@ namespace SL.Tasks
 
             if (string.IsNullOrEmpty(absoluteSelectedPath))
             {
-                Debug.LogError("No configuration YAML file selected.");
+                string message =
+                    "Unable to generate a task. A configuration YAML file must be selected, but the file panel "
+                    + "returned no selection.";
+                Debug.LogError(message);
                 return;
             }
 
@@ -150,10 +151,11 @@ namespace SL.Tasks
             if (!absoluteSelectedPath.StartsWith(configurationsPrefix, StringComparison.Ordinal))
             {
                 string message =
-                    $"Selected template '{absoluteSelectedPath}' is outside the canonical Configurations "
-                    + $"directory '{configurationsDirectory}'. Move the template into Configurations/ "
-                    + "before generating; only files under that folder are visible to MCP-driven "
-                    + "generation and to the cross-template cue-texture preflight.";
+                    "Unable to generate from the selected template. The template must sit under the canonical "
+                    + $"Configurations directory '{configurationsDirectory}', but it is at "
+                    + $"'{absoluteSelectedPath}'. Move the template into Configurations/ before generating, "
+                    + "because only files under that folder are visible to MCP-driven generation and to the "
+                    + "cross-template cue-texture preflight.";
                 Debug.LogError(message);
                 return;
             }
@@ -291,7 +293,8 @@ namespace SL.Tasks
             // referencing segments this call is unable to rebuild.
             if (!BuildCuePrefabs(template))
             {
-                return "error: Failed to build cue prefabs.";
+                return "error: Unable to generate the task. Every cue prefab the template declares must build, "
+                    + "but at least one failed. The preceding error names the cue.";
             }
 
             // Wipes any segment prefabs this template previously generated so trial-parameter edits never result in
@@ -302,7 +305,8 @@ namespace SL.Tasks
 
             if (!BuildSegmentPrefabs(template))
             {
-                return "error: Failed to build segment prefabs.";
+                return "error: Unable to generate the task. Every segment prefab the template declares must "
+                    + "build, but at least one failed. The preceding error names the segment.";
             }
 
             string paddingPath = Path.Combine(PrefabsFolder, $"{template.vrEnvironment.paddingPrefabName}.prefab");
@@ -310,7 +314,8 @@ namespace SL.Tasks
 
             if (padding == null)
             {
-                return $"error: No padding found at {paddingPath}";
+                return "error: Unable to assemble the corridor. The padding prefab must exist at "
+                    + $"'{paddingPath}', but it is missing.";
             }
 
             string[] trialNames = template.GetTrialNames();
@@ -328,7 +333,8 @@ namespace SL.Tasks
 
                 if (segmentPrefabs[i] == null)
                 {
-                    return $"error: No segment found at {segmentPath}";
+                    return "error: Unable to assemble the corridor. The segment prefab for trial "
+                        + $"'{trialNames[i]}' must exist at '{segmentPath}', but it is missing.";
                 }
             }
 
@@ -344,10 +350,10 @@ namespace SL.Tasks
                 if (Mathf.Abs(measuredSegmentLengths[i] - segmentLengths[i]) > LengthComparisonEpsilon)
                 {
                     string message =
-                        $"For trial {trialNames[i]}, there is a mismatch between the prefab "
-                        + $"length ({measuredSegmentLengths[i]}) and the sum of all the cue "
-                        + $"lengths ({segmentLengths[i]}). Using {segmentLengths[i]} for the "
-                        + "length of the segment.";
+                        $"Unable to reconcile the measured length of trial {trialNames[i]}. The prefab length "
+                        + $"({measuredSegmentLengths[i]}) must match the sum of all cue lengths "
+                        + $"({segmentLengths[i]}), but the two differ. Using {segmentLengths[i]} for the length "
+                        + "of the segment.";
                     Debug.LogWarning(message);
                 }
             }
@@ -432,11 +438,9 @@ namespace SL.Tasks
         /// <summary>
         /// Creates a new scene by copying the canonical experiment template scene, optionally instantiating a task
         /// prefab into it, and ensuring every supported controller (LinearTreadmill and SimulatedLinearTreadmill) is
-        /// present in the scene. Either real or keyboard input can then drive the scene out of the box. Controller
-        /// creation runs through <see cref="MainWindow.EnsureControllers"/> so the new and Task-Parameters-driven paths
-        /// share the same logic. The new scene is opened in the Editor and saved on disk before the call returns.
-        /// Callers are responsible for resolving any unsaved changes in the currently open scene before invoking this
-        /// method, since the menu flow uses Unity's native dialog while the MCP flow uses an explicit policy argument.
+        /// present in the scene. Either real or keyboard input can then drive the scene out of the box. The new scene
+        /// is opened in the Editor and saved on disk before the call returns. Callers are responsible for resolving any
+        /// unsaved changes in the currently open scene before invoking this method.
         /// </summary>
         /// <param name="sceneSavePath">The project-relative path where the new scene file is written.</param>
         /// <param name="taskPrefabPath">
@@ -447,8 +451,7 @@ namespace SL.Tasks
         /// </param>
         /// <param name="overwriteExisting">
         /// When true, an existing scene at <paramref name="sceneSavePath"/> is deleted before the template is copied.
-        /// Use this from interactive flows that have already confirmed the overwrite with the user. Pass false from
-        /// automated callers that should refuse to clobber existing scenes.
+        /// Use this from interactive flows that have already confirmed the overwrite with the user.
         /// </param>
         /// <returns>A <see cref="SceneCreationResult"/> describing the outcome.</returns>
         public static SceneCreationResult CreateSceneFromTemplate(
@@ -461,13 +464,17 @@ namespace SL.Tasks
 
             if (string.IsNullOrEmpty(sceneSavePath))
             {
-                result.Message = "Scene save path must not be null or empty.";
+                result.Message =
+                    "Unable to create the scene. The scene save path must name a project-relative scene file, "
+                    + "but it is null or empty.";
                 return result;
             }
 
             if (!File.Exists(TemplateScenePath))
             {
-                result.Message = $"Template scene not found at: {TemplateScenePath}";
+                result.Message =
+                    $"Unable to create the scene. The template scene must exist at {TemplateScenePath}, but no "
+                    + "asset is present there.";
                 return result;
             }
 
@@ -475,20 +482,26 @@ namespace SL.Tasks
             {
                 if (!overwriteExisting)
                 {
-                    result.Message = $"Scene already exists at: {sceneSavePath}";
+                    result.Message =
+                        "Unable to create the scene. The save path must be free, but a scene already exists "
+                        + $"at {sceneSavePath}.";
                     return result;
                 }
 
                 if (!AssetDatabase.DeleteAsset(sceneSavePath))
                 {
-                    result.Message = $"Failed to delete existing scene at: {sceneSavePath}";
+                    result.Message =
+                        "Unable to overwrite the scene. AssetDatabase must delete the existing scene at "
+                        + $"{sceneSavePath}, but it refused the deletion.";
                     return result;
                 }
             }
 
             if (!AssetDatabase.CopyAsset(TemplateScenePath, sceneSavePath))
             {
-                result.Message = $"Failed to copy template scene to: {sceneSavePath}";
+                result.Message =
+                    "Unable to create the scene. AssetDatabase must copy the template scene from "
+                    + $"{TemplateScenePath} to {sceneSavePath}, but the copy failed.";
                 return result;
             }
             AssetDatabase.Refresh();
@@ -520,8 +533,8 @@ namespace SL.Tasks
             MainWindow.EnsureMqttDefaults();
             MainWindow.SyncDisplayBrightnessToSettings();
             // Strips the template scene's leftover "Main Camera", the one InitializeScene step this method
-            // would otherwise miss. Running it here means a generated scene no longer depends on a human
-            // opening Window > Task Parameters to reach the camera set the Display and Actor actually use.
+            // would otherwise miss. Running it here leaves the generated scene on the camera set the Display and
+            // Actor use, with no manual pass through Window > Task Parameters.
             MainWindow.RemoveDefaultMainCamera();
             result.SimulatedControllerAdded = !simulatedExistedBeforeEnsure;
 
@@ -598,8 +611,8 @@ namespace SL.Tasks
                 catch (Exception exception)
                 {
                     errorMessage =
-                        $"Cross-template cue-texture preflight aborted: failed to load "
-                        + $"'{templateFile}': {exception.Message}";
+                        "Unable to run the cross-template cue-texture preflight. Every template under "
+                        + $"Configurations must load, but '{templateFile}' failed with: {exception.Message}";
                     return false;
                 }
 
@@ -642,9 +655,9 @@ namespace SL.Tasks
             }
 
             errorMessage =
-                "Cross-template cue-texture conflict detected. The following cue identities are declared "
-                + "with more than one texture across the Configurations catalog; either rename the cue, "
-                + "change its length, or unify the textures before regenerating:\n  - "
+                "Unable to generate. Each cue identity must declare one texture across the Configurations "
+                + "catalog, but the identities below declare more than one. Rename the cue, change its length, "
+                + "or unify the textures before regenerating:\n  - "
                 + string.Join("\n  - ", conflicts);
             return false;
         }
@@ -658,7 +671,7 @@ namespace SL.Tasks
         /// segments outrun it produces a maze shorter than the corridor depth and a task that disables itself on the
         /// first Play Mode entry. Reporting it here surfaces the problem while the operator is still generating.
         /// </remarks>
-        /// <param name="template">The loaded task template.</param>
+        /// <param name="template">The task template supplying the segment lengths and the corridor depth.</param>
         /// <returns>
         /// An error message when a segment length is not positive or the default track length cannot fill a corridor,
         /// otherwise null.
@@ -672,9 +685,9 @@ namespace SL.Tasks
             // that clears every corridor depth and lets an unbuildable template through.
             if (longestSegmentUnity <= 0f)
             {
-                return $"Template '{template.templateName}' declares a longest segment of {longestSegmentUnity} Unity "
-                    + "units, where every segment length must be positive. Give each trial a cue sequence whose cue "
-                    + "lengths sum above zero before generating.";
+                return $"Unable to generate from template '{template.templateName}'. Every segment length must "
+                    + $"be positive, but the longest segment measures {longestSegmentUnity} Unity units. Give "
+                    + "each trial a cue sequence whose cue lengths sum above zero before generating.";
             }
 
             int worstCaseSegmentCount = Mathf.FloorToInt(Task.DefaultTrackLength / longestSegmentUnity);
@@ -684,13 +697,15 @@ namespace SL.Tasks
                 return null;
             }
 
-            return $"Template '{template.templateName}' declares a longest segment of {longestSegmentUnity} Unity "
-                + $"units, so the default track length {Task.DefaultTrackLength} yields at most "
-                + $"{worstCaseSegmentCount} segments where segments_per_corridor requires {depth}. Shorten the "
-                + "longest cue sequence or raise Track Length in Window > Task Parameters before generating.";
+            return $"Unable to generate from template '{template.templateName}'. The default track length "
+                + $"{Task.DefaultTrackLength} must cover the segments_per_corridor value of {depth}, but the "
+                + $"longest segment of {longestSegmentUnity} Unity units yields at most "
+                + $"{worstCaseSegmentCount}. Shorten the longest cue sequence or raise Track Length in Window > "
+                + "Task Parameters before generating.";
         }
 
-        /// <summary>Confirms every hand-authored asset the build consumes is present before any asset is written.
+        /// <summary>
+        /// Confirms every hand-authored asset the build consumes is present before any asset is written.
         /// </summary>
         /// <remarks>
         /// The segment and corridor builds each abort on a missing hand-authored input, and both run after
@@ -717,7 +732,8 @@ namespace SL.Tasks
                 return null;
             }
 
-            return "Generation requires hand-authored assets that are missing from the project:\n  - "
+            return "Unable to generate the task. Every hand-authored asset the pipeline references must exist, "
+                + "but these are missing from the project:\n  - "
                 + string.Join("\n  - ", missingPaths)
                 + "\nRestore them from version control before generating.";
         }
@@ -780,9 +796,10 @@ namespace SL.Tasks
                 return reference.shader;
             }
             string message =
-                $"BuildCuePrefabs: canonical shader reference '{CueShaderReferenceMaterialPath}' is missing; "
-                + "falling back to a hand-authored Cue*.mat material or Shader.Find. Restore the "
-                + "reference material to guarantee consistent cue rendering across machines.";
+                "Unable to load the canonical cue shader reference. The material at "
+                + $"'{CueShaderReferenceMaterialPath}' must exist, but it is missing, so the shader falls back "
+                + "to a hand-authored Cue*.mat material or Shader.Find. Restore the reference material to "
+                + "guarantee consistent cue rendering across machines.";
             Debug.LogWarning(message);
 
             string[] guids = AssetDatabase.FindAssets("t:Material", new[] { materialsPath.TrimEnd('/') });
@@ -810,17 +827,13 @@ namespace SL.Tasks
         /// ``Materials/`` folders. Cue assets are deliberately shared across templates by cue name and length, so this
         /// method is idempotent: a cue already on disk is left untouched and reused by every template that declares it.
         /// </summary>
-        /// <param name="template">The loaded task template.</param>
+        /// <param name="template">The task template supplying the cue definitions and the unit scale.</param>
         /// <returns>True if all required cue prefabs were built or already exist, false on error.</returns>
         private static bool BuildCuePrefabs(TaskTemplate template)
         {
             float cmPerUnit = template.vrEnvironment.cmPerUnityUnit;
 
-            // Inherits the shader from the project's historical hand-authored cue materials so generated materials
-            // render identically to the originals. The reference material lives in the same Materials/ folder and uses
-            // the legacy diffuse shader that handles the Right wall's negative X scale correctly. The modern Standard
-            // and Unlit shaders both fail at this, with Standard breaking lit normals under inverted geometry and Unlit
-            // dropping lighting entirely.
+            // Reuses the reference material's shader; see CueShaderReferenceMaterialPath for the rationale.
             Shader cueShader = LoadReferenceCueShader(MaterialsFolder + "/");
 
             if (!AssetDatabase.IsValidFolder(CuesFolder))
@@ -846,7 +859,10 @@ namespace SL.Tasks
                 );
                 if (cueTexture == null)
                 {
-                    Debug.LogError($"BuildCuePrefabs: Failed to load texture '{cue.texture}'.");
+                    string message =
+                        $"Unable to build the cue prefab for '{cue.name}'. The texture must exist under "
+                        + $"{TexturesFolder}, but '{cue.texture}' failed to load.";
+                    Debug.LogError(message);
                     return false;
                 }
 
@@ -858,11 +874,12 @@ namespace SL.Tasks
                 if (cueMaterial != null && cueMaterial.GetTexture("_MainTex") != cueTexture)
                 {
                     string message =
-                        $"BuildCuePrefabs: Cue '{cue.name}' at {cue.lengthCm} cm declares texture '{cue.texture}', "
-                        + $"but the cached material '{cueAssetStem}.mat' was built from a different texture. Cue "
-                        + $"assets are shared across every template that declares this cue identity. Delete "
-                        + $"'{cueAssetStem}.prefab' and '{cueAssetStem}.mat' to rebuild them for every template, or "
-                        + $"give this cue a distinct name or length so it occupies its own asset slot.";
+                        $"Unable to build cue '{cue.name}' at {cue.lengthCm} cm. The cached material "
+                        + $"'{cueAssetStem}.mat' must be built from the declared texture '{cue.texture}', but it "
+                        + "was built from a different texture. Cue assets are shared across every template that "
+                        + $"declares this cue identity. Delete '{cueAssetStem}.prefab' and '{cueAssetStem}.mat' "
+                        + "to rebuild them for every template, or give this cue a distinct name or length so it "
+                        + "occupies its own asset slot.";
                     Debug.LogError(message);
                     return false;
                 }
@@ -886,12 +903,7 @@ namespace SL.Tasks
 
                 float lengthUnity = cue.LengthUnity(cmPerUnit);
 
-                // Matches the assembly used by the project's originally hand-authored cue prefabs: Legacy
-                // Shaders/Diffuse renders both walls with consistent per-pixel diffuse lighting even when the Right
-                // wall uses a negative geometry scale to mirror the texture. The modern Standard shader breaks under
-                // negative scales (the lit normal does not invert with mesh winding), and Unlit shaders drop lighting
-                // entirely. Legacy/Diffuse retains the lit corridor feel while keeping the texture-mirror trick a
-                // single-material affair.
+                // Builds the material on the reference shader; see CueShaderReferenceMaterialPath for the rationale.
                 if (cueMaterial == null)
                 {
                     cueMaterial = new Material(cueShader);
@@ -900,9 +912,9 @@ namespace SL.Tasks
                     AssetDatabase.CreateAsset(cueMaterial, materialPath);
                 }
 
-                // Creates cue GameObject with Left and Right Quad children. The Right wall uses a negative X scale to
-                // mirror the texture along the horizontal axis so directional patterns read forward from both sides of
-                // the corridor. Legacy/Diffuse keeps the wall correctly lit despite the inverted geometry.
+                // The Right wall uses a negative X scale to mirror the texture along the horizontal axis so directional
+                // patterns read forward from both sides of the corridor. See CueShaderReferenceMaterialPath for why the
+                // shader keeps that wall correctly lit under the inverted geometry.
                 GameObject cueGameObject = new GameObject(cueAssetStem);
 
                 GameObject right = new GameObject("Right");
@@ -924,7 +936,7 @@ namespace SL.Tasks
                 PrefabUtility.SaveAsPrefabAsset(cueGameObject, cuePrefabPath);
                 UnityEngine.Object.DestroyImmediate(cueGameObject);
 
-                Debug.Log($"BuildCuePrefabs: Created {cuePrefabPath}");
+                Debug.Log($"Created the cue prefab at {cuePrefabPath}.");
             }
 
             // The cue prefabs are immediately discoverable via AssetDatabase.LoadAssetAtPath because
@@ -941,7 +953,7 @@ namespace SL.Tasks
         /// then ``CleanGeneratedSegments`` first, because this method unconditionally writes to the segment prefab
         /// path and assumes nothing exists at that location.
         /// </summary>
-        /// <param name="template">The loaded task template.</param>
+        /// <param name="template">The task template supplying the trial structures and environment geometry.</param>
         /// <returns>True if all segment prefabs were built successfully, false on error.</returns>
         private static bool BuildSegmentPrefabs(TaskTemplate template)
         {
@@ -959,7 +971,10 @@ namespace SL.Tasks
 
             if (floorMaterial == null || wallMaterial == null)
             {
-                Debug.LogError("BuildSegmentPrefabs: Missing Floor.mat or Wall.mat.");
+                string message =
+                    "Unable to build the segment prefabs. Floor.mat and Wall.mat must both exist under "
+                    + $"{MaterialsFolder}, but at least one of them is missing.";
+                Debug.LogError(message);
                 return false;
             }
 
@@ -975,8 +990,9 @@ namespace SL.Tasks
             if (stimulusZonePrefab == null || occupancyZonePrefab == null)
             {
                 string message =
-                    "BuildSegmentPrefabs: Missing StimulusTriggerZone.prefab or OccupancyTriggerZone.prefab under "
-                    + $"{PrefabsFolder}. Restore both hand-authored zone prefabs before generating.";
+                    "Unable to build the segment prefabs. StimulusTriggerZone.prefab and "
+                    + $"OccupancyTriggerZone.prefab must both exist under {PrefabsFolder}, but at least one of "
+                    + "them is missing. Restore both hand-authored zone prefabs before generating.";
                 Debug.LogError(message);
                 return false;
             }
@@ -990,8 +1006,8 @@ namespace SL.Tasks
 
                 float totalLengthUnity = trial.cueSequence.Sum(cueName => cueMap[cueName].LengthUnity(cmPerUnit));
 
-                // Creates segment root with cue offset. The root takes the canonical prefab name so the in-prefab
-                // m_Name matches the filename, matching the cue-side convention.
+                // The root takes the canonical prefab name so the in-prefab m_Name matches the filename, matching the
+                // cue-side convention.
                 GameObject segmentGameObject = new GameObject(canonicalSegmentName);
                 segmentGameObject.transform.localPosition = new Vector3(0, 0, -cueOffsetUnity);
 
@@ -1007,7 +1023,10 @@ namespace SL.Tasks
 
                     if (cuePrefab == null)
                     {
-                        Debug.LogError($"BuildSegmentPrefabs: Missing cue prefab at {cuePrefabPath}.");
+                        string message =
+                            $"Unable to build the segment prefab for trial '{trialName}'. The cue prefab must "
+                            + $"exist at '{cuePrefabPath}', but it is missing.";
+                        Debug.LogError(message);
                         UnityEngine.Object.DestroyImmediate(segmentGameObject);
                         return false;
                     }
@@ -1100,9 +1119,9 @@ namespace SL.Tasks
                     // publishes a stimulus. ConfigLoader gates the literal set, so this is reached by a literal
                     // added there without a matching branch here.
                     string message =
-                        $"BuildSegmentPrefabs: Unable to place a trigger zone for trial '{trialName}'. The "
-                        + "trigger_type must be one of interaction, collision, occupancy_disarm, occupancy_arm, or "
-                        + $"occupancy_trigger, but the template declares '{trial.triggerType}'.";
+                        $"Unable to place a trigger zone for trial '{trialName}'. The trigger_type must be one "
+                        + "of interaction, collision, occupancy_disarm, occupancy_arm, or occupancy_trigger, but "
+                        + $"the template declares '{trial.triggerType}'.";
                     Debug.LogError(message);
                     UnityEngine.Object.DestroyImmediate(segmentGameObject);
                     return false;
@@ -1111,7 +1130,7 @@ namespace SL.Tasks
                 PrefabUtility.SaveAsPrefabAsset(segmentGameObject, segmentPrefabPath);
                 UnityEngine.Object.DestroyImmediate(segmentGameObject);
 
-                Debug.Log($"BuildSegmentPrefabs: Created {segmentPrefabPath}");
+                Debug.Log($"Created the segment prefab at {segmentPrefabPath}.");
             }
 
             AssetDatabase.SaveAssets();
@@ -1185,8 +1204,8 @@ namespace SL.Tasks
 
         /// <summary>
         /// Instantiates and configures a StimulusTriggerZone in collision mode within a segment. Reuses the
-        /// interaction prefab, strips its GuidanceRegion child, and positions the root collider as a thin
-        /// invisible wall starting at the stimulus location that fires the stimulus unconditionally on crossing.
+        /// interaction prefab, strips its GuidanceRegion child, and positions the root collider as a thin wall
+        /// starting at the stimulus location. Crossing that wall fires the stimulus unconditionally.
         /// </summary>
         /// <param name="parent">The parent segment GameObject.</param>
         /// <param name="zonePrefab">The StimulusTriggerZone prefab to instantiate.</param>
@@ -1353,9 +1372,8 @@ namespace SL.Tasks
             public bool SimulatedControllerAdded { get; set; }
 
             /// <summary>
-            /// Determines whether a non-empty task prefab path was supplied but no asset could be loaded from it. The
-            /// scene is still created and saved when this flag is set. Callers may surface a warning to the user but
-            /// should not treat it as a fatal error.
+            /// Determines whether a non-empty task prefab path was supplied while no asset loaded from it, with the
+            /// scene still created and saved.
             /// </summary>
             public bool TaskPrefabNotFound { get; set; }
         }
