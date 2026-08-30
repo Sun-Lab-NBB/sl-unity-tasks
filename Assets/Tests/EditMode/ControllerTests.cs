@@ -4,6 +4,7 @@
 /// </summary>
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Gimbl;
 using NUnit.Framework;
 using UnityEditor;
@@ -235,7 +236,7 @@ namespace SL.Tests.EditMode
         {
             LinearTreadmill treadmill = NewController<LinearTreadmill>("Linear");
 
-            treadmill.OnMessage(new LinearTreadmill.TreadmillMessage { movement = -1.25f });
+            PrivateAccess.Invoke(treadmill, "OnMessage", CreateTreadmillMessage(-1.25f));
 
             Assert.AreEqual(-1.25f, treadmill.movement.Sum());
         }
@@ -249,7 +250,7 @@ namespace SL.Tests.EditMode
             treadmill.actor = actor;
             treadmill.movement.Add(2.5f);
 
-            treadmill.ProcessMovement();
+            PrivateAccess.Invoke(treadmill, "ProcessMovement");
 
             Assert.AreEqual(new Vector3(1f, 2f, 5.5f), actor.transform.position);
         }
@@ -263,7 +264,7 @@ namespace SL.Tests.EditMode
             treadmill.actor = actor;
             treadmill.movement.Add(-1.25f);
 
-            treadmill.ProcessMovement();
+            PrivateAccess.Invoke(treadmill, "ProcessMovement");
 
             Assert.AreEqual(1.75f, actor.transform.position.z);
         }
@@ -276,7 +277,7 @@ namespace SL.Tests.EditMode
             treadmill.actor = NewActor("Actor", Vector3.zero);
             treadmill.movement.Add(2.5f);
 
-            treadmill.ProcessMovement();
+            PrivateAccess.Invoke(treadmill, "ProcessMovement");
 
             Assert.AreEqual(0f, treadmill.movement.Sum());
         }
@@ -290,8 +291,8 @@ namespace SL.Tests.EditMode
             treadmill.actor = actor;
             treadmill.movement.Add(2.5f);
 
-            treadmill.ProcessMovement();
-            treadmill.ProcessMovement();
+            PrivateAccess.Invoke(treadmill, "ProcessMovement");
+            PrivateAccess.Invoke(treadmill, "ProcessMovement");
 
             Assert.AreEqual(2.5f, actor.transform.position.z);
         }
@@ -303,7 +304,7 @@ namespace SL.Tests.EditMode
             LinearTreadmill treadmill = NewController<LinearTreadmill>("Linear");
             treadmill.movement.Add(5f);
 
-            Assert.DoesNotThrow(() => treadmill.ProcessMovement());
+            Assert.DoesNotThrow(() => PrivateAccess.Invoke(treadmill, "ProcessMovement"));
 
             Assert.AreEqual(0f, treadmill.movement.Sum());
         }
@@ -317,7 +318,7 @@ namespace SL.Tests.EditMode
             treadmill.actor = actor;
             treadmill.movement.Add(3f);
 
-            treadmill.Update();
+            PrivateAccess.Invoke(treadmill, "Update");
 
             Assert.AreEqual(4f, actor.transform.position.z);
         }
@@ -358,6 +359,22 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(MQTTTopics.Interaction, interactionChannel.topic);
         }
 
+        /// <summary>Verifies that the simulated treadmill's Interaction channel receives no message it publishes.
+        /// </summary>
+        [Test]
+        public void Start_SimulatedTreadmill_OpensTheInteractionChannelWithoutSubscribing()
+        {
+            SimulatedLinearTreadmill treadmill = NewController<SimulatedLinearTreadmill>("Simulated Linear");
+            PrivateAccess.Invoke(treadmill, "Start");
+            MQTTChannel interactionChannel = PrivateAccess.GetField<MQTTChannel>(treadmill, "_interactionTrigger");
+            bool received = false;
+            interactionChannel.receivedEvent.AddListener(() => received = true);
+
+            _mqtt.PublishTrigger(MQTTTopics.Interaction);
+
+            Assert.IsFalse(received);
+        }
+
         /// <summary>Verifies that the simulated treadmill leaves the hardware Motion subscription unopened.</summary>
         [Test]
         public void Start_SimulatedTreadmill_LeavesTheMotionSubscriptionUnopened()
@@ -388,7 +405,7 @@ namespace SL.Tests.EditMode
             SimulatedLinearTreadmill treadmill = NewController<SimulatedLinearTreadmill>("Simulated Linear");
             PrivateAccess.Invoke(treadmill, "Start");
 
-            treadmill.GetSimulatedInput();
+            PrivateAccess.Invoke(treadmill, "GetSimulatedInput");
 
             Assert.AreEqual(0f, treadmill.movement.Sum());
         }
@@ -400,7 +417,7 @@ namespace SL.Tests.EditMode
             SimulatedLinearTreadmill treadmill = NewController<SimulatedLinearTreadmill>("Simulated Linear");
             PrivateAccess.Invoke(treadmill, "Start");
 
-            treadmill.Update();
+            PrivateAccess.Invoke(treadmill, "Update");
 
             Assert.AreEqual(0, _mqtt.CountOn(MQTTTopics.Interaction));
         }
@@ -415,7 +432,7 @@ namespace SL.Tests.EditMode
             treadmill.actor = actor;
             treadmill.movement.Add(4f);
 
-            treadmill.Update();
+            PrivateAccess.Invoke(treadmill, "Update");
 
             Assert.AreEqual(5f, actor.transform.position.z);
         }
@@ -444,8 +461,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a tracked GameObject that teardown destroys.</summary>
-        /// <param name="objectName">The name assigned to the created object.</param>
-        /// <returns>The created object.</returns>
         private GameObject NewObject(string objectName)
         {
             GameObject created = new GameObject(objectName);
@@ -455,8 +470,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a tracked GameObject carrying the requested controller component.</summary>
         /// <typeparam name="TController">The controller component type to attach.</typeparam>
-        /// <param name="controllerName">The name assigned to the controller object.</param>
-        /// <returns>The attached controller component.</returns>
         private TController NewController<TController>(string controllerName)
             where TController : ControllerObject
         {
@@ -464,9 +477,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a tracked actor GameObject positioned at the requested world position.</summary>
-        /// <param name="actorName">The name assigned to the actor object.</param>
         /// <param name="position">The world position the actor starts at.</param>
-        /// <returns>The created actor component.</returns>
         private ActorObject NewActor(string actorName, Vector3 position)
         {
             GameObject host = NewObject(actorName);
@@ -475,7 +486,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Returns the scene's Controllers root, creating a tracked one when the scene lacks it.</summary>
-        /// <returns>The Controllers root object.</returns>
         private GameObject EnsureControllersRoot()
         {
             GameObject existing = GameObject.Find("Controllers");
@@ -486,7 +496,25 @@ namespace SL.Tests.EditMode
         /// <param name="movement">The movement value carried by the published message.</param>
         private void PublishMotion(float movement)
         {
-            _mqtt.Publish(MQTTTopics.Motion, new LinearTreadmill.TreadmillMessage { movement = movement });
+            _mqtt.Publish(MQTTTopics.Motion, CreateTreadmillMessage(movement));
+        }
+
+        /// <summary>Builds a Motion payload through the private nested treadmill message type.</summary>
+        /// <remarks>
+        /// LinearTreadmill.TreadmillMessage is private, so the test assembly cannot name it. Resolving the type by
+        /// reflection and writing its field through PrivateAccess leaves the serialized payload byte-identical to the
+        /// one the production publish path produces.
+        /// </remarks>
+        /// <param name="movement">The movement value carried by the message.</param>
+        /// <returns>The constructed message, typed as object because the nested type is private.</returns>
+        private static object CreateTreadmillMessage(float movement)
+        {
+            Type messageType = typeof(LinearTreadmill).GetNestedType("TreadmillMessage", BindingFlags.NonPublic);
+            Assert.IsNotNull(messageType, "LinearTreadmill must declare a nested TreadmillMessage type.");
+
+            object message = Activator.CreateInstance(messageType, nonPublic: true);
+            PrivateAccess.SetField(message, "movement", movement);
+            return message;
         }
 
         /// <summary>Disables and detaches the simulated action map so teardown never disposes the asset.</summary>

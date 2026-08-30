@@ -1,7 +1,8 @@
 /// <summary>
 /// Provides the ControllerObject base class for input handling.
 ///
-/// Defines the abstract controller interface and the ValueBuffer class for accumulating input between frames.
+/// Concrete subclasses drive the linked ActorObject's position, drawing movement either from a physical treadmill over
+/// MQTT or from the keyboard.
 /// </summary>
 using UnityEngine;
 #if UNITY_EDITOR
@@ -17,7 +18,7 @@ namespace Gimbl
         public ActorObject actor;
 
         /// <summary>The buffer for accumulating movement input between frames.</summary>
-        public readonly ValueBuffer movement = new ValueBuffer();
+        internal readonly ValueBuffer movement = new ValueBuffer();
 
 #if UNITY_EDITOR
         /// <summary>Parents this controller under the scene's Controllers root and registers it for undo.</summary>
@@ -29,7 +30,7 @@ namespace Gimbl
 #endif
 
         /// <summary>Accumulates input values into a running total that callers drain once per frame.</summary>
-        public class ValueBuffer
+        internal class ValueBuffer
         {
             /// <summary>The running total of the values added since the last clear.</summary>
             private float _accumulator;

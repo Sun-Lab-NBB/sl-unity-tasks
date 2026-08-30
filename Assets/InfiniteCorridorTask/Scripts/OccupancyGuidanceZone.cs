@@ -32,7 +32,7 @@ namespace SL.Tasks
         private bool _hasTriggered = false;
 
         /// <summary>Determines whether the brake guidance fired during the current lap.</summary>
-        public bool BrakeTriggered => _hasTriggered;
+        internal bool BrakeTriggered => _hasTriggered;
 
         /// <summary>Initializes references and sets up the MQTT channel.</summary>
         private void Start()

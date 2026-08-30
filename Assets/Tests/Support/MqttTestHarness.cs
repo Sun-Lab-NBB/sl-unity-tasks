@@ -29,7 +29,8 @@ namespace SL.Tests
         /// <summary>The client whose publish path the code under test uses.</summary>
         public MQTTClient Client { get; }
 
-        /// <summary>Creates the host object, installs the singleton, and subscribes one capture channel per topic.
+        /// <summary>
+        /// Creates the host object, installs the singleton, and subscribes one capture channel per topic.
         /// </summary>
         private MqttTestHarness()
         {
@@ -54,7 +55,7 @@ namespace SL.Tests
         }
 
         /// <summary>Returns every topic literal declared by <see cref="MQTTTopics"/>.</summary>
-        /// <returns>The topic literals, in declaration order.</returns>
+        /// <returns>The topic literals, in the order reflection reports them.</returns>
         public static IEnumerable<string> KnownTopics()
         {
             List<string> topics = new List<string>();
@@ -176,7 +177,7 @@ namespace SL.Tests
 
             /// <summary>Records the payload, then invokes the base trigger event.</summary>
             /// <param name="messageString">The routed payload string.</param>
-            public override void ReceivedMessage(string messageString)
+            internal override void ReceivedMessage(string messageString)
             {
                 payloads.Add(messageString);
                 base.ReceivedMessage(messageString);

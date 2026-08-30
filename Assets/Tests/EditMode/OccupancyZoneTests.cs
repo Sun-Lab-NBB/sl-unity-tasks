@@ -21,18 +21,20 @@ namespace SL.Tests.EditMode
     public class OccupancyZoneTests
     {
         /// <summary>The message the zone logs when the animal enters while the zone tracks occupancy.</summary>
-        private const string EnteredLogMessage = "OccupancyZone: Animal entered, timer started.";
+        private const string EnteredLogMessage = "Animal entered the occupancy zone, timer started.";
 
         /// <summary>The message the zone logs when the elapsed time reaches the required occupancy duration.</summary>
-        private const string MetLogMessage = "OccupancyZone: Occupancy requirement met.";
+        private const string MetLogMessage = "Occupancy requirement met.";
 
         /// <summary>The message the zone logs when the animal exits before the occupancy requirement is met.</summary>
-        private const string FailedLogMessage = "OccupancyZone: Occupancy failed - animal left early.";
+        private const string FailedLogMessage = "Occupancy failed, the animal left before the requirement was met.";
 
         /// <summary>The occupancy duration in milliseconds that no elapsed reading inside a test reaches.</summary>
         private const long UnreachableDurationMilliseconds = 60000L;
 
-        /// <summary>The occupancy duration in milliseconds the boundary tests compare their readings against.</summary>
+        /// <summary>
+        /// The occupancy duration in milliseconds against which the boundary tests compare their readings.
+        /// </summary>
         private const long BoundaryDurationMilliseconds = 1000L;
 
         /// <summary>The elapsed reading in milliseconds that sits strictly above the boundary duration.</summary>
@@ -640,7 +642,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Returns the private stopwatch the occupancy zone times its laps with.</summary>
+        /// <summary>Returns the private stopwatch that the occupancy zone uses to time its laps.</summary>
         /// <param name="rig">The rig whose occupancy zone to read.</param>
         /// <returns>The stopwatch the field initializer allocated when the component was constructed.</returns>
         private static Stopwatch OccupancyTimer(ZoneRig rig)
@@ -695,7 +697,7 @@ namespace SL.Tests.EditMode
         /// <summary>Records one message Unity routed through the log callback.</summary>
         /// <param name="condition">The logged message text.</param>
         /// <param name="stackTrace">The stack trace Unity captured for the message.</param>
-        /// <param name="type">The severity Unity logged the message at.</param>
+        /// <param name="type">The severity at which Unity logged the message.</param>
         private void RecordLogMessage(string condition, string stackTrace, LogType type)
         {
             _logMessages.Add(condition);

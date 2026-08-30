@@ -9,14 +9,15 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the TagsAndLayers class.</summary>
     /// <remarks>
-    /// Every test writes into the project's TagManager asset, so each name a test introduces carries the ZZTest prefix
-    /// and teardown removes every prefixed tag and layer. The assertions read the asset back through a separate
-    /// SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a failure.
+    /// Tests that add a tag or layer write into the project's TagManager asset, so each name a test introduces carries
+    /// the ZZTest prefix and teardown removes every prefixed tag and layer. The assertions read the asset back through
+    /// a separate SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a
+    /// failure.
     /// </remarks>
     [TestFixture]
     public class TagsAndLayersTests
     {
-        /// <summary>The prefix every tag and layer name a test introduces carries.</summary>
+        /// <summary>The prefix carried by every tag and layer name a test introduces.</summary>
         private const string TestPrefix = "ZZTest";
 
         /// <summary>The lowest layer slot the layer writer is allowed to fill.</summary>
@@ -25,7 +26,9 @@ namespace SL.Tests.EditMode
         /// <summary>The exclusive upper bound on the layer slots the layer writer examines.</summary>
         private const int LayerSlotBound = 32;
 
-        /// <summary>The project path of the TagManager asset both the class under test and the tests open.</summary>
+        /// <summary>
+        /// The project path of the TagManager asset opened by both the class under test and the tests.
+        /// </summary>
         private const string TagManagerPath = "ProjectSettings/TagManager.asset";
 
         /// <summary>Removes every tag and layer the finished test introduced.</summary>
@@ -179,7 +182,7 @@ namespace SL.Tests.EditMode
                 TagsAndLayers.AddLayer($"{TestPrefix}LayerOverflow")
             );
 
-            StringAssert.Contains("All allowed layers have been filled.", exception.Message);
+            StringAssert.Contains("A free user layer slot must exist", exception.Message);
         }
 
         /// <summary>Verifies that the highest layer slot is filled once every writable slot below it is taken.

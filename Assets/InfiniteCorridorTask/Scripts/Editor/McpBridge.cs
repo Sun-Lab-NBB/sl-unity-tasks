@@ -1,8 +1,8 @@
 /// <summary>
 /// Provides the McpBridge editor plugin that exposes Unity Editor operations to external MCP relay servers.
 ///
-/// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the
-/// sollertia-virtual-reality MCP relay.
+/// Starts an HTTP listener on localhost when the Editor loads, accepting JSON tool call requests from the slsa mcp
+/// server's Unity relay in sollertia-shared-assets and from the sollertia-experiment UnityBridgeClient.
 /// </summary>
 using System;
 using System.Collections.Concurrent;
@@ -22,14 +22,13 @@ namespace SL.Tasks
 {
     /// <summary>
     /// Bridges external MCP relay requests to Unity Editor API calls over an HTTP listener.
-    /// Initialized automatically when the Editor loads via <see cref="InitializeOnLoadAttribute"/>.
     /// </summary>
     /// <remarks>
     /// Each request specifies a tool name and arguments, and the bridge dispatches to the corresponding Unity Editor
     /// API and returns a JSON result.
     /// </remarks>
     [InitializeOnLoad]
-    public static class McpBridge
+    internal static class McpBridge
     {
         /// <summary>The port on which the bridge listens for incoming HTTP requests.</summary>
         private const int Port = 8090;
@@ -46,7 +45,7 @@ namespace SL.Tasks
         /// <summary>The number of Unity log entries the console buffer retains before evicting the oldest.</summary>
         private const int ConsoleBufferCapacity = 500;
 
-        /// <summary>The number of console entries a read_console call returns when it requests no limit.</summary>
+        /// <summary>The maximum number of console entries a read_console call returns when it omits limit.</summary>
         private const int DefaultConsoleReadLimit = 100;
 
         /// <summary>
@@ -97,7 +96,7 @@ namespace SL.Tasks
             "Assets/InfiniteCorridorTask/Prefabs/OccupancyTriggerZone.prefab",
         };
 
-        /// <summary>The HTTP listener instance.</summary>
+        /// <summary>The listener bound to the three loopback prefixes, re-armed after every accepted request.</summary>
         private static readonly HttpListener Listener = new HttpListener();
 
         /// <summary>The queue of HTTP requests captured on the listener thread, drained on the editor thread.</summary>
@@ -127,7 +126,9 @@ namespace SL.Tasks
         /// </remarks>
         private static FullScreenViewManager _cachedFullScreenManager;
 
-        /// <summary>Starts the HTTP listener and registers the editor update and scene-change callbacks.</summary>
+        /// <summary>
+        /// Starts the HTTP listener and registers the editor update, scene-change, and threaded log callbacks.
+        /// </summary>
         static McpBridge()
         {
             EditorSceneManager.activeSceneChangedInEditMode += (Scene oldScene, Scene newScene) =>
@@ -147,17 +148,20 @@ namespace SL.Tasks
                 Listener.BeginGetContext(OnContextReceived, null);
                 EditorApplication.update += Poll;
                 string message =
-                    $"McpBridge: Listening on http://127.0.0.1:{Port}/, http://[::1]:{Port}/, "
+                    $"The MCP bridge is listening on http://127.0.0.1:{Port}/, http://[::1]:{Port}/, "
                     + $"and http://localhost:{Port}/";
                 Debug.Log(message);
             }
             catch (Exception exception)
             {
-                Debug.LogError($"McpBridge: Failed to start HTTP listener: {exception.Message}");
+                string message =
+                    $"Unable to start the MCP bridge HTTP listener. The listener must bind port {Port} on all "
+                    + $"three loopback prefixes, but the bind failed with: {exception.Message}";
+                Debug.LogError(message);
             }
         }
 
-        /// <summary>Thread-pool callback that captures a completed request and re-arms the listener.</summary>
+        /// <summary>Captures a completed request on the thread pool and re-arms the listener.</summary>
         /// <param name="asyncResult">The asynchronous result for the completed BeginGetContext call.</param>
         private static void OnContextReceived(IAsyncResult asyncResult)
         {
@@ -173,7 +177,10 @@ namespace SL.Tasks
             }
             catch (Exception exception)
             {
-                Debug.LogError($"McpBridge: EndGetContext failed: {exception.Message}");
+                string message =
+                    "Unable to capture an incoming bridge request. EndGetContext must return the completed "
+                    + $"listener context, but it threw: {exception.Message}";
+                Debug.LogError(message);
             }
 
             try
@@ -182,7 +189,10 @@ namespace SL.Tasks
             }
             catch (Exception exception)
             {
-                Debug.LogError($"McpBridge: Failed to re-arm listener: {exception.Message}");
+                string message =
+                    "Unable to re-arm the MCP bridge HTTP listener. BeginGetContext must queue the next "
+                    + $"request, but it threw: {exception.Message}";
+                Debug.LogError(message);
             }
         }
 
@@ -226,9 +236,7 @@ namespace SL.Tasks
         /// <summary>
         /// Reads the request body, dispatches to the appropriate tool handler, and writes the response.
         /// </summary>
-        /// <param name="context">
-        /// The HTTP listener context containing the request and response objects.
-        /// </param>
+        /// <param name="context">The HTTP listener context containing the request and response objects.</param>
         private static void HandleRequest(HttpListenerContext context)
         {
             string responseJson;
@@ -239,9 +247,9 @@ namespace SL.Tasks
                 string body = reader.ReadToEnd();
 
                 Dictionary<string, object> request = MiniJson.Deserialize(body);
-                // Uses TryGetValue + null check so a JSON-null value for "tool" does not NRE on ToString().
-                // A missing or non-dictionary "args" value falls back to an empty dict so dispatched tools
-                // always receive a well-formed arguments parameter.
+                // Uses TryGetValue + null check so a JSON-null value for "tool" does not raise a NullReferenceException
+                // on ToString(). A missing or non-dictionary "args" value falls back to an empty dictionary so
+                // dispatched tools always receive a well-formed arguments parameter.
                 string tool =
                     request.TryGetValue("tool", out object toolObject) && toolObject != null
                         ? toolObject.ToString()
@@ -272,15 +280,17 @@ namespace SL.Tasks
                 // The client drops the connection once its own request timeout expires, which the 30 second bound in
                 // the Python relay makes routine for a long generation. Aborting releases the context and its socket,
                 // which an escaping exception would leak for the rest of the Editor session.
-                Debug.LogWarning($"McpBridge: Failed to deliver response: {exception.Message}");
+                string message =
+                    "Unable to deliver the bridge response. The client connection must stay open until the "
+                    + $"response is written, but the write failed with: {exception.Message}";
+                Debug.LogWarning(message);
                 context.Response.Abort();
             }
         }
 
         /// <summary>Routes a tool call to the appropriate handler method.</summary>
         /// <param name="tool">The tool name to dispatch.</param>
-        /// <param name="arguments">The tool arguments as a string-keyed dictionary.</param>
-        /// <returns>A JSON response string.</returns>
+        /// <param name="arguments">The tool arguments carried by the request body.</param>
         private static string Dispatch(string tool, Dictionary<string, object> arguments)
         {
             return tool switch
@@ -303,7 +313,7 @@ namespace SL.Tasks
                 "write_task_parameters" => WriteTaskParameters(arguments),
                 "refresh_monitors" => RefreshMonitors(),
                 "read_console" => ReadConsole(arguments),
-                _ => Error($"Unknown tool: {tool}"),
+                _ => Error($"Unable to dispatch '{tool}'. It must be a declared bridge tool, but it is not."),
             };
         }
 
@@ -346,8 +356,8 @@ namespace SL.Tasks
             }
 
             // The path is stored on the Task component and resolved at runtime as ``Path.Combine(Application.dataPath,
-            // configPath)``. A leading ``/`` would make Path.Combine treat the value as absolute on Linux/macOS and
-            // discard the data path.
+            // configPath)``, with Task trimming leading separators from the stored value first. Building this literal
+            // without a leading ``/`` keeps the stored value canonical.
             string relativeConfigPath = Path.Combine("InfiniteCorridorTask", "Configurations", $"{templateName}.yaml");
 
             // AssetDatabase paths are forward-slash by contract, so these are built as literals rather than through
@@ -358,11 +368,13 @@ namespace SL.Tasks
             // Refuses to clobber an existing scene before generating the prefab so a regeneration cycle
             // is an explicit two-step action: delete_task first, then create_task. Checking up front
             // avoids leaving a regenerated prefab behind without the matching scene on overwrite refusal.
-            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds
-            // whatever working directory the Editor process runs under.
+            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds under
+            // any working directory the Editor process runs in.
             if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(sceneSavePath) != null)
             {
-                string message = $"Scene already exists at: {sceneSavePath}. Call delete_task first to regenerate.";
+                string message =
+                    "Unable to create the task. The scene save path must be free, but a scene already exists "
+                    + $"at {sceneSavePath}. Call delete_task first to regenerate.";
                 return Error(message);
             }
 
@@ -622,7 +634,11 @@ namespace SL.Tasks
 
             if (!AssetDatabase.CopyAsset(sourcePrefab, destinationPrefab))
             {
-                return Error($"Failed to copy '{sourcePrefab}' to '{destinationPrefab}'.");
+                string message =
+                    $"Unable to clone the zone prefab. AssetDatabase must copy '{sourcePrefab}' to "
+                    + $"'{destinationPrefab}', but the copy failed. The destination folder may be missing or the "
+                    + "source prefab may be unreadable.";
+                return Error(message);
             }
 
             string editError = null;
@@ -682,7 +698,7 @@ namespace SL.Tasks
         /// <param name="rootScript">The root script type name, or null to keep the source root script.</param>
         /// <param name="regions">The raw region edit specifications from the request.</param>
         /// <param name="rootScriptType">The resolved root script type, or null when none was requested.</param>
-        /// <param name="regionEdits">Validated region specs paired with resolved script types.</param>
+        /// <param name="regionEdits">Validated region specifications paired with resolved script types.</param>
         /// <returns>An error message when a name fails to resolve or a region is malformed, otherwise null.</returns>
         private static string ResolveCloneScripts(
             string rootScript,
@@ -735,7 +751,9 @@ namespace SL.Tasks
         /// <summary>Resolves a MonoBehaviour type by its simple name across compiled assemblies.</summary>
         /// <param name="typeName">The simple class name to resolve.</param>
         /// <param name="resolved">The resolved type on success, otherwise null.</param>
-        /// <returns>An error message when the name is unknown or ambiguous, otherwise null.</returns>
+        /// <returns>
+        /// An error message when the name is unknown, ambiguous, or names an abstract type, otherwise null.
+        /// </returns>
         private static string ResolveMonoBehaviourType(string typeName, out Type resolved)
         {
             resolved = null;
@@ -835,7 +853,9 @@ namespace SL.Tasks
         /// <summary>Replaces a GameObject's single modifier script, preserving shared field values.</summary>
         /// <param name="target">The GameObject whose modifier script is replaced.</param>
         /// <param name="scriptType">The replacement MonoBehaviour type.</param>
-        /// <param name="requireBaseType">A base type the replacement must derive from, or null to allow any.</param>
+        /// <param name="requireBaseType">
+        /// A base type from which the replacement must derive, or null to allow any.
+        /// </param>
         /// <param name="fields">Field overrides to apply after the swap, or null to apply none.</param>
         /// <returns>An error message when the swap or overrides fail, otherwise null.</returns>
         private static string SwapZoneScript(
@@ -869,7 +889,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Finds the single modifier MonoBehaviour on a GameObject.</summary>
-        /// <param name="target">The GameObject to inspect.</param>
+        /// <param name="target">The zone GameObject whose modifier scripts are counted.</param>
         /// <param name="error">An error message when the modifier count is not exactly one, otherwise null.</param>
         /// <returns>The single MonoBehaviour, or null when the count is not exactly one.</returns>
         private static MonoBehaviour FindSingleZoneModifier(GameObject target, out string error)
@@ -966,7 +986,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Assigns a boxed value to a serialized property, matching its type.</summary>
-        /// <param name="property">The serialized property to assign.</param>
+        /// <param name="property">The destination property, whose declared type selects the conversion.</param>
         /// <param name="value">The boxed value from the request payload.</param>
         /// <returns>An error message when the type is unsupported or the conversion fails, otherwise null.</returns>
         private static string SetSerializedProperty(SerializedProperty property, object value)
@@ -1005,8 +1025,8 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a boolean value from the arguments dictionary with an optional default.</summary>
-        /// <param name="arguments">The arguments dictionary to search.</param>
-        /// <param name="key">The key to look up.</param>
+        /// <param name="arguments">The decoded tool arguments from the request body.</param>
+        /// <param name="key">The argument name whose value is read.</param>
         /// <param name="defaultValue">The default value when the key is absent or unparseable.</param>
         /// <returns>The parsed boolean value, or the default.</returns>
         private static bool GetBool(Dictionary<string, object> arguments, string key, bool defaultValue = false)
@@ -1028,8 +1048,8 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a list value from the arguments dictionary, or an empty list when absent.</summary>
-        /// <param name="arguments">The arguments dictionary to search.</param>
-        /// <param name="key">The key to look up.</param>
+        /// <param name="arguments">The decoded tool arguments from the request body.</param>
+        /// <param name="key">The argument name whose value is read.</param>
         /// <returns>The list value, or an empty list when the key is absent or not a list.</returns>
         private static List<object> GetList(Dictionary<string, object> arguments, string key)
         {
@@ -1042,8 +1062,8 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a nested object from the arguments dictionary, or empty when absent.</summary>
-        /// <param name="arguments">The arguments dictionary to search.</param>
-        /// <param name="key">The key to look up.</param>
+        /// <param name="arguments">The decoded tool arguments from the request body.</param>
+        /// <param name="key">The argument name whose value is read.</param>
         /// <returns>The dictionary value, or an empty dictionary when the key is absent or not an object.</returns>
         private static Dictionary<string, object> GetDictionary(Dictionary<string, object> arguments, string key)
         {
@@ -1102,7 +1122,11 @@ namespace SL.Tasks
             bool deleted = AssetDatabase.DeleteAsset(assetPath);
             if (!deleted)
             {
-                return Error($"Failed to delete asset at: {assetPath}");
+                string message =
+                    $"Unable to delete the asset at '{assetPath}'. AssetDatabase must report the deletion as "
+                    + "successful, but it refused it. The asset may be open in the Editor or held read-only by "
+                    + "version control.";
+                return Error(message);
             }
 
             AssetDatabase.Refresh();
@@ -1155,9 +1179,7 @@ namespace SL.Tasks
             return null;
         }
 
-        /// <summary>
-        /// Lists Unity assets of a given type filter (e.g., "Prefab", "Scene", "Material").
-        /// </summary>
+        /// <summary>Lists Unity assets of a given type filter (e.g., "Prefab", "Scene", "Material").</summary>
         /// <param name="arguments">The tool arguments containing optional asset_type and search_path filters.</param>
         /// <returns>A JSON response with matching asset paths.</returns>
         private static string ListAssets(Dictionary<string, object> arguments)
@@ -1226,9 +1248,9 @@ namespace SL.Tasks
                 return Error("Missing required argument: scene_path");
             }
 
-            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds
-            // whatever working directory the Editor process runs under, and typing the lookup to SceneAsset keeps a
-            // folder or a non-scene asset out of the scene that EditorSceneManager is asked to open.
+            // The AssetDatabase resolves the project-relative path against the project root, so the answer holds under
+            // any working directory the Editor process runs in. Typing the lookup to SceneAsset keeps a folder or a
+            // non-scene asset out of the scene that EditorSceneManager is asked to open.
             if (AssetDatabase.LoadAssetAtPath<SceneAsset>(scenePath) == null)
             {
                 return Error($"Scene not found at: {scenePath}");
@@ -1253,10 +1275,10 @@ namespace SL.Tasks
 
         /// <summary>Saves the active scene to its existing asset path.</summary>
         /// <remarks>
-        /// Clears the dirty flag that every write_task_parameters call sets, which the play-mode preflight
-        /// requires. An unsaved scene has no asset path to save to and is rejected rather than routed into a
-        /// save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is
-        /// likewise rejected, since edits made there are discarded on exit and saving them is never intended.
+        /// Clears the dirty flag that any write_task_parameters call actually writing a value sets, which the play-mode
+        /// preflight requires. An unsaved scene has no asset path to write, so it is rejected rather than routed into
+        /// a save dialog, because the bridge answers a headless caller that cannot dismiss one. Play Mode is likewise
+        /// rejected, since edits made there are discarded on exit and saving them is never intended.
         /// </remarks>
         /// <returns>A JSON response with the saved path and the post-save dirty state, or an error message.</returns>
         private static string SaveScene()
@@ -1378,7 +1400,7 @@ namespace SL.Tasks
         /// modifies, and writes back values does not race against a separate enumeration pass. Cameras are
         /// filtered to match the GUI dropdown (Main Camera excluded). Monitor mapping is sourced from the
         /// open Parameters window's FullScreenViewManager when available, falling back to a fresh manager
-        /// loaded from <c>savedFullScreenViews.asset</c> when the window is closed.
+        /// loaded from the per-scene <c>savedFullScreenViews</c> companion when the window is closed.
         /// </remarks>
         /// <returns>A JSON response with state, options, and visibility nested dictionaries.</returns>
         private static string ReadTaskParameters()
@@ -1388,7 +1410,7 @@ namespace SL.Tasks
 
         /// <summary>Applies the supplied parameter subset and returns the post-write snapshot.</summary>
         /// <remarks>
-        /// Each section is optional and individual fields within a section are also optional. The whole request is
+        /// Each section is optional and each field in a field-subset section is also optional. The whole request is
         /// validated before any section applies, so a rejected value leaves the scene untouched rather than partly
         /// written. Validation rejects values outside the enumeration reported by <see cref="ReadTaskParameters"/>,
         /// and rejects require_interaction / require_wait writes when the corresponding zone is absent from the
@@ -1397,8 +1419,9 @@ namespace SL.Tasks
         /// final <see cref="EditorSceneManager.MarkSceneDirty"/> when any write succeeded.
         /// </remarks>
         /// <param name="arguments">
-        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>, <c>display</c>,
-        /// <c>camera_mapping</c>, and <c>task</c>, each carrying the field subset to write.
+        /// The dispatched tool arguments. Optional top-level keys are <c>actor</c>, <c>mqtt</c>, <c>display</c>, and
+        /// <c>task</c>, each carrying the field subset to write, plus <c>camera_mapping</c>, carrying a list of
+        /// per-monitor rows keyed by <c>monitor</c> and <c>camera</c>.
         /// </param>
         /// <returns>A JSON response carrying the post-write snapshot from <see cref="ReadTaskParameters"/>.</returns>
         private static string WriteTaskParameters(Dictionary<string, object> arguments)
@@ -1525,7 +1548,7 @@ namespace SL.Tasks
             );
         }
 
-        /// <summary>Reports whether a level filter names a severity group that read_console accepts.</summary>
+        /// <summary>Determines whether a level filter names a severity group that read_console accepts.</summary>
         /// <param name="level">The requested level filter.</param>
         /// <returns>True when the filter is one of the four accepted values.</returns>
         private static bool IsKnownConsoleLevel(string level)
@@ -1536,7 +1559,7 @@ namespace SL.Tasks
                 || string.Equals(level, "error", StringComparison.Ordinal);
         }
 
-        /// <summary>Reports whether a captured entry's severity falls inside the requested level group.</summary>
+        /// <summary>Determines whether a captured entry's severity falls inside the requested level group.</summary>
         /// <remarks>
         /// The error group covers Error, Exception, and Assert together, because the three mean the same thing
         /// to a caller diagnosing a failed run and Unity's own Console collapses them onto one toggle.
@@ -1567,8 +1590,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Performs the single scene walk shared by <see cref="ReadTaskParameters"/> and
-        /// <see cref="WriteTaskParameters"/>.
+        /// Performs the single scene walk shared by <see cref="ReadTaskParameters"/>,
+        /// <see cref="WriteTaskParameters"/>, and <see cref="RefreshMonitors"/>.
         /// </summary>
         /// <returns>A snapshot of every component the Task Parameters endpoints consume.</returns>
         private static SceneComponents AcquireSceneComponents()
@@ -1618,8 +1641,8 @@ namespace SL.Tasks
         /// </summary>
         /// <remarks>
         /// Takes a pre-acquired <see cref="SceneComponents"/> rather than re-walking the scene so the
-        /// post-write response from <see cref="WriteTaskParameters"/> reuses the same component references
-        /// it already validated against, avoiding a third scene scan per request.
+        /// post-write response from <see cref="WriteTaskParameters"/> reuses the same component references that it
+        /// already validated, avoiding a third scene scan per request.
         /// </remarks>
         /// <param name="components">The pre-acquired scene component snapshot.</param>
         /// <returns>The response payload ready for <see cref="Ok"/>.</returns>
@@ -1786,7 +1809,9 @@ namespace SL.Tasks
                     actorArgs.TryGetValue("controller", out object controllerObject)
                     && controllerObject is string newController
                     && !string.Equals(newController, "None", StringComparison.Ordinal)
-                    && components.Controllers.All(controller => controller.gameObject.name != newController)
+                    && components.Controllers.All(controller =>
+                        !string.Equals(controller.gameObject.name, newController, StringComparison.Ordinal)
+                    )
                 )
                 {
                     string controllerNames = string.Join(
@@ -1889,7 +1914,9 @@ namespace SL.Tasks
                 }
                 if (
                     !string.Equals(cameraName, "None", StringComparison.Ordinal)
-                    && components.DisplayCameras.All(camera => camera.name != cameraName)
+                    && components.DisplayCameras.All(camera =>
+                        !string.Equals(camera.name, cameraName, StringComparison.Ordinal)
+                    )
                 )
                 {
                     return $"Invalid camera '{cameraName}' for monitor {monitorNumber}. Valid: None, "
@@ -1951,10 +1978,10 @@ namespace SL.Tasks
             return null;
         }
 
-        /// <summary>Determines whether a port value converts to a number a broker can be reached on.</summary>
+        /// <summary>Determines whether a port value converts to a number on which a broker can be reached.</summary>
         /// <remarks>
-        /// Bounding the write matters because the value reaches both the scene's client and the EditorPrefs entry the
-        /// client reloads from, so a port outside the range would survive the session that wrote it.
+        /// Bounding the write matters because the value reaches both the scene's client and the EditorPrefs entry from
+        /// which the client reloads, so a port outside the range would survive the session that wrote it.
         /// </remarks>
         /// <param name="value">The boxed value from the request payload.</param>
         /// <returns>True when the value converts to an integer inside the accepted broker port range.</returns>
@@ -2001,7 +2028,9 @@ namespace SL.Tasks
 
         /// <summary>Converts a boxed argument value to a finite single-precision number.</summary>
         /// <param name="value">The boxed value from the request payload.</param>
-        /// <param name="converted">The converted value on success, otherwise zero.</param>
+        /// <param name="converted">
+        /// The converted value on success, zero when the conversion throws, and the non-finite result otherwise.
+        /// </param>
         /// <returns>True when the value converts to a finite float.</returns>
         private static bool TryConvertSingle(object value, out float converted)
         {
@@ -2073,7 +2102,9 @@ namespace SL.Tasks
             {
                 components.Actor.Controller = string.Equals(newController, "None", StringComparison.Ordinal)
                     ? null
-                    : components.Controllers.First(controller => controller.gameObject.name == newController);
+                    : components.Controllers.First(controller =>
+                        string.Equals(controller.gameObject.name, newController, StringComparison.Ordinal)
+                    );
                 dirty = true;
             }
         }
@@ -2196,7 +2227,11 @@ namespace SL.Tasks
                     StringComparison.Ordinal
                 )
                     ? EntityId.None
-                    : components.DisplayCameras.First(camera => camera.name == cameraName).GetEntityId();
+                    : components
+                        .DisplayCameras.First(camera =>
+                            string.Equals(camera.name, cameraName, StringComparison.Ordinal)
+                        )
+                        .GetEntityId();
                 assigned = true;
             }
 
@@ -2292,7 +2327,10 @@ namespace SL.Tasks
 
         /// <summary>Determines whether the given asset path is permitted for deletion.</summary>
         /// <param name="assetPath">The project-relative asset path to check.</param>
-        /// <returns>True when the path lies under an allowed prefix and is not in the protected set.</returns>
+        /// <returns>
+        /// True when the path is relative, free of traversal sequences and trailing separators, lies under an allowed
+        /// prefix, and stays out of the protected set.
+        /// </returns>
         private static bool IsDeleteAllowed(string assetPath)
         {
             // Rejects path traversal sequences, absolute paths, and directory targets to bound the blast radius.
@@ -2326,7 +2364,7 @@ namespace SL.Tasks
 
         /// <summary>Resolves how to handle unsaved changes in the active scene before switching scenes.</summary>
         /// <param name="unsavedChanges">
-        /// The handling policy: "save" persists the active scene, "discard" abandons unsaved edits, and an
+        /// The handling policy: "save" persists every open scene, "discard" abandons unsaved edits, and an
         /// empty string leaves the policy unspecified so the caller can prompt the user.
         /// </param>
         /// <returns>
@@ -2378,9 +2416,9 @@ namespace SL.Tasks
                 .Select(component => component.GetType().Name)
                 .ToList();
             result["components"] = componentNames;
-            // Carries the per-component enabled flag beside the existing type-name list rather than replacing it,
-            // because a disabled Task or a disabled boundary MeshRenderer is the symptom behind most runtime
-            // bailouts and the name list alone cannot express it.
+            // Carries the per-component enabled flag alongside the type-name list, because a disabled Task or a
+            // disabled boundary MeshRenderer is the symptom behind most runtime bailouts and the name list alone
+            // cannot express it.
             result["component_states"] = components
                 .Where(component => component != null)
                 .Select(component => new Dictionary<string, object>
@@ -2418,7 +2456,7 @@ namespace SL.Tasks
         /// three are matched separately. A Transform or a MeshFilter matches none of them and reports null,
         /// which distinguishes "cannot be disabled" from "is disabled" at the call site.
         /// </remarks>
-        /// <param name="component">The component whose enabled state is read.</param>
+        /// <param name="component">The component whose type decides which enabled flag applies.</param>
         /// <returns>The boxed flag, or null for a component type that cannot be disabled.</returns>
         private static object GetComponentEnabled(Component component)
         {
@@ -2445,10 +2483,10 @@ namespace SL.Tasks
         }
 
         /// <summary>Retrieves a string value from the arguments dictionary with an optional default.</summary>
-        /// <param name="arguments">The arguments dictionary to search.</param>
-        /// <param name="key">The key to look up.</param>
-        /// <param name="defaultValue">The default value if the key is not found.</param>
-        /// <returns>The string value, or the default if not found.</returns>
+        /// <param name="arguments">The decoded tool arguments from the request body.</param>
+        /// <param name="key">The argument name whose value is read.</param>
+        /// <param name="defaultValue">The value returned when the argument is absent or JSON null.</param>
+        /// <returns>The argument's text form, or the default when the argument is absent or JSON null.</returns>
         private static string GetString(Dictionary<string, object> arguments, string key, string defaultValue = null)
         {
             if (arguments.ContainsKey(key) && arguments[key] != null)
@@ -2460,7 +2498,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Constructs a success JSON response.</summary>
-        /// <param name="payload">The response payload dictionary.</param>
+        /// <param name="payload">The result fields the handler produced, which gain a success entry.</param>
         /// <returns>A JSON string with success set to true.</returns>
         private static string Ok(Dictionary<string, object> payload)
         {
@@ -2469,7 +2507,7 @@ namespace SL.Tasks
         }
 
         /// <summary>Constructs an error JSON response.</summary>
-        /// <param name="message">The error message.</param>
+        /// <param name="message">The failure text surfaced to the caller.</param>
         /// <returns>A JSON string with success set to false and the error message.</returns>
         private static string Error(string message)
         {
@@ -2477,10 +2515,10 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Aggregates the per-scene component references read by both <see cref="ReadTaskParameters"/> and
-        /// <see cref="WriteTaskParameters"/>. Built once per request via <see cref="AcquireSceneComponents"/>
-        /// so each tool invocation walks the scene exactly once, regardless of how many sections the writer
-        /// touches.
+        /// Aggregates the per-scene component references read by <see cref="ReadTaskParameters"/>,
+        /// <see cref="WriteTaskParameters"/>, and <see cref="RefreshMonitors"/>. Built once per request via
+        /// <see cref="AcquireSceneComponents"/> so each tool invocation walks the scene exactly once, regardless of how
+        /// many sections the writer touches.
         /// </summary>
         private struct SceneComponents
         {

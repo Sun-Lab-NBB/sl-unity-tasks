@@ -129,7 +129,9 @@ namespace Gimbl
             Views.Remove(this);
         }
 
-        /// <summary>Closes the view when Play Mode ends so the post-restore null targetTexture cannot fire.</summary>
+        /// <summary>
+        /// Closes the view when Play Mode ends so the post-restore null targetTexture cannot raise a render error.
+        /// </summary>
         /// <param name="state">The current Play Mode transition.</param>
         private void OnPlayModeStateChanged(PlayModeStateChange state)
         {

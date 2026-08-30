@@ -33,4 +33,4 @@ treat them as collaborative, human-supervised work and do NOT attempt them auton
 **New cue textures hand off cleanly to the user.** You cannot author PNG or other binary texture assets. When a template
 needs a texture that is not already under `Assets/InfiniteCorridorTask/Textures/`, you MUST stop and state the intended
 cue `name`, `code`, `length_cm`, and target filename. Then let the user supply the asset and loop you back to finish
-generation. You MUST NOT let generation dead-end in a `Failed to load texture` error.
+generation. You MUST NOT let generation dead-end in a missing-texture error from `CreateTask.BuildCuePrefabs`.

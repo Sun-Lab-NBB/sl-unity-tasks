@@ -214,9 +214,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(7.5f, second);
         }
 
-        /// <summary>
-        /// Verifies that the two converters read their own centimeter field rather than each other's.
-        /// </summary>
+        /// <summary>Verifies that each converter reads its own centimeter field.</summary>
         [Test]
         public void ConversionProperties_DistinctCentimeterFields_ConvertIndependently()
         {

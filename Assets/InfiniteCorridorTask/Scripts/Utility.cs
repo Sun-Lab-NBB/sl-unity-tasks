@@ -9,8 +9,8 @@ namespace SL.Tasks
     public static class Utility
     {
         /// <summary>
-        /// Calculates the z-axis length of a prefab by combining the bounds of every Renderer on the prefab and
-        /// its children.
+        /// Calculates the z-axis length of a prefab by combining the bounds of every Renderer on the prefab and its
+        /// active children. A renderer under a deactivated object stays outside the combined bounds.
         /// </summary>
         /// <param name="prefab">The root object whose own and child renderers bound the measurement.</param>
         /// <returns>The z-axis size of the combined bounds, or 0 when the prefab carries no renderers.</returns>
@@ -20,7 +20,11 @@ namespace SL.Tasks
 
             if (renderers.Length == 0)
             {
-                Debug.LogWarning($"Utility.GetPrefabLength: No renderers found on prefab '{prefab.name}'.");
+                string message =
+                    $"Unable to measure the z-axis length of prefab '{prefab.name}'. The prefab must carry at "
+                    + "least one renderer on itself or an active child, but it carries none, so the measured "
+                    + "length is 0.";
+                Debug.LogWarning(message);
                 return 0f;
             }
 

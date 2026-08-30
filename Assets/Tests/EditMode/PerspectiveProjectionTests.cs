@@ -33,7 +33,7 @@ namespace SL.Tests.EditMode
         /// <summary>The deactivated GameObject hosting the camera and the projection under test.</summary>
         private GameObject _projectionObject;
 
-        /// <summary>The camera the projection writes its matrices to.</summary>
+        /// <summary>The camera that receives the projection's matrices.</summary>
         private Camera _camera;
 
         /// <summary>The projection under test.</summary>
@@ -83,7 +83,7 @@ namespace SL.Tests.EditMode
         {
             _camera.projectionMatrix = Matrix4x4.identity;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             AssertMatrixApproximatelyEquals(Matrix4x4.identity, _camera.projectionMatrix, "projectionMatrix");
         }
@@ -99,7 +99,7 @@ namespace SL.Tests.EditMode
 
             // The editor reports an absent component through MissingComponentException, which derives from
             // Exception rather than from NullReferenceException, so the concrete type is what a test can pin.
-            Assert.Throws<MissingComponentException>(() => _projection.UpdateView());
+            Assert.Throws<MissingComponentException>(() => PrivateAccess.Invoke(_projection, "UpdateView"));
         }
 
         /// <summary>Verifies that UpdateView throws when the projection screen's MeshFilter holds no mesh.</summary>
@@ -112,7 +112,7 @@ namespace SL.Tests.EditMode
             screen.AddComponent<MeshFilter>().sharedMesh = null;
             _projection.projectionScreen = screen;
 
-            Assert.Throws<NullReferenceException>(() => _projection.UpdateView());
+            Assert.Throws<NullReferenceException>(() => PrivateAccess.Invoke(_projection, "UpdateView"));
         }
 
         /// <summary>Verifies that UpdateView resolves the mesh type and returns when no camera is attached.</summary>
@@ -125,7 +125,7 @@ namespace SL.Tests.EditMode
             PerspectiveProjection cameralessProjection = cameralessObject.AddComponent<PerspectiveProjection>();
             cameralessProjection.projectionScreen = CreateQuadScreen();
 
-            cameralessProjection.UpdateView();
+            PrivateAccess.Invoke(cameralessProjection, "UpdateView");
 
             Assert.AreEqual("Quad", PrivateAccess.GetField<string>(cameralessProjection, "_meshType"));
         }
@@ -137,7 +137,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = Vector3.zero;
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = BuildExpectedProjection(
                 horizontalScale: 1f,
@@ -157,7 +157,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = Vector3.zero;
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = new Matrix4x4();
             expected[0, 0] = 1f;
@@ -174,7 +174,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0.5f, 0f, 0f);
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = BuildExpectedProjection(
                 horizontalScale: 1f,
@@ -194,7 +194,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0.5f, 0f, 0f);
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = new Matrix4x4();
             expected[0, 0] = 1f;
@@ -212,7 +212,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0f, 0.5f, 0f);
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = BuildExpectedProjection(
                 horizontalScale: 1f,
@@ -232,7 +232,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0f, 0f, 2f);
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = BuildExpectedProjection(
                 horizontalScale: 1f,
@@ -252,7 +252,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0f, 0f, 2f);
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = new Matrix4x4();
             expected[0, 0] = 1f;
@@ -275,7 +275,7 @@ namespace SL.Tests.EditMode
                 new Vector3(0.2f, 1f, 0.2f)
             );
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = BuildExpectedProjection(
                 horizontalScale: 1f,
@@ -300,7 +300,7 @@ namespace SL.Tests.EditMode
                 new Vector3(0.2f, 1f, 0.2f)
             );
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Matrix4x4 expected = new Matrix4x4();
             expected[0, 0] = 1f;
@@ -326,7 +326,7 @@ namespace SL.Tests.EditMode
             _camera.projectionMatrix = Matrix4x4.identity;
             LogAssert.Expect(LogType.Warning, new Regex("must be named Plane or Quad, but it is named 'Cube'"));
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual("Cube", PrivateAccess.GetField<string>(_projection, "_meshType"));
             AssertMatrixApproximatelyEquals(Matrix4x4.identity, _camera.projectionMatrix, "projectionMatrix");
@@ -339,10 +339,10 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.position = new Vector3(0f, 1f, 1f);
             GameObject screen = CreateCenteredScreen("Quad");
             _projection.projectionScreen = screen;
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             screen.GetComponent<MeshFilter>().sharedMesh = CreateNamedMesh("Plane");
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual("Plane", PrivateAccess.GetField<string>(_projection, "_meshType"));
             AssertMatrixApproximatelyEquals(
@@ -352,17 +352,16 @@ namespace SL.Tests.EditMode
             );
         }
 
-        /// <summary>Verifies that replacing the projection screen re-reads the mesh type from the new screen.
-        /// </summary>
+        /// <summary>Verifies that replacing the projection screen re-reads the mesh type from the new screen.</summary>
         [Test]
         public void UpdateView_ProjectionScreenReplaced_ResolvesTheNewScreenMeshType()
         {
             _projectionObject.transform.position = new Vector3(0f, 1f, 1f);
             _projection.projectionScreen = CreateCenteredScreen("Quad");
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             _projection.projectionScreen = CreateCenteredScreen("Plane");
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual("Plane", PrivateAccess.GetField<string>(_projection, "_meshType"));
             AssertMatrixApproximatelyEquals(
@@ -380,7 +379,7 @@ namespace SL.Tests.EditMode
             _projection.projectionScreen = CreateQuadScreen();
             _projection.setNearClipPlane = true;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(0.99f, _camera.nearClipPlane, 1e-5f);
             Matrix4x4 expected = BuildExpectedProjection(
@@ -403,7 +402,7 @@ namespace SL.Tests.EditMode
             _projection.setNearClipPlane = true;
             _projection.nearClipDistanceOffset = 0.5f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(1.5f, _camera.nearClipPlane, 1e-5f);
             Matrix4x4 expected = BuildExpectedProjection(
@@ -425,7 +424,7 @@ namespace SL.Tests.EditMode
             _projection.projectionScreen = CreateQuadScreen();
             _camera.nearClipPlane = 2f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(2f, _camera.nearClipPlane, 1e-5f);
             Matrix4x4 expected = BuildExpectedProjection(
@@ -449,7 +448,7 @@ namespace SL.Tests.EditMode
             _projection.estimateViewFrustum = true;
             _camera.aspect = 2f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             float angleToIdentity = Quaternion.Angle(Quaternion.identity, _projectionObject.transform.rotation);
             Assert.AreEqual(0f, angleToIdentity, 1e-2f);
@@ -464,7 +463,7 @@ namespace SL.Tests.EditMode
             _projection.estimateViewFrustum = true;
             _camera.aspect = 2f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(66.5868f, _camera.fieldOfView, 1e-2f);
         }
@@ -478,7 +477,7 @@ namespace SL.Tests.EditMode
             _projection.estimateViewFrustum = true;
             _camera.aspect = 1f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(66.5868f, _camera.fieldOfView, 1e-2f);
         }
@@ -492,7 +491,7 @@ namespace SL.Tests.EditMode
             _projection.estimateViewFrustum = true;
             _camera.aspect = 0.5f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(133.1736f, _camera.fieldOfView, 2e-2f);
         }
@@ -506,7 +505,7 @@ namespace SL.Tests.EditMode
             _camera.aspect = 2f;
             _camera.fieldOfView = 30f;
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             Assert.AreEqual(30f, _camera.fieldOfView, 1e-3f);
         }
@@ -520,7 +519,7 @@ namespace SL.Tests.EditMode
             _projectionObject.transform.rotation = originalRotation;
             _projection.projectionScreen = CreateQuadScreen();
 
-            _projection.UpdateView();
+            PrivateAccess.Invoke(_projection, "UpdateView");
 
             float rotationDrift = Quaternion.Angle(originalRotation, _projectionObject.transform.rotation);
             Assert.AreEqual(0f, rotationDrift, 1e-3f);

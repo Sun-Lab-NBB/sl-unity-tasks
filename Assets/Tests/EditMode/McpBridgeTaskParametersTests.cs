@@ -21,18 +21,19 @@ namespace SL.Tests.EditMode
     /// <summary>Verifies the task parameter, scene snapshot, play state, and monitor handlers of McpBridge.</summary>
     /// <remarks>
     /// Every test drives the bridge through its Dispatch entry point or through the private handler that backs a tool,
-    /// against a scene the fixture builds from scratch, so no assertion depends on whichever scene happened to be open.
-    /// The FullScreenViewManager the bridge resolves is installed by the fixture with a synthetic monitor list. That
-    /// manager is either an open Parameters window's manager or one built without running the enumerating constructor,
-    /// so the camera mapping surface is deterministic and real monitor enumeration runs in the refresh test alone.
+    /// against a scene the fixture builds from scratch, or a named project scene the test opens itself. No assertion
+    /// depends on whichever scene happened to be open. The FullScreenViewManager the bridge resolves is installed by
+    /// the fixture with a synthetic monitor list. That manager is either an open Parameters window's manager or one
+    /// built without running the enumerating constructor, so the camera mapping surface is deterministic and real
+    /// monitor enumeration runs in the refresh tests alone.
     /// </remarks>
     [TestFixture]
     public class McpBridgeTaskParametersTests
     {
-        /// <summary>The EditorPrefs key the mqtt section writes the broker address to.</summary>
+        /// <summary>The EditorPrefs key to which the mqtt section writes the broker address.</summary>
         private const string IpPreferenceKey = "SollertiaVR_MQTT_IP";
 
-        /// <summary>The EditorPrefs key the mqtt section writes the broker port to.</summary>
+        /// <summary>The EditorPrefs key to which the mqtt section writes the broker port.</summary>
         private const string PortPreferenceKey = "SollertiaVR_MQTT_Port";
 
         /// <summary>The hand-authored scene used to pin the play state tool's active scene name.</summary>
@@ -40,6 +41,12 @@ namespace SL.Tests.EditMode
 
         /// <summary>The monitor coordinate no detected monitor can report, used by the refresh test.</summary>
         private const int SentinelCoordinate = 987654;
+
+        /// <summary>The private nondeterministic-seed sentinel the Task class declares.</summary>
+        private static readonly int RandomSeedSentinel = PrivateAccess.GetStaticField<int>(
+            typeof(Task),
+            "RandomSeedSentinel"
+        );
 
         /// <summary>The path of the scene open before the fixture replaced it, restored at the end.</summary>
         private string _originalScenePath;
@@ -109,7 +116,7 @@ namespace SL.Tests.EditMode
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             }
 
-            // Restored after the scene swap, because the swap itself clears the bridge's cached manager.
+            // Restores the cached manager after the scene swap, because the swap itself clears it.
             PrivateAccess.SetStaticField(typeof(McpBridge), "_cachedFullScreenManager", _originalCachedManager);
         }
 
@@ -266,7 +273,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(state["task"]);
         }
 
-        /// <summary>Verifies that an empty scene reports options carrying the None entry alone.</summary>
+        /// <summary>Verifies that the controller and camera options of an empty scene carry None alone.</summary>
         [Test]
         public void ReadTaskParameters_EmptyScene_ReportsOptionsCarryingNoneAlone()
         {
@@ -434,8 +441,8 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(100d, ReadNumber(state["brightness"]));
             Assert.AreEqual(0d, ReadNumber(state["height_in_vr"]));
 
-            // Destroyed inside the test body because the Parameters window dereferences display.settings
-            // whenever it repaints, which a settings-less display outliving this method would fault on.
+            // Destroys the display inside the test body, because the Parameters window dereferences display.settings
+            // whenever it repaints, on which a settings-less display outliving this method would fault.
             UnityEngine.Object.DestroyImmediate(display.gameObject);
         }
 
@@ -831,8 +838,8 @@ namespace SL.Tests.EditMode
             );
             Assert.AreEqual(0f, display.transform.localPosition.y, 1e-6f);
 
-            // Destroyed inside the test body because the Parameters window dereferences display.settings
-            // whenever it repaints, which a settings-less display outliving this method would fault on.
+            // Destroys the display inside the test body, because the Parameters window dereferences display.settings
+            // whenever it repaints, on which a settings-less display outliving this method would fault.
             UnityEngine.Object.DestroyImmediate(display.gameObject);
         }
 
@@ -968,8 +975,8 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that a row carrying a camera but no monitor is reported rather than dropped.</summary>
         /// <remarks>
-        /// Such a row names no monitor to assign the camera to, so applying it is impossible. Reporting it tells the
-        /// caller the assignment never happened, where skipping it would answer with success and change nothing.
+        /// Such a row names no monitor to which to assign the camera, so applying it is impossible. Reporting it tells
+        /// the caller the assignment never happened, where skipping it would answer with success and change nothing.
         /// </remarks>
         [Test]
         public void WriteTaskParameters_RowWithoutMonitor_ReturnsTheMissingMonitorError()
@@ -1230,7 +1237,7 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = Write(BuildSectionArguments("task", "track_seed", -1L));
 
             AssertSucceeded(response);
-            Assert.AreEqual(Task.RandomSeedSentinel, task.trackSeed);
+            Assert.AreEqual(RandomSeedSentinel, task.trackSeed);
         }
 
         /// <summary>Verifies that a task section is ignored outright when the scene carries no task.</summary>
@@ -1397,7 +1404,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Verifies that the monitor refresh answers in the same shape a read answers in.</summary>
+        /// <summary>Verifies that the monitor refresh answers in the same shape in which a read answers.</summary>
         [Test]
         public void RefreshMonitors_ActiveScene_AnswersInTheSnapshotShape()
         {
@@ -1565,9 +1572,8 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Returns the nested dictionary stored at the supplied key.</summary>
-        /// <param name="parent">The dictionary to read from.</param>
+        /// <param name="parent">The dictionary from which to read.</param>
         /// <param name="key">The key holding the nested dictionary.</param>
-        /// <returns>The nested dictionary.</returns>
         private static Dictionary<string, object> GetNestedObject(Dictionary<string, object> parent, string key)
         {
             Assert.IsNotNull(parent[key], $"Expected a nested object at '{key}'.");
@@ -1576,7 +1582,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the parsed string list stored in a JSON array value.</summary>
         /// <param name="value">The parsed JSON array.</param>
-        /// <returns>The list of strings it carries.</returns>
         private static List<string> ReadStringList(object value)
         {
             return ((List<object>)value).Select(item => (string)item).ToList();
@@ -1584,7 +1589,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns the parsed object list stored in a JSON array value.</summary>
         /// <param name="value">The parsed JSON array.</param>
-        /// <returns>The list of dictionaries it carries.</returns>
         private static List<Dictionary<string, object>> ReadRowList(object value)
         {
             return ((List<object>)value).Select(item => (Dictionary<string, object>)item).ToList();
@@ -1592,7 +1596,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Returns a parsed JSON number as a double regardless of its integral or real form.</summary>
         /// <param name="value">The parsed JSON number.</param>
-        /// <returns>The numeric value.</returns>
         private static double ReadNumber(object value)
         {
             return value is long integral ? integral : (double)value;
@@ -1608,7 +1611,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Asserts that a response reports failure and returns its error message.</summary>
         /// <param name="response">The parsed response payload.</param>
-        /// <returns>The reported error message.</returns>
         private static string ErrorOf(Dictionary<string, object> response)
         {
             Assert.AreEqual(false, response["success"], "Expected the request to be rejected.");
@@ -1617,7 +1619,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a tracked GameObject in the active scene.</summary>
         /// <param name="name">The name assigned to the new GameObject.</param>
-        /// <returns>The created GameObject.</returns>
         private GameObject CreateObject(string name)
         {
             GameObject created = new GameObject(name);
@@ -1628,7 +1629,6 @@ namespace SL.Tests.EditMode
         /// <summary>Creates a tracked child GameObject under the supplied parent.</summary>
         /// <param name="parent">The GameObject that receives the new child.</param>
         /// <param name="name">The name assigned to the new child.</param>
-        /// <returns>The created child GameObject.</returns>
         private GameObject AddChild(GameObject parent, string name)
         {
             GameObject child = CreateObject(name);
@@ -1637,21 +1637,18 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates the scene's actor.</summary>
-        /// <returns>The created actor.</returns>
         private ActorObject CreateActor()
         {
             return CreateObject("Actor").AddComponent<ActorObject>();
         }
 
         /// <summary>Creates the scene's task component.</summary>
-        /// <returns>The created task.</returns>
         private Task CreateTask()
         {
             return CreateObject("Task").AddComponent<Task>();
         }
 
         /// <summary>Creates the scene's MQTT client.</summary>
-        /// <returns>The created client.</returns>
         private MQTTClient CreateClient()
         {
             return CreateObject("MQTT Client").AddComponent<MQTTClient>();
@@ -1659,7 +1656,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates the scene's display, optionally backed by an in-memory settings asset.</summary>
         /// <param name="withSettings">Determines whether the display receives a settings object.</param>
-        /// <returns>The created display.</returns>
         private DisplayObject CreateDisplay(bool withSettings)
         {
             DisplayObject display = CreateObject("Display").AddComponent<DisplayObject>();
@@ -1672,9 +1668,8 @@ namespace SL.Tests.EditMode
             return display;
         }
 
-        /// <summary>Creates a controller output the actor may bind to.</summary>
+        /// <summary>Creates a controller output to which the actor may bind.</summary>
         /// <param name="name">The name assigned to the controller GameObject.</param>
-        /// <returns>The created controller output.</returns>
         private ControllerOutput CreateController(string name)
         {
             return CreateObject(name).AddComponent<ControllerOutput>();
@@ -1682,21 +1677,18 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a camera in the active scene.</summary>
         /// <param name="name">The name assigned to the camera GameObject.</param>
-        /// <returns>The created camera.</returns>
         private Camera CreateCamera(string name)
         {
             return CreateObject(name).AddComponent<Camera>();
         }
 
         /// <summary>Creates a guidance zone, which makes the interaction toggle visible.</summary>
-        /// <returns>The created guidance zone.</returns>
         private GuidanceZone CreateGuidanceZone()
         {
             return CreateObject("GuidanceRegion").AddComponent<GuidanceZone>();
         }
 
         /// <summary>Creates an occupancy zone, which makes the wait toggle visible.</summary>
-        /// <returns>The created occupancy zone.</returns>
         private OccupancyZone CreateOccupancyZone()
         {
             return CreateObject("OccupancyRegion").AddComponent<OccupancyZone>();

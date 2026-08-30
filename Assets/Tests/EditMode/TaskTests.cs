@@ -17,14 +17,14 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the Task class.</summary>
     /// <remarks>
-    /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every template a test
-    /// loads is staged inside the project's own Configurations directory under a "ZZTest_" name and deleted again in
-    /// TearDown.
+    /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath stripped of leading
+    /// separators), so every template a test loads is staged inside the project's own Configurations directory under a
+    /// "ZZTest_" name and deleted again in TearDown.
     /// </remarks>
     [TestFixture]
     public class TaskTests
     {
-        /// <summary>The dataPath-relative directory that every staged test template is written into.</summary>
+        /// <summary>The dataPath-relative directory that receives every staged test template.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the two-trial corridor template that most tests load.</summary>
@@ -80,20 +80,26 @@ namespace SL.Tests.EditMode
         private const byte CueCodeB = 2;
 
         /// <summary>
-        /// The seed the pair-template tests generate their maze with, except the generation-comparison tests that vary
-        /// it deliberately.
+        /// The seed that the pair-template tests use for maze generation, except the generation-comparison tests that
+        /// vary it deliberately.
         /// </summary>
         private const int PairSeed = 4242;
 
-        /// <summary>The track length every pair-template traversal test generates its maze with.</summary>
+        /// <summary>The track length that every pair-template traversal test generates its maze from.</summary>
         private const float PairTrackLength = 90f;
 
         /// <summary>The track length the generation-comparison tests use, long enough to make collisions absurd.
         /// </summary>
         private const float LongTrackLength = 300f;
 
-        /// <summary>The seed every transition-sampler test draws its cumulative bucket with.</summary>
+        /// <summary>The seed that every transition-sampler test draws its cumulative bucket from.</summary>
         private const int SamplerSeed = 11;
+
+        /// <summary>The private nondeterministic-seed sentinel the Task class declares.</summary>
+        private static readonly int RandomSeedSentinel = PrivateAccess.GetStaticField<int>(
+            typeof(Task),
+            "RandomSeedSentinel"
+        );
 
         /// <summary>The MQTT harness installed for every test, which captures every published payload.</summary>
         private MqttTestHarness _harness;
@@ -148,7 +154,7 @@ namespace SL.Tests.EditMode
         [Test]
         public void RandomSeedSentinel_Constant_EqualsNegativeOne()
         {
-            Assert.AreEqual(-1, Task.RandomSeedSentinel);
+            Assert.AreEqual(-1, RandomSeedSentinel);
         }
 
         /// <summary>Verifies that the default pre-generated track length is fifteen thousand Unity units.</summary>
@@ -179,7 +185,7 @@ namespace SL.Tests.EditMode
 
             Task task = host.AddComponent<Task>();
 
-            Assert.AreEqual(Task.RandomSeedSentinel, task.trackSeed);
+            Assert.AreEqual(RandomSeedSentinel, task.trackSeed);
         }
 
         /// <summary>Verifies that Start moves a displaced task back to the world origin.</summary>
@@ -202,7 +208,7 @@ namespace SL.Tests.EditMode
         public void Start_NullConfigPath_LogsErrorAndDisablesTask()
         {
             Task task = CreateTask(configPath: null, trackLength: PairTrackLength, trackSeed: PairSeed, actor: null);
-            LogAssert.Expect(LogType.Error, new Regex("configuration YAML not found"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task configuration"));
 
             PrivateAccess.Invoke(task, "Start");
 
@@ -214,7 +220,7 @@ namespace SL.Tests.EditMode
         public void Start_EmptyConfigPath_LogsErrorAndDisablesTask()
         {
             Task task = CreateTask(string.Empty, PairTrackLength, PairSeed, actor: null);
-            LogAssert.Expect(LogType.Error, new Regex("configuration YAML not found"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task configuration"));
 
             PrivateAccess.Invoke(task, "Start");
 
@@ -232,7 +238,7 @@ namespace SL.Tests.EditMode
                 PairSeed,
                 actor: null
             );
-            LogAssert.Expect(LogType.Error, new Regex("configuration YAML not found"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task configuration"));
 
             PrivateAccess.Invoke(task, "Start");
 
@@ -271,7 +277,7 @@ namespace SL.Tests.EditMode
         {
             string configPath = StageTemplate(InvalidTemplateName, BuildInvalidTemplate());
             Task task = CreateTask(configPath, PairTrackLength, PairSeed, actor: null);
-            LogAssert.Expect(LogType.Error, new Regex("Failed to load task template from YAML file"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task template from YAML file"));
 
             PrivateAccess.Invoke(task, "Start");
 
@@ -282,7 +288,7 @@ namespace SL.Tests.EditMode
         /// </summary>
         /// <remarks>
         /// Two trials over a depth of 29 encode 536870912 corridors, which is twice the corridor map limit, so the
-        /// guard rejects the template rather than requesting the four gigabyte array the count asks for.
+        /// guard rejects the template rather than requesting the four gigabyte array that the count implies.
         /// </remarks>
         [Test]
         public void Start_CombinationCountAboveTheAllocationLimit_LogsErrorAndDisablesTask()
@@ -307,7 +313,7 @@ namespace SL.Tests.EditMode
         {
             string configPath = StageTemplate(PairTemplateName, BuildPairTemplate());
             Task task = CreateTask(configPath, trackLength: 1f, trackSeed: PairSeed, actor: null);
-            LogAssert.Expect(LogType.Error, new Regex("is too short for template"));
+            LogAssert.Expect(LogType.Error, new Regex("Maze generation must produce at least"));
 
             PrivateAccess.Invoke(task, "Start");
 
@@ -540,7 +546,7 @@ namespace SL.Tests.EditMode
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
             MoveActorPastFirstSegment(task, actor);
             PrivateAccess.SetField(task, "_currentCorridorKey", -1);
-            LogAssert.Expect(LogType.Error, new Regex("Task: Corridor key '-1' out of bounds"));
+            LogAssert.Expect(LogType.Error, new Regex(@"The corridor key must fall within \[0, \d+\), but it is -1"));
 
             PrivateAccess.Invoke(task, "Update");
 
@@ -556,7 +562,7 @@ namespace SL.Tests.EditMode
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
             MoveActorPastFirstSegment(task, actor);
             PrivateAccess.SetField(task, "_currentCorridorKey", PairCorridorCount);
-            LogAssert.Expect(LogType.Error, new Regex("Task: Corridor key '8' out of bounds"));
+            LogAssert.Expect(LogType.Error, new Regex(@"The corridor key must fall within \[0, \d+\), but it is 8"));
 
             PrivateAccess.Invoke(task, "Update");
 
@@ -576,7 +582,7 @@ namespace SL.Tests.EditMode
             Task task = StartPairTask(PairTrackLength, PairSeed, actor);
             MoveActorPastFirstSegment(task, actor);
             PrivateAccess.SetField(task, "_currentCorridorKey", PairCorridorCount);
-            LogAssert.Expect(LogType.Error, new Regex("Task: Corridor key '8' out of bounds"));
+            LogAssert.Expect(LogType.Error, new Regex(@"The corridor key must fall within \[0, \d+\), but it is 8"));
 
             InvokeUpdateWhileEnabled(task);
             InvokeUpdateWhileEnabled(task);
@@ -766,7 +772,7 @@ namespace SL.Tests.EditMode
             PrivateAccess.SetField(task, "_currentSegmentIndex", sequence.Length - PairDepth);
             SetActorZ(actor, 100f);
             Vector3 positionBefore = actor.transform.position;
-            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+            LogAssert.Expect(LogType.Error, new Regex("ran through every generated segment"));
 
             PrivateAccess.Invoke(task, "Update");
 
@@ -789,7 +795,7 @@ namespace SL.Tests.EditMode
             int[] sequence = SegmentSequence(task);
             PrivateAccess.SetField(task, "_currentSegmentIndex", sequence.Length - PairDepth);
             SetActorZ(actor, 100f);
-            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+            LogAssert.Expect(LogType.Error, new Regex("ran through every generated segment"));
 
             InvokeUpdateWhileEnabled(task);
             InvokeUpdateWhileEnabled(task);
@@ -812,7 +818,10 @@ namespace SL.Tests.EditMode
             PrivateAccess.SetField(task, "_segmentSequenceArray", new int[] { 0, 0, 0, 1, 1, 1 });
             PrivateAccess.SetField(task, "_currentSegmentIndex", 0);
             actor.transform.position = new Vector3(3f, 1f, ShortSegmentLengthUnity + 0.5f);
-            LogAssert.Expect(LogType.Error, new Regex("Task: New corridor key '1' out of bounds"));
+            LogAssert.Expect(
+                LogType.Error,
+                new Regex(@"The new corridor key must fall within \[0, \d+\), but it is 1")
+            );
 
             PrivateAccess.Invoke(task, "Update");
 
@@ -860,14 +869,14 @@ namespace SL.Tests.EditMode
             CollectionAssert.AreEqual(ReferenceDraws(12345, sequence.Length, PairTrialCount), sequence);
         }
 
-        /// <summary>Verifies that the sentinel selects the nondeterministic path instead of seeding with it.</summary>
+        /// <summary>Verifies that the sentinel selects the nondeterministic path.</summary>
         [Test]
         public void Start_RandomSeedSentinel_DoesNotSeedTheGeneratorWithTheSentinel()
         {
-            Task task = StartPairTask(LongTrackLength, Task.RandomSeedSentinel, actor: null);
+            Task task = StartPairTask(LongTrackLength, RandomSeedSentinel, actor: null);
 
             int[] sequence = SegmentSequence(task);
-            int[] sentinelSeeded = ReferenceDraws(Task.RandomSeedSentinel, sequence.Length, PairTrialCount);
+            int[] sentinelSeeded = ReferenceDraws(RandomSeedSentinel, sequence.Length, PairTrialCount);
             CollectionAssert.AreNotEqual(sentinelSeeded, sequence);
         }
 
@@ -1016,7 +1025,9 @@ namespace SL.Tests.EditMode
             Assert.AreEqual("Short", arguments[2]);
         }
 
-        /// <summary>Verifies that a distribution no bucket exceeds falls through onto the final key.</summary>
+        /// <summary>
+        /// Verifies that a distribution whose buckets never exceed the draw falls through onto the final key.
+        /// </summary>
         [Test]
         public void TrySampleFromTransitions_NoEntryExceedsTheDraw_ReturnsTheLastKey()
         {
@@ -1030,8 +1041,8 @@ namespace SL.Tests.EditMode
 
         /// <summary>Verifies that an empty distribution samples nothing and reports the failure.</summary>
         /// <remarks>
-        /// The reported failure keeps the maze generator off the trial-name lookup, which raises a
-        /// KeyNotFoundException for a name no trial carries.
+        /// The reported failure keeps the maze generator off the trial-name lookup, which raises a KeyNotFoundException
+        /// for a name no trial carries.
         /// </remarks>
         [Test]
         public void TrySampleFromTransitions_EmptyDistribution_ReturnsFalseWithoutATrialName()
@@ -1282,7 +1293,7 @@ namespace SL.Tests.EditMode
         /// <summary>Creates a Task component configured with the supplied fields.</summary>
         /// <param name="configPath">The dataPath-relative path of the staged template YAML.</param>
         /// <param name="trackLength">The Unity-unit track length the pre-generated segment sequence covers.</param>
-        /// <param name="trackSeed">The maze seed, or Task.RandomSeedSentinel for a nondeterministic run.</param>
+        /// <param name="trackSeed">The maze seed, or the RandomSeedSentinel for a nondeterministic run.</param>
         /// <param name="actor">The actor the task teleports between corridors, or null to leave it unassigned.</param>
         /// <returns>The created task.</returns>
         private Task CreateTask(string configPath, float trackLength, int trackSeed, ActorObject actor)
@@ -1299,7 +1310,7 @@ namespace SL.Tests.EditMode
 
         /// <summary>Stages the pair template, creates a task against it, and runs the task's Start.</summary>
         /// <param name="trackLength">The Unity-unit track length the pre-generated segment sequence covers.</param>
-        /// <param name="trackSeed">The maze seed, or Task.RandomSeedSentinel for a nondeterministic run.</param>
+        /// <param name="trackSeed">The maze seed, or the RandomSeedSentinel for a nondeterministic run.</param>
         /// <param name="actor">The actor the task teleports between corridors, or null to leave it unassigned.</param>
         /// <returns>The started task.</returns>
         private Task StartPairTask(float trackLength, int trackSeed, ActorObject actor)
@@ -1451,7 +1462,7 @@ namespace SL.Tests.EditMode
             }
         }
 
-        /// <summary>Builds the reflection argument array the transition sampler writes its trial name into.</summary>
+        /// <summary>Builds the reflection argument array that receives the transition sampler's trial name.</summary>
         /// <remarks>
         /// Reflection assigns an out parameter back into the very array it was handed, so the sampled name is read
         /// from the array's last slot once the call returns.

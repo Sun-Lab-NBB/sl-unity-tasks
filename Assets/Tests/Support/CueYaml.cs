@@ -5,10 +5,7 @@ using System.Text;
 namespace SL.Tests
 {
     /// <summary>Builds the YAML block for a single cue definition.</summary>
-    /// <remarks>
-    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
-    /// branches.
-    /// </remarks>
+    /// <remarks>A typed field set to null omits its YAML key entirely.</remarks>
     public sealed class CueYaml
     {
         /// <summary>The cue name, or null to omit the name key.</summary>
@@ -29,6 +26,7 @@ namespace SL.Tests
         /// <summary>Creates a cue block with the supplied identity and the default length and texture.</summary>
         /// <param name="cueName">The name the cue_sequence entries reference.</param>
         /// <param name="cueCode">The cue byte code.</param>
+        /// <returns>The cue block.</returns>
         public static CueYaml Named(string cueName, int cueCode)
         {
             return new CueYaml { name = cueName, code = cueCode };

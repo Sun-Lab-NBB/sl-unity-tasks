@@ -6,9 +6,6 @@ using UnityEngine;
 namespace Gimbl
 {
     /// <summary>Automatically establishes MQTT broker connection when the scene starts.</summary>
-    /// <remarks>
-    /// Requires a scene that hosts an MQTTClient singleton.
-    /// </remarks>
     public class MQTTConnectorObject : MonoBehaviour
     {
         /// <summary>Connects to the MQTT broker when the object is enabled.</summary>
@@ -16,7 +13,10 @@ namespace Gimbl
         {
             if (MQTTClient.Instance == null)
             {
-                Debug.LogError("MQTTConnectorObject: MQTTClient.Instance not available");
+                string message =
+                    "Unable to connect to the MQTT broker on enable. The active scene must host an MQTTClient "
+                    + "component, but MQTTClient.Instance is null.";
+                Debug.LogError(message);
                 return;
             }
             MQTTClient.Instance.Connect(verbose: false);

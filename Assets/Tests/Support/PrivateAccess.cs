@@ -11,11 +11,17 @@ namespace SL.Tests
     /// </remarks>
     public static class PrivateAccess
     {
-        /// <summary>The binding flags matching any instance member regardless of its access modifier.</summary>
+        /// <summary>
+        /// The binding flags matching any instance member the searched type itself declares, regardless of its access
+        /// modifier, with inherited members reached by the base-chain walk in FindMethod, FindField, and FindProperty.
+        /// </summary>
         private const BindingFlags InstanceFlags =
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 
-        /// <summary>The binding flags matching any static member regardless of its access modifier.</summary>
+        /// <summary>
+        /// The binding flags matching any static member the searched type itself declares, regardless of its access
+        /// modifier, with inherited members reached by the base-chain walk in FindMethod, FindField, and FindProperty.
+        /// </summary>
         private const BindingFlags StaticFlags =
             BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
 

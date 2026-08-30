@@ -11,10 +11,6 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the DisplayObject class.</summary>
-    /// <remarks>
-    /// Everything reachable without touching project assets is covered: the actor attachment, the eye height offset,
-    /// the actor layer culling, and the detach path.
-    /// </remarks>
     [TestFixture]
     public class DisplayObjectTests
     {

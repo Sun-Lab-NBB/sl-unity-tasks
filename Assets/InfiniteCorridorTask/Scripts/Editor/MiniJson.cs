@@ -11,14 +11,19 @@ namespace SL.Tasks
 {
     /// <summary>
     /// Provides a minimal JSON serializer and deserializer for MCP bridge communication.
-    /// Handles dictionaries, sequences, strings, numbers, booleans, and null values.
+    /// Handles dictionaries, sequences, strings, booleans, and null values, emits int, long, float, and double as bare
+    /// numbers, and quotes every other numeric type.
     /// </summary>
-    public static class MiniJson
+    internal static class MiniJson
     {
         /// <summary>Deserializes a JSON string into a dictionary.</summary>
         /// <param name="json">The payload whose top-level object is decoded.</param>
         /// <returns>The decoded top-level object, empty when the payload holds none.</returns>
         /// <exception cref="ArgumentNullException">The <paramref name="json"/> argument is null.</exception>
+        /// <exception cref="FormatException">
+        /// The payload holds a malformed number literal, a literal other than true, false, or null, or a Unicode escape
+        /// whose four characters are not hexadecimal digits.
+        /// </exception>
         public static Dictionary<string, object> Deserialize(string json)
         {
             if (json == null)
@@ -31,8 +36,8 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Serializes a dictionary, sequence, string, number, boolean, or null value to a JSON string, and serializes
-        /// any other value as its quoted ToString representation.
+        /// Serializes a dictionary, sequence, string, boolean, null, int, long, float, or double value to JSON text,
+        /// and serializes any other value, every other numeric type included, as its quoted ToString representation.
         /// </summary>
         /// <param name="value">The value whose JSON encoding is produced.</param>
         /// <returns>The JSON text encoding the value.</returns>
@@ -126,7 +131,7 @@ namespace SL.Tasks
         }
 
         /// <summary>
-        /// Escapes the backslash, the quote, and every character below 0x20, emitting the six-character unicode form
+        /// Escapes the backslash, the quote, and every character below 0x20, emitting the six-character Unicode form
         /// for the control characters that carry no shorter escape.
         /// </summary>
         /// <param name="value">The raw text destined for a quoted JSON string.</param>
@@ -182,7 +187,6 @@ namespace SL.Tasks
 
         /// <summary>Parses a JSON string into a dictionary using a recursive-descent parser.</summary>
         /// <param name="json">The complete payload, parsed from its first character.</param>
-        /// <returns>A parsed dictionary.</returns>
         private static Dictionary<string, object> Parse(string json)
         {
             int index = 0;
@@ -279,7 +283,7 @@ namespace SL.Tasks
         /// <param name="index">The current parse position, advanced past the parsed string.</param>
         /// <returns>The unescaped contents between the quotes, empty when no string starts here.</returns>
         /// <exception cref="FormatException">
-        /// A unicode escape inside the string is followed by four characters that are not hexadecimal digits.
+        /// A Unicode escape inside the string is followed by four characters that are not hexadecimal digits.
         /// </exception>
         private static string ParseString(string json, ref int index)
         {
@@ -359,6 +363,10 @@ namespace SL.Tasks
         /// <param name="json">The complete payload the parse position indexes into.</param>
         /// <param name="index">The current parse position, advanced past the parsed number.</param>
         /// <returns>The parsed number as a long or double.</returns>
+        /// <exception cref="FormatException">
+        /// A literal carrying a decimal point or an exponent marker fails to parse as a double, or a literal carrying
+        /// neither fails to parse as a long, which covers an integer outside the long range.
+        /// </exception>
         private static object ParseNumber(string json, ref int index)
         {
             int start = index;
@@ -394,14 +402,20 @@ namespace SL.Tasks
                     )
                 )
                 {
-                    throw new FormatException($"MiniJson: '{numberString}' is not a valid floating-point literal.");
+                    string message =
+                        "Unable to parse the JSON number. It must be a valid floating-point literal, but it "
+                        + $"is '{numberString}'.";
+                    throw new FormatException(message);
                 }
                 return doubleValue;
             }
 
             if (!long.TryParse(numberString, NumberStyles.Integer, CultureInfo.InvariantCulture, out long longValue))
             {
-                throw new FormatException($"MiniJson: '{numberString}' is not a valid integer literal.");
+                string message =
+                    "Unable to parse the JSON number. It must be a valid integer literal, but it is "
+                    + $"'{numberString}'.";
+                throw new FormatException(message);
             }
             return longValue;
         }
@@ -425,7 +439,9 @@ namespace SL.Tasks
                 index += 5;
                 return false;
             }
-            throw new FormatException($"MiniJson: expected 'true' or 'false' at index {index}.");
+            string message =
+                $"Unable to parse the JSON value at index {index}. It must be 'true' or 'false', but it is neither.";
+            throw new FormatException(message);
         }
 
         /// <summary>Parses a JSON null value.</summary>
@@ -437,7 +453,8 @@ namespace SL.Tasks
         {
             if (!json.AsSpan(index).StartsWith("null", StringComparison.Ordinal))
             {
-                throw new FormatException($"MiniJson: expected 'null' at index {index}.");
+                string message = $"Unable to parse the JSON value at index {index}. It must be 'null', but it is not.";
+                throw new FormatException(message);
             }
             index += 4;
             return null;

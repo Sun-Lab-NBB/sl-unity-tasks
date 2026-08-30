@@ -3,12 +3,10 @@
 /// </summary>
 namespace SL.Tasks
 {
-    /// <summary>
-    /// Defines the supported stimulus trigger mechanisms for a StimulusTriggerZone.
-    /// </summary>
+    /// <summary>Defines the supported stimulus trigger mechanisms for a StimulusTriggerZone.</summary>
     /// <remarks>
-    /// The mechanism selects the condition under which a stimulus fires. Interaction is the default (ordinal 0) so an
-    /// unconfigured StimulusTriggerZone behaves as the interaction prefab that ships it.
+    /// Interaction is the default (ordinal 0) so an unconfigured StimulusTriggerZone behaves as the interaction
+    /// prefab that ships it.
     /// </remarks>
     public enum TriggerMode
     {

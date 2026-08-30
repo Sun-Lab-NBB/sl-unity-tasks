@@ -26,10 +26,9 @@ and the fixtures that pin the enum, topic, protected-asset, and bridge-tool cont
 the private Unity lifecycle callbacks through the Support assembly's `PrivateAccess` helper, so it stays deterministic
 without frames or physics. A test belongs in `Assets/Tests/PlayMode/` when it needs real frames, real trigger
 callbacks, real elapsed time, or the engine-invoked `Awake`, `OnEnable`, `Start`, and `OnDestroy` ordering.
-`Assets/Tests/Support/` holds the `PrivateAccess` reflection accessor, the staged template workspace, the task template
-YAML builder, the in-process MQTT harness, and the trigger zone rig that both assemblies draw on, plus the staged
-template workspace the Edit Mode `ConfigLoader` fixture uses. Run the suite from
-`Window → General → Test Runner`, or headlessly with
+`Assets/Tests/Support/` holds the `PrivateAccess` reflection accessor, the task template YAML builder, the in-process
+MQTT harness, the trigger zone rig that both assemblies share, and the staged template workspace that the Edit Mode
+`ConfigLoader` fixture uses. Run the suite from `Window → General → Test Runner`, or headlessly with
 `Unity -batchmode -nographics -projectPath . -runTests -testPlatform EditMode -testResults out.xml`, which requires the
 Editor closed on that project because Unity holds a per-project lock.
 

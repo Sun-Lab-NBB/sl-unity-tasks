@@ -347,7 +347,9 @@ namespace SL.Tests.EditMode
             StringAssert.Contains("letters, digits, and underscores", exception.Message);
         }
 
-        /// <summary>Verifies that a spaced cue name is rejected as an invalid name.</summary>
+        /// <summary>
+        /// Verifies that the cue name check rejects spaced names before the cue sequence collision check runs.
+        /// </summary>
         [Test]
         public void LoadTemplate_SpacedCueNamesCollidingInSequenceSignature_ThrowsInvalidData()
         {

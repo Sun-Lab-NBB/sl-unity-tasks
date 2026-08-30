@@ -1,7 +1,5 @@
 /// <summary>
 /// Provides the TaskEditor class that replaces the default Inspector for Task components.
-///
-/// Renders a notice directing users to manage Task settings via the Window > Task Parameters window.
 /// </summary>
 using UnityEditor;
 

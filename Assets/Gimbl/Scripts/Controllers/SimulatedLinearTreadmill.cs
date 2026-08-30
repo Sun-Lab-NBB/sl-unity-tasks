@@ -14,7 +14,7 @@ namespace Gimbl
         /// <summary>The movement speed multiplier for input scaling.</summary>
         private const float MovementSpeedMultiplier = 8.0f;
 
-        /// <summary>The Unity Input System action map for keyboard simulation.</summary>
+        /// <summary>The SimulatedInput action asset whose Player action map supplies the keyboard bindings.</summary>
         private SimulatedInput _input;
 
         /// <summary>The MQTT channel for sending simulated interaction-sensor trigger events.</summary>
@@ -25,11 +25,11 @@ namespace Gimbl
         {
             _input = new SimulatedInput();
             _input.Enable();
-            _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction);
+            _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction, isListener: false);
         }
 
         /// <summary>Processes simulated input and movement each frame, with spacebar presses as interactions.</summary>
-        public override void Update()
+        protected override void Update()
         {
             GetSimulatedInput();
             if (actor != null && _input.Player.Jump.WasPressedThisFrame())
@@ -50,7 +50,7 @@ namespace Gimbl
         }
 
         /// <summary>Reads keyboard input and converts it to treadmill movement values.</summary>
-        public void GetSimulatedInput()
+        private void GetSimulatedInput()
         {
             float moveControl =
                 _input.Player.Movement.ReadValue<Vector2>().y * Time.deltaTime * MovementSpeedMultiplier;

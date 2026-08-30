@@ -32,20 +32,21 @@ namespace Gimbl
             SerializedProperty tagsProperty = tagManager.FindProperty("tags");
             if (tagsProperty.arraySize >= MaxTags)
             {
-                throw new InvalidOperationException(
-                    $"No more tags can be added to the Tags property. You have {tagsProperty.arraySize} tags."
-                );
+                string message =
+                    $"Unable to add the tag '{tagName}'. The project must hold fewer than {MaxTags} tags, but "
+                    + $"it already holds {tagsProperty.arraySize}.";
+                throw new InvalidOperationException(message);
             }
-            if (!PropertyExists(tagsProperty, start: 0, end: tagsProperty.arraySize, value: tagName))
+            if (PropertyExists(tagsProperty, start: 0, end: tagsProperty.arraySize, value: tagName))
             {
-                int index = tagsProperty.arraySize;
-                tagsProperty.InsertArrayElementAtIndex(index);
-                SerializedProperty newTag = tagsProperty.GetArrayElementAtIndex(index);
-                newTag.stringValue = tagName;
-                tagManager.ApplyModifiedProperties();
-                return true;
+                return false;
             }
-            return false;
+            int index = tagsProperty.arraySize;
+            tagsProperty.InsertArrayElementAtIndex(index);
+            SerializedProperty newTag = tagsProperty.GetArrayElementAtIndex(index);
+            newTag.stringValue = tagName;
+            tagManager.ApplyModifiedProperties();
+            return true;
         }
 
         /// <summary>Adds a new layer to the project if it does not already exist.</summary>
@@ -61,32 +62,34 @@ namespace Gimbl
             );
             SerializedProperty layersProperty = tagManager.FindProperty("layers");
             int layerSlotBound = Math.Min(MaxLayers, layersProperty.arraySize);
-            if (!PropertyExists(layersProperty, start: 0, end: layerSlotBound, value: layerName))
+            if (PropertyExists(layersProperty, start: 0, end: layerSlotBound, value: layerName))
             {
-                SerializedProperty layerSlot;
-                for (int layerIndex = 8; layerIndex < layerSlotBound; layerIndex++)
-                {
-                    layerSlot = layersProperty.GetArrayElementAtIndex(layerIndex);
-                    if (string.IsNullOrEmpty(layerSlot.stringValue))
-                    {
-                        layerSlot.stringValue = layerName;
-                        tagManager.ApplyModifiedProperties();
-                        return true;
-                    }
-                }
-                throw new InvalidOperationException("All allowed layers have been filled.");
+                return false;
             }
-            return false;
+            SerializedProperty layerSlot;
+            for (int layerIndex = 8; layerIndex < layerSlotBound; layerIndex++)
+            {
+                layerSlot = layersProperty.GetArrayElementAtIndex(layerIndex);
+                if (string.IsNullOrEmpty(layerSlot.stringValue))
+                {
+                    layerSlot.stringValue = layerName;
+                    tagManager.ApplyModifiedProperties();
+                    return true;
+                }
+            }
+            string message =
+                $"Unable to add the layer '{layerName}'. A free user layer slot must exist in the range 8 to "
+                + $"{layerSlotBound - 1}, but every slot is filled.";
+            throw new InvalidOperationException(message);
         }
 
         /// <summary>Checks if a value exists in a serialized array property.</summary>
         /// <param name="property">The serialized array property to search.</param>
         /// <param name="start">The starting index for the search.</param>
         /// <param name="end">
-        /// The exclusive upper bound (one past the last index) for the search, clamped to the number of elements the
-        /// property stores.
+        /// The exclusive upper bound for the search, clamped to the number of elements the property stores.
         /// </param>
-        /// <param name="value">The value to search for.</param>
+        /// <param name="value">The value sought within the searched range.</param>
         /// <returns>True if the value exists in the property range.</returns>
         private static bool PropertyExists(SerializedProperty property, int start, int end, string value)
         {

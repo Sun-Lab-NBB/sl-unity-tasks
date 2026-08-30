@@ -66,7 +66,10 @@ bridge contracts. The ataraxis marketplace ships the `automation` plugin. Instal
 | `assets:experiment-configuration`     | Author per-project experiment configurations that reference a template    |
 | `assets:library-extension`            | Orchestrate cross-cutting changes to the shared-assets vocabulary         |
 | `assets:assets-mcp-environment-setup` | Diagnose and resolve `slsa mcp` server connectivity issues                |
+| `assets:working-directory`            | Prerequisite for other assets skills, owning the task templates directory |
 | `experiment:vr-driver-interface`      | Host-side VR driver, bridge client, and the experiment end of MQTT        |
+| `experiment:system-health-check`      | Verify platform config, storage, hardware, and Unity bridge readiness     |
+| `experiment:acquisition-system-setup` | Discover and verify cameras, microcontrollers, motors, and MQTT brokers   |
 | `experiment:system-design-pipeline`   | Platform build flow that makes this project Phase 4, the corridor task    |
 | `experiment:pipeline`                 | Platform operate flow that routes to the Unity task and scene skills      |
 | `/explore-codebase`                   | Perform in-depth codebase exploration at session start                    |
@@ -83,11 +86,11 @@ bridge contracts. The ataraxis marketplace ships the `automation` plugin. Instal
 | `/audit-performance`                  | Audit cost, memory layout, and numeric width predictability               |
 | `/audit-style`                        | Audit files against the applicable style skill checklists                 |
 
-`assets:working-directory` is the prerequisite for every other assets skill and owns the task templates directory this
-project's YAML templates come from. When adding a `TriggerType` member you MUST invoke `assets:library-extension`, not
-the identically named `experiment:library-extension`. No import-time parity check covers `TriggerType`, so an unwired
-member surfaces only once a config using it reaches the acquisition system, which does NOT need a `from_task_template`
-branch per member and raises a clear "not mapped to a runtime trial class" error for an unmapped mode.
+`assets:working-directory` is the prerequisite for every other assets skill and owns the task templates directory from
+which this project's YAML templates come. When adding a `TriggerType` member you MUST invoke `assets:library-extension`,
+rather than the identically named `experiment:library-extension`. No import-time parity check covers `TriggerType`, so
+an unwired member surfaces only once a config using it reaches the acquisition system. That system maps the subset of
+members it supports and raises a clear "not mapped to a runtime trial class" error for an unmapped mode.
 
 ## MCP server
 
@@ -103,7 +106,7 @@ source of truth. Four conventions bind any new tool:
 
 - Handlers run on the editor thread after `EditorApplication.update` drains the `PendingContexts` queue, so they may
   call Unity APIs freely. A second queue, `ConsoleEntries`, crosses the same boundary the other way.
-  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` drains it on the editor
+  `Application.logMessageReceivedThreaded` fills it from arbitrary threads and `read_console` reads it on the editor
   thread, so anything a new tool captures off-thread must be plain data rather than a Unity object.
 - Every response goes through the shared `Ok(payload)` and `Error(message)` helpers, which always include a `success`
   boolean.
@@ -159,26 +162,26 @@ by `sollertia-experiment`.
 
 ### Key areas
 
-| Directory                                     | Purpose                                                             |
-|-----------------------------------------------|---------------------------------------------------------------------|
-| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zones, `ConfigLoader`, schema mirror classes)   |
-| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask`, `McpBridge`, `TaskEditor`, `MiniJson`                 |
-| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                 |
-| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)    |
-| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs and generated segment prefabs            |
-| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                           |
-| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials and the canonical `_CueShaderReference.mat` |
-| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art           |
-| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                         |
-| `Assets/Gimbl/`                               | Inlined GIMBL runtime plus the `MainWindow` Task Parameters editor  |
-| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes           |
-| `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions    |
-| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                          |
-| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers  |
+| Directory                                     | Purpose                                                                                                                |
+|-----------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| `Assets/InfiniteCorridorTask/Scripts/`        | Runtime C# (`Task`, zones, `ConfigLoader`, schema mirror classes)                                                      |
+| `Assets/InfiniteCorridorTask/Scripts/Editor/` | `CreateTask`, `McpBridge`, `TaskEditor`, `MiniJson`                                                                    |
+| `Assets/InfiniteCorridorTask/Configurations/` | YAML task templates                                                                                                    |
+| `Assets/InfiniteCorridorTask/Cues/`           | Generated cue prefabs (length-suffixed, shared across templates)                                                       |
+| `Assets/InfiniteCorridorTask/Prefabs/`        | Hand-authored zone prefabs and `Padding.prefab`, plus generated segment prefabs                                        |
+| `Assets/InfiniteCorridorTask/Tasks/`          | Generated task prefabs (one per template)                                                                              |
+| `Assets/InfiniteCorridorTask/Materials/`      | Generated cue materials plus the hand-authored `_CueShaderReference.mat`, `Floor.mat`, `Wall.mat`, and `TargetMat.mat` |
+| `Assets/InfiniteCorridorTask/Textures/`       | Cue textures plus the floor and target pattern source art                                                              |
+| `Assets/UI-lick-reward/`                      | On-screen lick and stimulus feedback canvas                                                                            |
+| `Assets/Gimbl/`                               | Inlined GIMBL runtime plus the `MainWindow` Task Parameters editor                                                     |
+| `Assets/Scenes/`                              | `ExperimentTemplate.unity` plus per-task generated scenes                                                              |
+| `Assets/VRSettings/Displays/`                 | Display settings and per-scene `savedFullScreenViews` companions                                                       |
+| `Assets/Plugins/`                             | Inlined `MQTTnet.dll` and `YamlDotNet.dll`                                                                             |
+| `Assets/Tests/`                               | Edit Mode and Play Mode test assemblies plus their support helpers                                                     |
 
 ### Architecture
 
-- **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python `YamlConfig`
+- **Schema mirror**: `TaskTemplate`, `Cue`, `TrialStructure`, and `VREnvironment` mirror the Python task template schema
   classes in `sollertia-shared-assets`. `ConfigLoader.LoadTemplate` deserializes via `YamlDotNet` and validates the
   template, trial, and cue name patterns, cue code range and uniqueness, cue name uniqueness, and a positive finite
   `length_cm`. It also checks that each `texture` is named and exists under `Textures/`, that each `cue_sequence` is
@@ -191,12 +194,11 @@ by `sollertia-experiment`.
   teleports the actor to the next corridor once the current corridor's first segment is traversed.
 - **Zone composition**: `StimulusTriggerZone` dispatches on a `TriggerMode` enum that `CreateTask` sets from the
   trial's `trigger_type`. Every mode publishes one `StimulusMessage { trialName, delivered, cause }` per resolved trial
-  on the `Stimulus` topic and introduces no new `MQTTTopics` constants, where `cause` is `behavior` or
-  `guidance`. The three occupancy modes additionally reuse the existing `Delay` topic through their
-  `OccupancyGuidanceZone` child. `occupancy_trigger` alone
-  leaves an unmet lap unresolved, so it publishes nothing for that trial. `OccupancyZone` exposes a generic
-  `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches the
-  `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
+  on the `Stimulus` topic and introduces no new `MQTTTopics` constants, where `cause` is `behavior` or `guidance`. The
+  three occupancy modes additionally reuse the existing `Delay` topic through their `OccupancyGuidanceZone` child.
+  `occupancy_trigger` alone leaves an unmet lap unresolved, so it publishes nothing for that trial. `OccupancyZone`
+  exposes a generic `occupancyMet` signal and the parent applies the per-mode rule. `Task.FindResettableZones` caches
+  the `StimulusTriggerZone`, `GuidanceZone`, `OccupancyZone`, and `OccupancyGuidanceZone` instances at `Start` and the
   corridor advance drives every per-lap reset, so a standalone `IResettable` needs its own `FindObjectsByType` line
   there. See `/zone-prefabs`.
 - **CreateTask pipeline**: `CreateTask.CreateFromTemplate` runs a cross-template cue-texture preflight, regenerates
@@ -242,13 +244,13 @@ bridge table in the same change.
 
 ### Project-specific conventions
 
-- **Hand-authored vs generated assets**: `Padding.prefab`, `StimulusTriggerZone.prefab`,
-  `OccupancyTriggerZone.prefab`, `Materials/_CueShaderReference.mat`, `Materials/Floor.mat`, `Materials/Wall.mat`,
-  `Materials/TargetMat.mat`, and `Scenes/ExperimentTemplate.unity` are hand-authored. Everything under `Cues/`, every
-  segment prefab under `Prefabs/`, every `Cue_*_*cm.mat`, every prefab under `Tasks/`, and every scene other than
-  `ExperimentTemplate.unity` is generated by `CreateTask`. All eight hand-authored assets are protected by
-  `McpBridge.DeleteProtectedPaths`, you MUST NOT remove entries from that list, and any new asset the pipeline
-  references by hardcoded path or serialized link joins the protected set in the same change.
+- **Hand-authored vs generated assets**: `Padding.prefab`, `StimulusTriggerZone.prefab`, `OccupancyTriggerZone.prefab`,
+  `Materials/_CueShaderReference.mat`, `Materials/Floor.mat`, `Materials/Wall.mat`, `Materials/TargetMat.mat`, and
+  `Scenes/ExperimentTemplate.unity` are hand-authored. Everything under `Cues/`, every segment prefab under `Prefabs/`,
+  every `Cue_*_*cm.mat`, every prefab under `Tasks/`, and every scene other than `ExperimentTemplate.unity` is
+  generated by `CreateTask`. All eight hand-authored assets are protected by `McpBridge.DeleteProtectedPaths`, you MUST
+  NOT remove entries from that list, and any new asset the pipeline references by hardcoded path or serialized link
+  joins the protected set in the same change.
 - **Cue identity**: Cue prefabs and materials are keyed by `(cue.name, cue.length_cm)` and shared across templates.
   `CreateTask.ValidateCueDefinitionsAcrossTemplates` refuses to generate when two templates declare the same
   `(name, length)` pair with different textures, and `BuildCuePrefabs` aborts when a cached cue material was built from

@@ -878,7 +878,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Builds a fresh controller spec table through the private factory under test.</summary>
-        /// <returns>The freshly built (display name, controller type) table.</returns>
         private static (string DisplayName, Type ControllerType)[] BuildSpecs()
         {
             return ((string DisplayName, Type ControllerType)[])
@@ -886,22 +885,19 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Reads the controller spec table cached at type initialization.</summary>
-        /// <returns>The cached (display name, controller type) table.</returns>
         private static (string DisplayName, Type ControllerType)[] CachedSpecs()
         {
             return ((string DisplayName, Type ControllerType)[])
                 PrivateAccess.GetStaticField<object>(typeof(MainWindow), "CachedControllerSpecs");
         }
 
-        /// <summary>Returns every controller component present in the active scene.</summary>
-        /// <returns>The controllers found in the active scene.</returns>
+        /// <summary>Returns every active controller component in the loaded scenes.</summary>
         private static ControllerObject[] SceneControllers()
         {
             return UnityEngine.Object.FindObjectsByType<ControllerObject>(FindObjectsSortMode.None);
         }
 
-        /// <summary>Returns every controller output component present in the active scene.</summary>
-        /// <returns>The controller outputs found in the active scene.</returns>
+        /// <summary>Returns every active controller output component in the loaded scenes.</summary>
         private static ControllerOutput[] SceneControllerOutputs()
         {
             return UnityEngine.Object.FindObjectsByType<ControllerOutput>(FindObjectsSortMode.None);
@@ -961,7 +957,6 @@ namespace SL.Tests.EditMode
         /// <summary>Creates a tracked GameObject carrying the requested component.</summary>
         /// <typeparam name="TComponent">The component type to attach to the created object.</typeparam>
         /// <param name="objectName">The name assigned to the created GameObject.</param>
-        /// <returns>The attached component.</returns>
         private TComponent CreateComponent<TComponent>(string objectName)
             where TComponent : Component
         {
@@ -972,7 +967,6 @@ namespace SL.Tests.EditMode
         /// <summary>Creates a tracked display backed by a tracked settings instance.</summary>
         /// <param name="currentBrightness">The runtime brightness override assigned to the display.</param>
         /// <param name="settingsBrightness">The persisted brightness assigned to the settings instance.</param>
-        /// <returns>The created display.</returns>
         private DisplayObject CreateDisplayWithSettings(float currentBrightness, float settingsBrightness)
         {
             DisplayObject display = CreateComponent<DisplayObject>("Display");
@@ -985,7 +979,6 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a tracked display that references no settings instance.</summary>
         /// <param name="currentBrightness">The runtime brightness override assigned to the display.</param>
-        /// <returns>The created display.</returns>
         private DisplayObject CreateDisplayWithoutSettings(float currentBrightness)
         {
             DisplayObject display = CreateComponent<DisplayObject>("Display");
@@ -997,7 +990,6 @@ namespace SL.Tests.EditMode
         /// <summary>Registers an object for destruction once the running test completes.</summary>
         /// <typeparam name="TObject">The Unity object type being tracked.</typeparam>
         /// <param name="createdObject">The object the test created.</param>
-        /// <returns>The tracked object.</returns>
         private TObject Track<TObject>(TObject createdObject)
             where TObject : UnityEngine.Object
         {

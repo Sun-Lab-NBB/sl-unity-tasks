@@ -39,7 +39,9 @@ namespace SL.Tests.EditMode
         /// <summary>The Configurations basename of a template that exists in the project.</summary>
         private const string ExistingTemplateName = "MF_Reward_Base";
 
-        /// <summary>The Configurations basename of a template the project ships no scene or task prefab for.</summary>
+        /// <summary>
+        /// The Configurations basename of a template for which the project ships no scene or task prefab.
+        /// </summary>
         private const string UnbuiltTemplateName = "SSO_Connection_Base";
 
         /// <summary>The project-relative asset paths created by the running test, removed during teardown.</summary>
@@ -167,7 +169,10 @@ namespace SL.Tests.EditMode
 
             Assert.IsTrue(response.ContainsKey("success"), $"The '{tool}' response is not a bridge envelope.");
             string error = response.TryGetValue("error", out object value) ? (string)value : string.Empty;
-            Assert.AreNotEqual($"Unknown tool: {tool}", error);
+            Assert.AreNotEqual(
+                $"Unable to dispatch '{tool}'. It must be a declared bridge tool, but it is not.",
+                error
+            );
         }
 
         /// <summary>Verifies that an undeclared tool name returns the unknown-tool error envelope.</summary>
@@ -177,7 +182,10 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = CallTool("not_a_bridge_tool");
 
             Assert.AreEqual(false, response["success"]);
-            Assert.AreEqual("Unknown tool: not_a_bridge_tool", response["error"]);
+            Assert.AreEqual(
+                "Unable to dispatch 'not_a_bridge_tool'. It must be a declared bridge tool, but it is not.",
+                response["error"]
+            );
         }
 
         /// <summary>Verifies that an empty tool name is reported as unknown rather than defaulting to a tool.</summary>
@@ -187,7 +195,10 @@ namespace SL.Tests.EditMode
             Dictionary<string, object> response = CallTool(string.Empty);
 
             Assert.AreEqual(false, response["success"]);
-            Assert.AreEqual("Unknown tool: ", response["error"]);
+            Assert.AreEqual(
+                "Unable to dispatch ''. It must be a declared bridge tool, but it is not.",
+                response["error"]
+            );
         }
 
         /// <summary>Verifies that tool names are matched case-sensitively.</summary>
@@ -196,7 +207,10 @@ namespace SL.Tests.EditMode
         {
             Dictionary<string, object> response = CallTool("List_Scenes");
 
-            Assert.AreEqual("Unknown tool: List_Scenes", response["error"]);
+            Assert.AreEqual(
+                "Unable to dispatch 'List_Scenes'. It must be a declared bridge tool, but it is not.",
+                response["error"]
+            );
         }
 
         /// <summary>Verifies that create_task without a template name reports the missing argument.</summary>
@@ -722,7 +736,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(scenePath, SceneManager.GetActiveScene().path);
         }
 
-        /// <summary>Verifies that open_scene rejects a file the AssetDatabase holds no scene for.</summary>
+        /// <summary>Verifies that open_scene rejects a file for which the AssetDatabase holds no scene.</summary>
         /// <remarks>
         /// The probe file sits at the project root, outside Assets, so the file system resolves the relative path
         /// against the Editor's working directory while the AssetDatabase holds nothing for it. Resolving the
@@ -975,9 +989,19 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Verifies that delete_task rejects a template whose scene is a protected asset.</summary>
+        /// <remarks>
+        /// The per-scene companion is generated rather than committed, so a clean checkout carries none while a
+        /// working project may hold one an Editor session produced. Staging it only when it is absent gives the
+        /// survival assertion something to observe on every machine, and it keeps the teardown from removing a
+        /// companion the fixture did not create.
+        /// </remarks>
         [Test]
         public void DeleteTask_ProtectedTemplateScene_RefusesWithoutDeletingAnything()
         {
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(TemplateCompanionPath) == null)
+            {
+                CreateCompanionAsset("ExperimentTemplate");
+            }
             Dictionary<string, object> arguments = BuildArguments("template_name", "ExperimentTemplate");
 
             Dictionary<string, object> response = CallTool("delete_task", arguments);
@@ -1176,7 +1200,8 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual(
-                $"Scene already exists at: {scenePath}. Call delete_task first to regenerate.",
+                "Unable to create the task. The scene save path must be free, but a scene already exists at "
+                    + $"{scenePath}. Call delete_task first to regenerate.",
                 response["error"]
             );
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(prefabPath));
@@ -1208,7 +1233,8 @@ namespace SL.Tests.EditMode
 
             Assert.AreEqual(false, response["success"]);
             Assert.AreEqual(
-                $"Scene already exists at: {scenePath}. Call delete_task first to regenerate.",
+                "Unable to create the task. The scene save path must be free, but a scene already exists at "
+                    + $"{scenePath}. Call delete_task first to regenerate.",
                 response["error"]
             );
             Assert.IsNull(AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(prefabPath));
@@ -1232,13 +1258,13 @@ namespace SL.Tests.EditMode
             return CallTool(tool, new Dictionary<string, object>());
         }
 
-        /// <summary>Runs the per-scene companion cascade and reports both values it answers with.</summary>
+        /// <summary>Runs the per-scene companion cascade and reports the two values it answers.</summary>
         /// <param name="scenePath">The project-relative scene path handed to the cascade.</param>
         /// <param name="error">The orphaned companion message, or null when the cascade reported none.</param>
         /// <returns>The companion path the cascade deleted, or null when it deleted none.</returns>
         private static string RunCompanionCascade(string scenePath, out string error)
         {
-            // Holds the argument array the invocation writes the out parameter back into.
+            // Holds the argument array into which the invocation writes the out parameter.
             object[] arguments = new object[] { scenePath, null };
             object deleted = PrivateAccess.InvokeStatic(
                 typeof(McpBridge),
@@ -1299,7 +1325,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Stages a throwaway material asset by copying the hand-authored floor material.</summary>
-        /// <param name="assetPath">The project-relative path the copy is written to.</param>
+        /// <param name="assetPath">The project-relative destination path of the copy.</param>
         /// <returns>The staged asset path.</returns>
         private string CreateMaterialAsset(string assetPath)
         {
@@ -1315,7 +1341,7 @@ namespace SL.Tests.EditMode
         /// root object name from the asset file name. Passing a different name would make the reported hierarchy
         /// name depend on that undocumented detail rather than on the inspection code under test.
         /// </remarks>
-        /// <param name="assetPath">The project-relative path the prefab is written to.</param>
+        /// <param name="assetPath">The project-relative destination path of the prefab.</param>
         /// <param name="rootName">The name given to the prefab root object, matching the file basename.</param>
         /// <returns>The staged asset path.</returns>
         private string CreatePrefabAsset(string assetPath, string rootName)
@@ -1335,7 +1361,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Stages a throwaway per-scene saved full screen views companion asset.</summary>
-        /// <param name="sceneName">The scene basename the companion belongs to.</param>
+        /// <param name="sceneName">The scene basename that owns the companion.</param>
         /// <returns>The staged asset path.</returns>
         private string CreateCompanionAsset(string sceneName)
         {
@@ -1346,8 +1372,8 @@ namespace SL.Tests.EditMode
             return companionPath;
         }
 
-        /// <summary>Stages an empty scene asset without disturbing the active scene.</summary>
-        /// <param name="scenePath">The project-relative path the scene is saved to.</param>
+        /// <summary>Stages an empty scene asset and leaves a throwaway scene active in its place.</summary>
+        /// <param name="scenePath">The project-relative destination path of the scene.</param>
         /// <returns>The staged scene path.</returns>
         private string CreateSceneAsset(string scenePath)
         {
@@ -1362,7 +1388,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Stages a saved scene holding one inspectable root object and makes it the active scene.</summary>
-        /// <param name="scenePath">The project-relative path the scene is saved to.</param>
+        /// <param name="scenePath">The project-relative destination path of the scene.</param>
         /// <returns>The staged scene path.</returns>
         private string CreateActiveSceneAsset(string scenePath)
         {

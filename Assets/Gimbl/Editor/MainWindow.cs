@@ -17,9 +17,8 @@ namespace Gimbl
     public class MainWindow : EditorWindow
     {
         /// <summary>
-        /// Pre-resolved per-controller specs (display name + concrete subclass) cached on first use so
-        /// <see cref="EnsureControllers"/> never re-walks the <see cref="ControllerTypes"/> enum or
-        /// re-looks-up assembly types on its hot path.
+        /// Pre-resolved per-controller specs. The table resolves each <see cref="ControllerTypes"/> member's display
+        /// name and concrete subclass once at type initialization.
         /// </summary>
         private static readonly (string DisplayName, System.Type ControllerType)[] CachedControllerSpecs =
             BuildControllerSpecs();
@@ -51,7 +50,7 @@ namespace Gimbl
         /// <summary>The cached <see cref="OccupancyZone"/> reference for the active scene.</summary>
         private OccupancyZone _cachedOccupancyZone;
 
-        /// <summary>Initializes the scene, full-screen view manager, and scene change handlers.</summary>
+        /// <summary>Initializes the scene, full-screen view manager, scene change and play mode handlers.</summary>
         private void OnEnable()
         {
             TagsAndLayers.AddTag("VRDisplay");
@@ -63,7 +62,7 @@ namespace Gimbl
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
-        /// <summary>Removes scene change handlers when disabled.</summary>
+        /// <summary>Removes the scene change and play mode handlers when disabled.</summary>
         private void OnDisable()
         {
             EditorSceneManager.activeSceneChangedInEditMode -= OnActiveSceneChanged;
@@ -90,10 +89,8 @@ namespace Gimbl
 
         /// <summary>Shows the Task Parameters editor window.</summary>
         /// <remarks>
-        /// The Window menu entry uses the full "Task Parameters" name while the docked tab uses the
-        /// shorter "Parameters" label to avoid redundancy. The window is docked next to
-        /// <c>UnityEditor.InspectorWindow</c>, resolved by assembly-qualified type name to avoid a hard
-        /// reference to a private Unity type.
+        /// The window is docked next to <c>UnityEditor.InspectorWindow</c>, resolved by assembly-qualified type name
+        /// to avoid a hard reference to a private Unity type.
         /// </remarks>
         [MenuItem("Window/Task Parameters")]
         public static void ShowWindow()
@@ -105,13 +102,11 @@ namespace Gimbl
         /// Ensures the active scene contains one controller GameObject per supported ControllerTypes.
         /// </summary>
         /// <remarks>
-        /// Iterates the static <see cref="CachedControllerSpecs"/> table (resolved once via reflection at
-        /// type-init) and creates a controller GameObject under the scene's "Controllers" root whenever
-        /// none of that exact type already exists. The created GameObject is named after the controller's
-        /// display name (which equals the enum value only for members without a BuildControllerSpecs
-        /// override), and <see cref="ControllerObject.InitiateController"/> reparents it under the scene's
-        /// "Controllers" root and registers it for undo. The Actor.Controller assignment is left untouched
-        /// so user-chosen swaps survive auto-create.
+        /// The created GameObject is named after the controller's display name, and
+        /// <see cref="ControllerObject.InitiateController"/> reparents it under the scene's "Controllers" root and
+        /// registers it for undo. Each created controller additionally receives a <see cref="ControllerOutput"/>
+        /// whose master points at the controller. The Actor.Controller assignment is left untouched so user-chosen
+        /// swaps survive auto-create.
         /// </remarks>
         public static void EnsureControllers()
         {
@@ -153,9 +148,6 @@ namespace Gimbl
         /// Applies the project-wide MQTT broker defaults (IP and port) to the active scene's <see cref="MQTTClient"/>
         /// component, reading from <c>EditorPrefs</c> with the standard loopback fallback. Idempotent.
         /// </summary>
-        /// <remarks>
-        /// The MQTT broker is a project-wide setting, so this overwrite is intentional on every pass.
-        /// </remarks>
         public static void EnsureMqttDefaults()
         {
             GameObject mqttClientObject = GameObject.Find("MQTT Client");
@@ -163,8 +155,7 @@ namespace Gimbl
             {
                 return;
             }
-            MQTTClient client = mqttClientObject.GetComponent<MQTTClient>();
-            if (client == null)
+            if (!mqttClientObject.TryGetComponent(out MQTTClient client))
             {
                 return;
             }
@@ -197,12 +188,6 @@ namespace Gimbl
         /// <see cref="DisplaySettings.brightness"/> asset value, so a fresh scene's runtime override matches the
         /// persisted asset default.
         /// </summary>
-        /// <remarks>
-        /// The runtime override is overwritten only when it differs from the asset brightness, so a pass that finds
-        /// them equal leaves the scene clean. <see cref="InitializeScene"/> leaves this method out of its sequence,
-        /// because a per-scene <c>currentBrightness</c> customization made through the Blank and Show toggle or a
-        /// direct API write has to survive every later scene-open pass.
-        /// </remarks>
         public static void SyncDisplayBrightnessToSettings()
         {
             DisplayObject display = FindAnyObjectByType<DisplayObject>();
@@ -220,12 +205,9 @@ namespace Gimbl
 
         /// <summary>Removes every default Unity "Main Camera" GameObject from the active scene.</summary>
         /// <remarks>
-        /// The auto-created Display owns the per-monitor cameras (via PerspectiveProjection) and the Actor
-        /// owns the third-person tracking camera, so the Unity-default "Main Camera" left over by the new
-        /// scene template renders nothing useful while still consuming display slot 0. No runtime rendering
-        /// code depends on <c>Camera.main</c> or the <c>MainCamera</c> tag, so removing it is safe. The scan
-        /// includes inactive objects, because a deactivated default camera still occupies the slot and still
-        /// serializes into the scene.
+        /// The auto-created Display owns the per-monitor cameras (via PerspectiveProjection) and the Actor owns the
+        /// third-person tracking camera, so the Unity-default "Main Camera" left over by the new scene template
+        /// renders nothing useful while still consuming display slot 0.
         /// </remarks>
         public static void RemoveDefaultMainCamera()
         {
@@ -310,8 +292,6 @@ namespace Gimbl
         /// Invalidates the scene-component cache on every active-scene change, and reloads camera assignments
         /// unless the change is the deferred swap from exiting Play Mode.
         /// </summary>
-        /// <param name="oldScene">The previous active scene.</param>
-        /// <param name="newScene">The new active scene.</param>
         private void OnActiveSceneChanged(Scene oldScene, Scene newScene)
         {
             InvalidateSceneCache();
@@ -342,109 +322,6 @@ namespace Gimbl
             }
         }
 
-        /// <summary>Renders the Task section that exposes per-scene Task settings.</summary>
-        /// <remarks>
-        /// Reads the cached <see cref="Task"/> reference, which refreshes lazily on a scene change. Disables the
-        /// controls in Play Mode since the live guidance toggles are driven by MQTT during runtime. Hides
-        /// <c>Require Interaction</c> and <c>Require Wait</c> when the active scene lacks a corresponding
-        /// <see cref="GuidanceZone"/> or <see cref="OccupancyZone"/> to keep the section focused on the toggles
-        /// actually consumed by the current task.
-        /// </remarks>
-        private void DrawTaskSection()
-        {
-            DrawSection(
-                "Task",
-                () =>
-                {
-                    Task task = GetCachedTask();
-                    if (task == null)
-                    {
-                        EditorGUILayout.HelpBox("No Task component found in the current scene.", MessageType.Info);
-                        return;
-                    }
-
-                    if (task.actor == null)
-                    {
-                        ActorObject resolvedActor = GetCachedActor();
-                        if (resolvedActor != null)
-                        {
-                            task.actor = resolvedActor;
-                            EditorUtility.SetDirty(task);
-                        }
-                    }
-
-                    if (EditorApplication.isPlaying)
-                    {
-                        GUI.enabled = false;
-                    }
-
-                    bool hasInteractionZone = GetCachedGuidanceZone() != null;
-                    bool hasOccupancyZone = GetCachedOccupancyZone() != null;
-
-                    EditorGUI.BeginChangeCheck();
-                    bool newRequireInteraction = task.requireInteraction;
-                    if (hasInteractionZone)
-                    {
-                        newRequireInteraction = EditorGUILayout.Toggle(
-                            new GUIContent(
-                                "Require Interaction: ",
-                                "When on, the animal must engage an interaction sensor inside the stimulus zone "
-                                    + "to trigger the reward. When off, reaching the guidance zone automatically "
-                                    + "triggers the reward. Addressable via MQTT at runtime."
-                            ),
-                            task.requireInteraction,
-                            LayoutSettings.EditFieldOption
-                        );
-                    }
-                    bool newRequireWait = task.requireWait;
-                    if (hasOccupancyZone)
-                    {
-                        newRequireWait = EditorGUILayout.Toggle(
-                            new GUIContent(
-                                "Require Wait: ",
-                                "When on, the animal must remain in the occupancy zone to disarm the stimulus trigger. "
-                                    + "When off, the VR emits a warning to the experiment controller via MQTT, "
-                                    + "enabling it to interfere by activating brakes. Addressable via MQTT at runtime."
-                            ),
-                            task.requireWait,
-                            LayoutSettings.EditFieldOption
-                        );
-                    }
-                    float newTrackLength = EditorGUILayout.FloatField(
-                        new GUIContent(
-                            "Track Length: ",
-                            "Total length of the pre-generated random trial sequence in Unity units. "
-                                + "Should overestimate the distance the animal will actually travel in a session."
-                        ),
-                        task.trackLength,
-                        LayoutSettings.EditFieldOption
-                    );
-                    int newTrackSeed = EditorGUILayout.IntField(
-                        new GUIContent(
-                            "Track Seed: ",
-                            "Seed for the random trial-sequence generator. A specific seed reproduces the same "
-                                + "sequence; use -1 for a nondeterministic seed each run."
-                        ),
-                        task.trackSeed,
-                        LayoutSettings.EditFieldOption
-                    );
-
-                    if (EditorGUI.EndChangeCheck())
-                    {
-                        Undo.RecordObject(task, "Edit Task Settings");
-                        task.requireInteraction = newRequireInteraction;
-                        task.requireWait = newRequireWait;
-                        task.trackLength = newTrackLength;
-                        task.trackSeed = newTrackSeed;
-                        EditorUtility.SetDirty(task);
-                        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
-                    }
-
-                    GUI.enabled = true;
-                }
-            );
-        }
-
         /// <summary>Renders the Actor section that exposes the active scene's Actor properties.</summary>
         private void DrawActorSection()
         {
@@ -466,6 +343,71 @@ namespace Gimbl
                     }
                 }
             );
+        }
+
+        /// <summary>Renders the MQTT section with broker IP/port and connection test.</summary>
+        private void DrawMQTTSection()
+        {
+            if (EditorApplication.isPlaying)
+            {
+                GUI.enabled = false;
+            }
+            DrawSection(
+                "MQTT",
+                () =>
+                {
+                    MQTTClient client = GetCachedClient();
+                    if (client == null)
+                    {
+                        EditorGUILayout.HelpBox(
+                            "No MQTT Client in the active scene. Close and reopen this window to auto-create one.",
+                            MessageType.Info
+                        );
+                        return;
+                    }
+
+                    client.ipAddress = EditorGUILayout.TextField(
+                        new GUIContent(
+                            "ip: ",
+                            "IP address of the MQTT broker that bridges this Unity scene to the experiment hardware."
+                        ),
+                        client.ipAddress,
+                        LayoutSettings.EditFieldOption
+                    );
+
+                    string portText = EditorGUILayout.TextField(
+                        new GUIContent(
+                            "port: ",
+                            "TCP port of the MQTT broker that bridges this Unity scene to the experiment hardware."
+                        ),
+                        client.port.ToString(),
+                        LayoutSettings.EditFieldOption
+                    );
+                    if (int.TryParse(portText, out int parsedPort))
+                    {
+                        client.port = parsedPort;
+                    }
+
+                    if (GUI.changed)
+                    {
+                        EditorPrefs.SetString("SollertiaVR_MQTT_IP", client.ipAddress);
+                        EditorPrefs.SetInt("SollertiaVR_MQTT_Port", client.port);
+                    }
+                    if (
+                        GUILayout.Button(
+                            new GUIContent(
+                                "Test Connection",
+                                "Check whether the MQTT broker is reachable at the specified ip and port."
+                            )
+                        )
+                    )
+                    {
+                        client.Connect(verbose: true);
+                        client.Disconnect();
+                    }
+                }
+            );
+            GUI.enabled = true;
         }
 
         /// <summary>Renders the Display section for brightness and height of the active scene's Display.</summary>
@@ -561,76 +503,107 @@ namespace Gimbl
             );
         }
 
-        /// <summary>Renders the MQTT section with broker IP/port and connection test.</summary>
-        private void DrawMQTTSection()
+        /// <summary>Renders the Task section that exposes per-scene Task settings.</summary>
+        private void DrawTaskSection()
         {
-            if (EditorApplication.isPlaying)
-            {
-                GUI.enabled = false;
-            }
             DrawSection(
-                "MQTT",
+                "Task",
                 () =>
                 {
-                    MQTTClient client = GetCachedClient();
-                    if (client == null)
+                    Task task = GetCachedTask();
+                    if (task == null)
                     {
-                        EditorGUILayout.HelpBox(
-                            "No MQTT Client in the active scene. Close and reopen this window to auto-create one.",
-                            MessageType.Info
-                        );
+                        EditorGUILayout.HelpBox("No Task component found in the current scene.", MessageType.Info);
                         return;
                     }
 
-                    client.ipAddress = EditorGUILayout.TextField(
-                        new GUIContent(
-                            "ip: ",
-                            "IP address of the MQTT broker that bridges this Unity scene to the experiment hardware."
-                        ),
-                        client.ipAddress,
-                        LayoutSettings.EditFieldOption
-                    );
-
-                    string portText = EditorGUILayout.TextField(
-                        new GUIContent(
-                            "port: ",
-                            "TCP port of the MQTT broker that bridges this Unity scene to the experiment hardware."
-                        ),
-                        client.port.ToString(),
-                        LayoutSettings.EditFieldOption
-                    );
-                    if (int.TryParse(portText, out int parsedPort))
+                    if (task.actor == null)
                     {
-                        client.port = parsedPort;
+                        ActorObject resolvedActor = GetCachedActor();
+                        if (resolvedActor != null)
+                        {
+                            task.actor = resolvedActor;
+                            EditorUtility.SetDirty(task);
+                        }
                     }
 
-                    if (GUI.changed)
+                    if (EditorApplication.isPlaying)
                     {
-                        EditorPrefs.SetString("SollertiaVR_MQTT_IP", client.ipAddress);
-                        EditorPrefs.SetInt("SollertiaVR_MQTT_Port", client.port);
+                        GUI.enabled = false;
                     }
-                    if (
-                        GUILayout.Button(
+
+                    bool hasInteractionZone = GetCachedGuidanceZone() != null;
+                    bool hasOccupancyZone = GetCachedOccupancyZone() != null;
+
+                    EditorGUI.BeginChangeCheck();
+                    bool newRequireInteraction = task.requireInteraction;
+                    if (hasInteractionZone)
+                    {
+                        newRequireInteraction = EditorGUILayout.Toggle(
                             new GUIContent(
-                                "Test Connection",
-                                "Check whether the MQTT broker is reachable at the specified ip and port."
-                            )
-                        )
-                    )
-                    {
-                        client.Connect(verbose: true);
-                        client.Disconnect();
+                                "Require Interaction: ",
+                                "When on, the animal must engage an interaction sensor inside the stimulus zone "
+                                    + "to trigger the stimulus. When off, reaching the guidance zone automatically "
+                                    + "triggers the stimulus. Addressable via MQTT at runtime."
+                            ),
+                            task.requireInteraction,
+                            LayoutSettings.EditFieldOption
+                        );
                     }
+                    bool newRequireWait = task.requireWait;
+                    if (hasOccupancyZone)
+                    {
+                        newRequireWait = EditorGUILayout.Toggle(
+                            new GUIContent(
+                                "Require Wait: ",
+                                "When on, the animal must remain in the occupancy zone, and the zone's mode resolves "
+                                    + "the trial by disarming, arming, or triggering the stimulus. When off, the VR "
+                                    + "emits a warning to the experiment controller via MQTT, enabling it to interfere "
+                                    + "by activating brakes. Addressable via MQTT at runtime."
+                            ),
+                            task.requireWait,
+                            LayoutSettings.EditFieldOption
+                        );
+                    }
+                    float newTrackLength = EditorGUILayout.FloatField(
+                        new GUIContent(
+                            "Track Length: ",
+                            "Total length of the pre-generated random trial sequence in Unity units. "
+                                + "Should overestimate the distance the animal will actually travel in a session."
+                        ),
+                        task.trackLength,
+                        LayoutSettings.EditFieldOption
+                    );
+                    int newTrackSeed = EditorGUILayout.IntField(
+                        new GUIContent(
+                            "Track Seed: ",
+                            "Seed for the random trial-sequence generator. A specific seed reproduces the same "
+                                + "sequence; use -1 for a nondeterministic seed each run."
+                        ),
+                        task.trackSeed,
+                        LayoutSettings.EditFieldOption
+                    );
+
+                    if (EditorGUI.EndChangeCheck())
+                    {
+                        Undo.RecordObject(task, "Edit Task Settings");
+                        task.requireInteraction = newRequireInteraction;
+                        task.requireWait = newRequireWait;
+                        task.trackLength = newTrackLength;
+                        task.trackSeed = newTrackSeed;
+                        EditorUtility.SetDirty(task);
+                        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+                    }
+
+                    GUI.enabled = true;
                 }
             );
-            GUI.enabled = true;
         }
 
         /// <summary>Renders a labelled vertical box surrounding the supplied body action.</summary>
         /// <remarks>
-        /// Centralizes the open-vertical / label / close-vertical boilerplate every Task Parameters
-        /// section repeats. Returning early from <paramref name="drawBody"/> still closes the box because
-        /// the closing call lives in this helper.
+        /// Returning early from <paramref name="drawBody"/> still closes the box because the closing call lives in
+        /// this helper.
         /// </remarks>
         /// <param name="title">The section heading shown above the body content.</param>
         /// <param name="drawBody">The action that emits the section's inner GUI controls.</param>
@@ -736,7 +709,7 @@ namespace Gimbl
                 {
                     Debug.Log($"Creating Object: {objectName}..");
                     sceneObject = new GameObject(objectName);
-                    if (objectName == "MQTT Client")
+                    if (string.Equals(objectName, "MQTT Client", System.StringComparison.Ordinal))
                     {
                         sceneObject.AddComponent<MQTTClient>();
                     }
@@ -762,12 +735,11 @@ namespace Gimbl
             EnsureMqttDefaults();
         }
 
-        /// <summary>Ensures the active scene contains exactly one Actor and one Display, wired together.</summary>
+        /// <summary>Creates an Actor and a Display when the active scene lacks them, and links the two.</summary>
         /// <remarks>
-        /// Creates a default Actor with the first prefab under <c>Resources/Actors/Prefabs/</c> and a default
-        /// Display from the first prefab under <c>Resources/Displays/</c> whenever the active scene lacks
-        /// them. Existing instances are left untouched. The Actor is linked to the Display via
-        /// <see cref="ActorObject.Display"/> so the projection cameras render through the Actor's view.
+        /// The Actor and Display models are the first prefabs found under <c>Resources/Actors/Prefabs/</c> and
+        /// <c>Resources/Displays/</c>. The Actor is linked to the Display via <see cref="ActorObject.Display"/> so
+        /// the projection cameras render through the Actor's view.
         /// </remarks>
         private void EnsureActorAndDisplay()
         {
@@ -788,9 +760,10 @@ namespace Gimbl
                 GameObject[] displayModels = Resources.LoadAll<GameObject>("Displays");
                 if (displayModels.Length == 0)
                 {
-                    Debug.LogError(
-                        "MainWindow.EnsureActorAndDisplay: no display prefabs found under Resources/Displays."
-                    );
+                    string message =
+                        "Unable to create the scene Display. At least one display prefab must exist under "
+                        + "Resources/Displays, but that folder holds none.";
+                    Debug.LogError(message);
                     return;
                 }
                 display = DisplayObject.Create("Display", displayModels[0].name);
@@ -805,8 +778,7 @@ namespace Gimbl
 
         /// <summary>Caches the resolved (display name, controller type) spec for every ControllerTypes value.</summary>
         /// <remarks>
-        /// Logged errors for unresolved subclasses surface here instead of in <see cref="EnsureControllers"/>, keeping
-        /// the per-scene path allocation-free.
+        /// Logged errors for unresolved subclasses surface here, keeping the per-scene path allocation-free.
         /// </remarks>
         private static (string DisplayName, System.Type ControllerType)[] BuildControllerSpecs()
         {
@@ -819,10 +791,11 @@ namespace Gimbl
                     System.Type resolvedType = controllerAssembly.GetType($"Gimbl.{controllerType}");
                     if (resolvedType == null)
                     {
-                        Debug.LogError(
-                            $"MainWindow.BuildControllerSpecs: could not resolve controller type "
-                                + $"'Gimbl.{controllerType}'."
-                        );
+                        string message =
+                            $"Unable to resolve the controller type for the {controllerType} member. The "
+                            + $"ControllerObject assembly must declare a 'Gimbl.{controllerType}' class, but it "
+                            + "declares none.";
+                        Debug.LogError(message);
                     }
                     string displayName = controllerType switch
                     {

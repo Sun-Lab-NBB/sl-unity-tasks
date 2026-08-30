@@ -17,9 +17,9 @@ namespace SL.Config
         private const double ProbabilitySumTolerance = 0.001;
 
         /// <summary>
-        /// Matches the template and trial names that are safe to embed in generated segment prefab filenames.
-        /// Restricts both halves to ASCII letters, digits, and underscores so the ``TemplateName-TrialName`` segment
-        /// naming scheme cannot be corrupted by path separators, whitespace, or punctuation introduced in a template.
+        /// Matches the template, cue, and trial names embedded in generated asset filenames. Restricts each name to
+        /// ASCII letters, digits, and underscores, so the ``TemplateName-TrialName`` segment scheme, the
+        /// ``Cue_{name}_{length}cm`` cue assets, and the space-joined cue sequence signature all stay unambiguous.
         /// </summary>
         /// <remarks>
         /// Excluding the hyphen from both halves is what makes the joined filename unambiguous, because a segment
@@ -33,10 +33,11 @@ namespace SL.Config
         /// <exception cref="FileNotFoundException">
         /// The template file at <paramref name="filePath"/> does not exist.
         /// </exception>
-        /// <exception cref="FormatException">
-        /// The YAML file cannot be deserialized into a <see cref="TaskTemplate"/>.
+        /// <exception cref="FormatException">The YAML document body deserializes to null.</exception>
+        /// <exception cref="InvalidDataException">
+        /// The template filename stem falls outside the allowed character set, or the parsed template fails validation.
         /// </exception>
-        /// <exception cref="InvalidDataException">The parsed template fails validation.</exception>
+        /// <exception cref="YamlDotNet.Core.YamlException">The deserializer rejects a malformed YAML file.</exception>
         public static TaskTemplate LoadTemplate(string filePath)
         {
             if (!File.Exists(filePath))
@@ -106,8 +107,6 @@ namespace SL.Config
                 throw new InvalidDataException("No trial structures defined in template.");
             }
 
-            // Validates each cue's name pattern and uniqueness, code range and uniqueness, positive finite length, and
-            // texture presence and existence.
             HashSet<int> seenCodes = new HashSet<int>();
             HashSet<string> seenNames = new HashSet<string>();
 
@@ -128,8 +127,8 @@ namespace SL.Config
                 }
 
                 // Cue names reach the generated cue prefab and material filenames verbatim, and the duplicate-sequence
-                // signature below joins them with a space, so a name carrying a space or a separator corrupts an asset
-                // path or makes two distinct sequences compare equal.
+                // signature below joins them with a space. A name carrying a space or a separator therefore corrupts
+                // an asset path or makes two distinct sequences compare equal.
                 if (!SegmentNameComponentPattern.IsMatch(cue.name))
                 {
                     string message =
@@ -176,8 +175,6 @@ namespace SL.Config
                 }
             }
 
-            // Validates each trial's name, non-empty cue sequence, cue references, trigger type, and occupancy
-            // duration.
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
                 string trialName = trialEntry.Key;
@@ -263,8 +260,8 @@ namespace SL.Config
                 }
             }
 
-            // Validates that no two trials share an identical cue sequence. Identical cue sequences are
-            // indistinguishable to the experiment's cue-stream decomposer, which would silently merge them.
+            // Identical cue sequences are indistinguishable to the experiment's cue-stream decomposer, which would
+            // silently merge them.
             Dictionary<string, string> seenSequences = new Dictionary<string, string>();
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
@@ -281,7 +278,6 @@ namespace SL.Config
                 seenSequences[signature] = trialName;
             }
 
-            // Validates transitions reference defined trial names and sum to 1.0 when provided.
             foreach (KeyValuePair<string, TrialStructure> trialEntry in template.trialStructures)
             {
                 string trialName = trialEntry.Key;
@@ -328,8 +324,10 @@ namespace SL.Config
 
         /// <summary>Validates the VR environment's corridor geometry scalars.</summary>
         /// <remarks>
-        /// Every field here divides or sizes downstream geometry, so a non-positive or non-finite value produces an
-        /// infinite segment length, a zero-depth corridor, or a maze generation loop that never terminates.
+        /// The segments_per_corridor, cm_per_unity_unit, and corridor_spacing_cm scalars divide or size downstream
+        /// geometry, so a non-positive or non-finite value produces an infinite segment length, a zero-depth corridor,
+        /// or a maze generation loop that never terminates. cue_offset_cm only has to be finite, because it shifts the
+        /// segment origin in either direction.
         /// </remarks>
         /// <param name="environment">The VR environment block to validate.</param>
         /// <exception cref="InvalidDataException">A corridor geometry scalar is out of range.</exception>

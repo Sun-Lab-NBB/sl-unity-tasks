@@ -5,9 +5,7 @@ using UnityEngine;
 
 namespace SL.UI
 {
-    /// <summary>
-    /// Displays a temporary UI indicator when a stimulus event occurs and destroys itself after a configurable delay.
-    /// </summary>
+    /// <summary>Schedules the indicator's destruction after a configurable delay.</summary>
     public class StimulusMessage : MonoBehaviour
     {
         /// <summary>The time in seconds before this indicator is destroyed.</summary>

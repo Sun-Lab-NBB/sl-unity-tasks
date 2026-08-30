@@ -18,15 +18,15 @@ namespace SL.Tests.PlayMode
 {
     /// <summary>Verifies the behavior of the Task class under the real Unity player loop.</summary>
     /// <remarks>
-    /// Unity itself drives Awake, Start, and Update here, and every corridor advance happens across real frames. That
-    /// is what separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through
-    /// reflection. Reflection cannot observe the ordering the engine imposes, a component that stops receiving Update
-    /// once it is disabled, or a teleport that lands between two consecutive frames.
+    /// Unity itself drives Start and Update here, and every corridor advance happens across real frames. That is what
+    /// separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through reflection.
+    /// Reflection cannot observe the ordering the engine imposes, a component that stops receiving Update once it is
+    /// disabled, or a teleport that lands between two consecutive frames.
     /// </remarks>
     [TestFixture]
     public class TaskPlayModeTests
     {
-        /// <summary>The dataPath-relative directory that every staged test template is written into.</summary>
+        /// <summary>The dataPath-relative directory into which every staged test template is written.</summary>
         private const string ConfigurationsDirectory = "InfiniteCorridorTask/Configurations";
 
         /// <summary>The name of the two-trial corridor template that the traversal tests load.</summary>
@@ -73,7 +73,7 @@ namespace SL.Tests.PlayMode
         /// <summary>The seed every deterministic maze generation in this fixture uses.</summary>
         private const int PairSeed = 4242;
 
-        /// <summary>The track length every pair-template traversal test generates its maze with.</summary>
+        /// <summary>The track length with which every pair-template traversal test generates its maze.</summary>
         private const float PairTrackLength = 400f;
 
         /// <summary>The distance past the segment boundary the actor is placed to force one advance.</summary>
@@ -121,7 +121,8 @@ namespace SL.Tests.PlayMode
             DeleteStagedTemplate(InvalidTemplateName);
         }
 
-        /// <summary>Installs the MQTT singleton and creates the root object every test hangs its objects on.</summary>
+        /// <summary>Installs the MQTT singleton and creates the root object on which every test hangs its objects.
+        /// </summary>
         [SetUp]
         public void SetUp()
         {
@@ -183,7 +184,7 @@ namespace SL.Tests.PlayMode
         public IEnumerator Start_AbsentTemplateFile_DisablesTheComponentSoUpdateStopsRunning()
         {
             CreateTask(RelativeConfigPath(AbsentTemplateName), PairTrackLength, PairSeed, Vector3.zero);
-            LogAssert.Expect(LogType.Error, new Regex("configuration YAML not found"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task configuration"));
 
             yield return null;
 
@@ -207,7 +208,7 @@ namespace SL.Tests.PlayMode
         public IEnumerator Start_UnsetConfigPath_DisablesTheComponentSoUpdateStopsRunning()
         {
             CreateTask(null, PairTrackLength, PairSeed, Vector3.zero);
-            LogAssert.Expect(LogType.Error, new Regex("configuration YAML not found"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task configuration"));
 
             yield return null;
 
@@ -237,7 +238,7 @@ namespace SL.Tests.PlayMode
         public IEnumerator Start_TemplateFailingValidation_DisablesTheComponentSoUpdateStopsRunning()
         {
             CreateTask(RelativeConfigPath(InvalidTemplateName), PairTrackLength, PairSeed, Vector3.zero);
-            LogAssert.Expect(LogType.Error, new Regex("Failed to load task template"));
+            LogAssert.Expect(LogType.Error, new Regex("Unable to load the task template"));
 
             yield return null;
 
@@ -255,7 +256,7 @@ namespace SL.Tests.PlayMode
         public IEnumerator Start_TrackLengthShorterThanTheCorridorDepth_DisablesTheComponent()
         {
             CreateTask(RelativeConfigPath(SingleTemplateName), ShortSegmentLengthUnity, PairSeed, Vector3.zero);
-            LogAssert.Expect(LogType.Error, new Regex("is too short for template"));
+            LogAssert.Expect(LogType.Error, new Regex("Maze generation must produce at least"));
 
             yield return null;
 
@@ -463,7 +464,7 @@ namespace SL.Tests.PlayMode
             Assert.AreEqual(PairTrialCount * PairTrialCount, corridorCount);
             PrivateAccess.SetField(_task, "_currentCorridorKey", corridorCount);
             _actor.transform.position = new Vector3(0f, 0f, 1000f);
-            LogAssert.Expect(LogType.Error, new Regex("Corridor key '4' out of bounds"));
+            LogAssert.Expect(LogType.Error, new Regex(@"The corridor key must fall within \[0, \d+\), but it is 4"));
 
             yield return null;
 
@@ -483,7 +484,7 @@ namespace SL.Tests.PlayMode
 
             PrivateAccess.SetField(_task, "_currentCorridorKey", CorridorMapLength());
             _actor.transform.position = new Vector3(0f, 0f, 1000f);
-            LogAssert.Expect(LogType.Error, new Regex("Corridor key '4' out of bounds"));
+            LogAssert.Expect(LogType.Error, new Regex(@"The corridor key must fall within \[0, \d+\), but it is 4"));
 
             // The first of these frames reports the error, and the rest run against the disabled component. A second
             // report arrives as an unexpected error, which fails the run.
@@ -510,7 +511,7 @@ namespace SL.Tests.PlayMode
             PrivateAccess.SetField(_task, "_currentSegmentIndex", sequence.Length - PairDepth);
             float departureX = _actor.transform.position.x;
             _actor.transform.position = new Vector3(departureX, 0f, departureZ);
-            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+            LogAssert.Expect(LogType.Error, new Regex("ran through every generated segment"));
 
             yield return null;
 
@@ -537,7 +538,7 @@ namespace SL.Tests.PlayMode
                 0f,
                 firstSegmentLength + AdvanceOvershoot
             );
-            LogAssert.Expect(LogType.Error, new Regex("Animal ran through all generated segments"));
+            LogAssert.Expect(LogType.Error, new Regex("ran through every generated segment"));
 
             // The actor stays past the boundary, so a component that keeps receiving Update reports the same error
             // again on each of the later frames, and the second report fails the run as an unexpected error.
@@ -705,7 +706,6 @@ namespace SL.Tests.PlayMode
         /// lives under the project's own Configurations directory.
         /// </remarks>
         /// <param name="templateName">The template name, which becomes the file name without its extension.</param>
-        /// <returns>The absolute path of the staged template file.</returns>
         private static string AbsoluteTemplatePath(string templateName)
         {
             return Path.Combine(Application.dataPath, "InfiniteCorridorTask", "Configurations", $"{templateName}.yaml");
@@ -764,7 +764,7 @@ namespace SL.Tests.PlayMode
         /// <param name="configPath">The value assigned to the task's configPath field.</param>
         /// <param name="trackLength">The value assigned to the task's trackLength field.</param>
         /// <param name="trackSeed">The value assigned to the task's trackSeed field.</param>
-        /// <param name="actorPosition">The world position the actor starts at.</param>
+        /// <param name="actorPosition">The world position at which the actor starts.</param>
         private void CreateTask(string configPath, float trackLength, int trackSeed, Vector3 actorPosition)
         {
             GameObject actorObject = new GameObject("Actor");
@@ -800,22 +800,19 @@ namespace SL.Tests.PlayMode
             _occupancyGuidanceZone = occupancyGuidanceObject.AddComponent<OccupancyGuidanceZone>();
         }
 
-        /// <summary>Returns the corridor key the task currently reads its landing position from.</summary>
-        /// <returns>The cached corridor key.</returns>
+        /// <summary>Returns the corridor key from which the task currently reads its landing position.</summary>
         private int CurrentCorridorKey()
         {
             return PrivateAccess.GetField<int>(_task, "_currentCorridorKey");
         }
 
         /// <summary>Returns the task's index into the generated segment sequence.</summary>
-        /// <returns>The current segment index.</returns>
         private int CurrentSegmentIndex()
         {
             return PrivateAccess.GetField<int>(_task, "_currentSegmentIndex");
         }
 
         /// <summary>Returns the maze's segment index sequence.</summary>
-        /// <returns>The segment index sequence.</returns>
         private int[] SegmentSequence()
         {
             return PrivateAccess.GetField<int[]>(_task, "_segmentSequenceArray");
@@ -833,7 +830,6 @@ namespace SL.Tests.PlayMode
         /// The map is an array of value tuples, so the read goes through the non-generic Array type rather than
         /// restating the tuple shape the runtime field declares.
         /// </remarks>
-        /// <returns>The corridor map length.</returns>
         private int CorridorMapLength()
         {
             return PrivateAccess.GetField<Array>(_task, "_corridorMap").Length;

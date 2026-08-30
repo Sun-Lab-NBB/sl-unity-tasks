@@ -13,8 +13,8 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the FullScreenViewManager class.</summary>
     /// <remarks>
-    /// The IMGUI entry points and the borderless window creation path need a real editor layout and a graphics device,
-    /// so they stay out of scope.
+    /// The IMGUI entry points and window creation need a real editor layout and a graphics device, so they stay out of
+    /// scope. ShowFullScreenViews is covered only where no monitor carries a camera assignment, so it opens no window.
     /// </remarks>
     [TestFixture]
     public class FullScreenViewManagerTests
@@ -328,7 +328,6 @@ namespace SL.Tests.EditMode
         /// <param name="width">The width in pixels.</param>
         /// <param name="height">The height in pixels.</param>
         /// <param name="pixelsPerPoint">The DPI scale assigned to the record after construction.</param>
-        /// <returns>The constructed monitor record.</returns>
         private static Monitor CreateMonitor(int left, int top, int width, int height, float pixelsPerPoint)
         {
             Monitor monitor = (Monitor)

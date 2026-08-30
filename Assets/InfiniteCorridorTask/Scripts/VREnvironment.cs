@@ -18,10 +18,7 @@ namespace SL.Config
         /// <summary>The name of the Unity prefab used for corridor padding.</summary>
         public string paddingPrefabName = "Padding";
 
-        /// <summary>
-        /// The number of centimeters represented by one Unity unit (centimeters-per-Unity-unit). Divide a centimeter
-        /// value by this to obtain Unity units.
-        /// </summary>
+        /// <summary>The number of centimeters represented by one Unity unit.</summary>
         public float cmPerUnityUnit = 10.0f;
 
         /// <summary>

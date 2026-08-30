@@ -7,9 +7,8 @@ using System.Collections.Generic;
 namespace SL.Config
 {
     /// <summary>
-    /// Defines the spatial configuration of a trial structure for Unity prefabs.
-    /// Contains the trial's cue sequence, zone positions, optional transition probabilities, and visibility settings.
-    /// Mirrors the TrialStructure class from sollertia-shared-assets vr_configuration module.
+    /// Defines the spatial configuration of a trial structure for Unity prefabs. Mirrors the TrialStructure class
+    /// from sollertia-shared-assets vr_configuration module.
     /// </summary>
     [Serializable]
     public class TrialStructure
@@ -31,7 +30,6 @@ namespace SL.Config
 
         /// <summary>
         /// Determines whether the stimulus collision boundary is visible to the animal during this trial type.
-        /// When true, the boundary marker is displayed in the VR environment at the stimulus location.
         /// </summary>
         public bool showStimulusCollisionBoundary = false;
 
@@ -55,9 +53,10 @@ namespace SL.Config
 
         /// <summary>
         /// The optional probability distribution over the trial names that may follow this trial during corridor
-        /// traversal. Keys must reference other trial names defined on the same TaskTemplate. If provided, the
-        /// values must sum to 1.0. Sparse: omitted keys carry implicit zero probability. When null or empty, the
-        /// Task samples the next trial uniformly at random over all defined trial names.
+        /// traversal. Keys must reference trial names defined on the same TaskTemplate, the trial's own name included,
+        /// which is how a template holds a trial across laps. If provided, the values must sum to 1.0. Sparse: omitted
+        /// keys carry implicit zero probability. When null or empty, the Task samples the next trial uniformly at
+        /// random over all defined trial names.
         /// </summary>
         public Dictionary<string, float> transitions;
 

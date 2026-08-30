@@ -11,11 +11,7 @@ using System.Linq;
 
 namespace SL.Config
 {
-    /// <summary>
-    /// Defines a VR task template used by Unity for prefab generation and runtime configuration.
-    /// Mirrors the TaskTemplate class from sollertia-shared-assets vr_configuration module.
-    /// The template name is derived from the YAML filename during loading.
-    /// </summary>
+    /// <summary>Defines a VR task template used by Unity for prefab generation and runtime configuration.</summary>
     /// <remarks>
     /// Getter results are lazily computed once per template instance and cached in private fields. The template is
     /// expected to be immutable after deserialization, so the caches never need invalidation. Any mutation of
@@ -32,16 +28,12 @@ namespace SL.Config
         public VREnvironment vrEnvironment;
 
         /// <summary>
-        /// The dictionary of trial structures mapping trial names to their spatial configurations.
-        /// Keys are trial names (e.g., 'ABC'), values contain the cue sequence, zone positions, transitions,
-        /// and visibility settings.
+        /// The dictionary of trial structures mapping trial names to their spatial configurations. Keys are trial
+        /// names (e.g., 'ABC').
         /// </summary>
         public Dictionary<string, TrialStructure> trialStructures;
 
-        /// <summary>
-        /// The template name, derived from the YAML filename during loading.
-        /// Also corresponds to the Unity scene name.
-        /// </summary>
+        /// <summary>The template name, derived from the YAML filename during loading.</summary>
         public string templateName;
 
         /// <summary>The cached cue-name to byte-code lookup, built on first access.</summary>
@@ -49,9 +41,6 @@ namespace SL.Config
 
         /// <summary>The cached cue-name to Cue lookup, built on first access.</summary>
         private Dictionary<string, Cue> _cueByNameCache;
-
-        /// <summary>The cached cue lengths in Unity units, built on first access.</summary>
-        private float[] _cueLengthsUnityCache;
 
         /// <summary>The cached segment lengths in Unity units, built on first access.</summary>
         private float[] _segmentLengthsUnityCache;
@@ -73,24 +62,10 @@ namespace SL.Config
             return _cueByNameCache ??= cues.ToDictionary(cue => cue.name, cue => cue);
         }
 
-        /// <summary>Returns cue lengths in Unity units as an array.</summary>
-        /// <returns>Cue lengths in Unity units, indexed to match the cue order.</returns>
-        public float[] GetCueLengthsUnity()
-        {
-            if (_cueLengthsUnityCache == null)
-            {
-                float cmPerUnit = vrEnvironment.cmPerUnityUnit;
-                _cueLengthsUnityCache = cues.Select(cue => cue.LengthUnity(cmPerUnit)).ToArray();
-            }
-            return _cueLengthsUnityCache;
-        }
-
         /// <summary>
         /// Returns the lengths of each trial's segment in Unity units, ordered by the trial_structures dictionary
-        /// iteration order. The returned array indexes positionally match the order of trial names returned by
-        /// <see cref="GetTrialNames"/>.
+        /// iteration order.
         /// </summary>
-        /// <returns>Segment lengths in Unity units, one entry per trial.</returns>
         public float[] GetSegmentLengthsUnity()
         {
             if (_segmentLengthsUnityCache == null)
@@ -104,10 +79,7 @@ namespace SL.Config
             return _segmentLengthsUnityCache;
         }
 
-        /// <summary>
-        /// Returns the trial names in the order they appear in the trial_structures dictionary. Used together
-        /// with <see cref="GetSegmentLengthsUnity"/> for positional indexing of trials.
-        /// </summary>
+        /// <summary>Returns the trial names in the order they appear in the trial_structures dictionary.</summary>
         /// <returns>Trial names in the trial_structures iteration order.</returns>
         public string[] GetTrialNames()
         {

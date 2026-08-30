@@ -8,10 +8,7 @@ using System.Text;
 namespace SL.Tests
 {
     /// <summary>Builds the YAML block for a single trial structure.</summary>
-    /// <remarks>
-    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
-    /// branches.
-    /// </remarks>
+    /// <remarks>A typed field set to null omits its YAML key entirely.</remarks>
     public sealed class TrialYaml
     {
         /// <summary>The trial name, which becomes the mapping key under trial_structures.</summary>
@@ -47,6 +44,7 @@ namespace SL.Tests
         /// <summary>Creates a trial block with the supplied name and cue sequence.</summary>
         /// <param name="trialName">The trial name used as the mapping key.</param>
         /// <param name="cues">The ordered cue names comprising the trial's segment.</param>
+        /// <returns>The trial block.</returns>
         public static TrialYaml Named(string trialName, params string[] cues)
         {
             return new TrialYaml { name = trialName, cueSequence = new List<string>(cues) };
