@@ -21,13 +21,13 @@ namespace SL.Tests
         private const string TexturesDirectoryName = "Textures";
 
         /// <summary>The root directory containing the Configurations and Textures pair.</summary>
-        public string RootPath { get; }
+        private string RootPath { get; }
 
         /// <summary>The directory that staged template YAML files are written into.</summary>
-        public string ConfigurationsPath { get; }
+        private string ConfigurationsPath { get; }
 
         /// <summary>The directory that staged cue texture files are written into.</summary>
-        public string TexturesPath { get; }
+        private string TexturesPath { get; }
 
         /// <summary>Creates the workspace directory tree under the system temporary directory.</summary>
         private TemplateWorkspace()
@@ -88,11 +88,7 @@ namespace SL.Tests
         }
 
         /// <summary>Writes a placeholder texture file so a cue's texture existence check resolves.</summary>
-        /// <remarks>
-        /// ConfigLoader checks only that the path exists, so the placeholder carries no image data. A test that
-        /// exercises the generation pipeline instead of the loader must point its cues at the project's real
-        /// textures, because importing a placeholder as a Texture2D fails.
-        /// </remarks>
+        /// <remarks>ConfigLoader checks only that the path exists, so the placeholder carries no image data.</remarks>
         /// <param name="fileName">The texture file name exactly as the cue's texture field spells it.</param>
         /// <returns>The absolute path of the written texture file.</returns>
         private string WriteTexture(string fileName)

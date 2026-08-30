@@ -134,12 +134,6 @@ namespace SL.Tests
             PrivateAccess.Invoke(StimulusZone, "Update");
         }
 
-        /// <summary>Runs the stimulus zone's Update alone.</summary>
-        public void TickStimulusZone()
-        {
-            PrivateAccess.Invoke(StimulusZone, "Update");
-        }
-
         /// <summary>Runs the occupancy zone's Update alone.</summary>
         public void TickOccupancyZone()
         {

@@ -5,10 +5,7 @@ using System.Text;
 namespace SL.Tests
 {
     /// <summary>Builds the YAML block for the VR corridor geometry configuration.</summary>
-    /// <remarks>
-    /// A typed field set to null omits its YAML key entirely, which is how a test reaches ConfigLoader's missing-field
-    /// branches.
-    /// </remarks>
+    /// <remarks>A typed field set to null omits its YAML key entirely.</remarks>
     public sealed class VrEnvironmentYaml
     {
         /// <summary>The horizontal spacing between corridors in centimeters, or null to omit the key.</summary>

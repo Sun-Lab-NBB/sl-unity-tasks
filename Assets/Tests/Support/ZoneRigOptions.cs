@@ -12,10 +12,10 @@ namespace SL.Tests
         public TriggerMode triggerMode = TriggerMode.Interaction;
 
         /// <summary>Determines whether a GuidanceZone child is attached under the stimulus zone.</summary>
-        public bool includeGuidanceZone = true;
+        internal bool includeGuidanceZone = true;
 
         /// <summary>Determines whether an OccupancyZone child is attached under the stimulus zone.</summary>
-        public bool includeOccupancyZone = false;
+        internal bool includeOccupancyZone = false;
 
         /// <summary>Determines whether an OccupancyGuidanceZone child is attached under the occupancy zone.</summary>
         public bool includeOccupancyGuidanceZone = false;

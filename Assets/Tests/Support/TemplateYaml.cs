@@ -8,8 +8,7 @@ namespace SL.Tests
     /// Builds a complete task template YAML document from mutable cue, environment, and trial blocks.
     /// </summary>
     /// <remarks>
-    /// The three top-level sections are individually suppressible and each carry raw override hooks, so a test also
-    /// reaches the branches a well-typed document cannot express.
+    /// Each of the three top-level sections is individually suppressible and carries its own raw override hooks.
     /// </remarks>
     public sealed class TemplateYaml
     {
@@ -67,7 +66,7 @@ namespace SL.Tests
 
         /// <summary>Returns every distinct texture file name the cue blocks reference.</summary>
         /// <returns>The referenced texture file names, with duplicates and omitted names removed.</returns>
-        public IEnumerable<string> ReferencedTextureNames()
+        internal IEnumerable<string> ReferencedTextureNames()
         {
             HashSet<string> names = new HashSet<string>();
             foreach (CueYaml cue in cues)
