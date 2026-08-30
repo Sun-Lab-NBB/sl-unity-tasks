@@ -358,6 +358,22 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(MQTTTopics.Interaction, interactionChannel.topic);
         }
 
+        /// <summary>Verifies that the simulated treadmill's Interaction channel receives no message it publishes.
+        /// </summary>
+        [Test]
+        public void Start_SimulatedTreadmill_OpensTheInteractionChannelWithoutSubscribing()
+        {
+            SimulatedLinearTreadmill treadmill = NewController<SimulatedLinearTreadmill>("Simulated Linear");
+            PrivateAccess.Invoke(treadmill, "Start");
+            MQTTChannel interactionChannel = PrivateAccess.GetField<MQTTChannel>(treadmill, "_interactionTrigger");
+            bool received = false;
+            interactionChannel.receivedEvent.AddListener(() => received = true);
+
+            _mqtt.PublishTrigger(MQTTTopics.Interaction);
+
+            Assert.IsFalse(received);
+        }
+
         /// <summary>Verifies that the simulated treadmill leaves the hardware Motion subscription unopened.</summary>
         [Test]
         public void Start_SimulatedTreadmill_LeavesTheMotionSubscriptionUnopened()

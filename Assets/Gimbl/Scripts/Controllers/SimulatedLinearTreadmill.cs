@@ -25,7 +25,7 @@ namespace Gimbl
         {
             _input = new SimulatedInput();
             _input.Enable();
-            _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction);
+            _interactionTrigger = new MQTTChannel(MQTTTopics.Interaction, isListener: false);
         }
 
         /// <summary>Processes simulated input and movement each frame, with spacebar presses as interactions.</summary>
