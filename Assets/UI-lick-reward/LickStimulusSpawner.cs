@@ -29,9 +29,8 @@ namespace SL.UI
         /// <summary>The number of lick indicators awaiting instantiation on the next Update.</summary>
         /// <remarks>
         /// The broker delivery path invokes the channel callback on an MQTTnet worker thread while Update reads the
-        /// count on the main thread, so every access goes through <see cref="Interlocked"/> or
-        /// <see cref="Volatile"/>. A count rather than a flag renders one indicator per event when several events
-        /// land inside a single frame.
+        /// count on the main thread, so every access goes through <see cref="Interlocked"/> or <see cref="Volatile"/>.
+        /// Each pending event renders its own indicator when several land inside a single frame.
         /// </remarks>
         private int _pendingLickCount;
 
@@ -119,8 +118,7 @@ namespace SL.UI
             }
         }
 
-        /// <summary>Reports an unassigned canvas or prefab once, naming the indicator that cannot be spawned.
-        /// </summary>
+        /// <summary>Reports an unassigned canvas or prefab once, naming the indicator that cannot be spawned.</summary>
         /// <remarks>
         /// Update retries every frame for as long as an indicator stays pending, so the report is emitted once to
         /// keep a single misconfiguration from filling the console.
