@@ -2,6 +2,7 @@
 # Purpose: Introduces pseudorandom connections between segments ABC and DEFG.
 # Layout:  Segments ABC and ABCA with the rewarding stimulus (water) trigger zone in cue C.
 #          Segments DEFG and DEFGD with the rewarding stimulus (water) trigger zone in cue G.
+#          ABC repeats or advances to ABCA at 0.5 each, and DEFG repeats or advances to DEFGD at 0.5 each.
 #          ABCA always transitions to DEFG/D and DEFGD always transitions to ABC/A.
 # Related: SSO_Connection_Base (DEFG base training), SSO_Shared_Base_40cm (ABC base training)
 

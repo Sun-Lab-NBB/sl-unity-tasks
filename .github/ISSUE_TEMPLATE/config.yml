@@ -2,7 +2,7 @@ blank_issues_enabled: false
 contact_links:
   - name: Unity and asset skills
     url: https://github.com/Sun-Lab-NBB/sollertia/issues
-    about: Report issues with the unity and assets plugins distributed through the sollertia marketplace.
+    about: Report issues with the unity, assets, and experiment plugins distributed through the sollertia marketplace.
   - name: Shared development skills
     url: https://github.com/Sun-Lab-NBB/ataraxis/issues
     about: Report issues with the automation plugin distributed through the ataraxis marketplace.

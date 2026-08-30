@@ -20,7 +20,7 @@ body:
         project.
       placeholder: |-
         OS: Windows 11
-        Unity: 6000.3.15f1
+        Unity: 6000.3.23f1
         Platform: Windows Standalone
     validations:
       required: true
@@ -40,9 +40,9 @@ body:
       description: >-
         The minimal sequence of commands or code that reproduces the bug, starting from a clean project state.
       placeholder: |-
-        1. Install the project into a clean environment.
-        2. Call the failing command or function with the arguments that trigger the bug.
-        3. Observe the error reported in the Output section.
+        1. Import the project into Unity Hub and open the scene that exhibits the bug.
+        2. Run the CreateTask menu action or the MCP relay call that triggers the bug.
+        3. Observe the error reported in the Unity Console and copy it into the Output section.
     validations:
       required: true
 
@@ -50,7 +50,7 @@ body:
     id: output
     attributes:
       label: Output
-      description: The complete terminal output, traceback, or device log produced by the failing command.
+      description: The complete Unity Console output and the Player log produced by the failing action.
       render: text
 
   - type: checkboxes
