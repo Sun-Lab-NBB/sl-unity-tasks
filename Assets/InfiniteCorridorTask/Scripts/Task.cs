@@ -271,8 +271,8 @@ namespace SL.Tasks
 
             (_segmentSequenceArray, _cueSequenceArray) = GenerateRandomMaze(trackLength, trackSeed);
 
-            // A sequence shorter than the corridor depth leaves the first corridor lookup keyed on a partial digit
-            // string, which resolves to a corridor whose cues do not match the published cue sequence.
+            // A sequence shorter than the corridor depth keys the first corridor lookup on a partial base-_trialCount
+            // encoding, which resolves to a corridor whose cues do not match the published cue sequence.
             if (_segmentSequenceArray.Length < _depth)
             {
                 string message =

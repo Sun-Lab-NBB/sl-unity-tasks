@@ -9,8 +9,8 @@ namespace SL.Tasks
     public static class Utility
     {
         /// <summary>
-        /// Calculates the z-axis length of a prefab by combining the bounds of every Renderer on the prefab and
-        /// its children.
+        /// Calculates the z-axis length of a prefab by combining the bounds of every Renderer on the prefab and its
+        /// active children. A renderer under a deactivated object stays outside the combined bounds.
         /// </summary>
         /// <param name="prefab">The root object whose own and child renderers bound the measurement.</param>
         /// <returns>The z-axis size of the combined bounds, or 0 when the prefab carries no renderers.</returns>

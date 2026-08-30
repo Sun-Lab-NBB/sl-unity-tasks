@@ -8,7 +8,8 @@ namespace SL.Config
 {
     /// <summary>
     /// Defines the spatial configuration of a trial structure for Unity prefabs.
-    /// Contains the trial's cue sequence, zone positions, optional transition probabilities, and visibility settings.
+    /// Contains the trial's cue sequence, zone positions, trigger type, occupancy duration, optional transition
+    /// probabilities, and visibility settings.
     /// Mirrors the TrialStructure class from sollertia-shared-assets vr_configuration module.
     /// </summary>
     [Serializable]
@@ -31,7 +32,10 @@ namespace SL.Config
 
         /// <summary>
         /// Determines whether the stimulus collision boundary is visible to the animal during this trial type.
-        /// When true, the boundary marker is displayed in the VR environment at the stimulus location.
+        /// When true, Unity enables the MeshRenderer on the trigger zone root, so the marker sits wherever the trigger
+        /// type places that root. A collision trial anchors the root's leading edge on the stimulus location. An
+        /// interaction trial places the root at the trigger-zone midpoint, and an occupancy trial offsets it from the
+        /// stimulus location by half the zone length.
         /// </summary>
         public bool showStimulusCollisionBoundary = false;
 
@@ -55,9 +59,10 @@ namespace SL.Config
 
         /// <summary>
         /// The optional probability distribution over the trial names that may follow this trial during corridor
-        /// traversal. Keys must reference other trial names defined on the same TaskTemplate. If provided, the
-        /// values must sum to 1.0. Sparse: omitted keys carry implicit zero probability. When null or empty, the
-        /// Task samples the next trial uniformly at random over all defined trial names.
+        /// traversal. Keys must reference trial names defined on the same TaskTemplate, the trial's own name included,
+        /// which is how a template holds a trial across laps. If provided, the values must sum to 1.0. Sparse: omitted
+        /// keys carry implicit zero probability. When null or empty, the Task samples the next trial uniformly at
+        /// random over all defined trial names.
         /// </summary>
         public Dictionary<string, float> transitions;
 

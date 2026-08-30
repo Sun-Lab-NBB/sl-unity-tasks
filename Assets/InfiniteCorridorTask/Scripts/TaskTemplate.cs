@@ -33,8 +33,8 @@ namespace SL.Config
 
         /// <summary>
         /// The dictionary of trial structures mapping trial names to their spatial configurations.
-        /// Keys are trial names (e.g., 'ABC'), values contain the cue sequence, zone positions, transitions,
-        /// and visibility settings.
+        /// Keys are trial names (e.g., 'ABC'), values contain the cue sequence, zone positions, trigger type,
+        /// occupancy duration, transitions, and visibility settings.
         /// </summary>
         public Dictionary<string, TrialStructure> trialStructures;
 

@@ -17,9 +17,9 @@ namespace SL.Config
         private const double ProbabilitySumTolerance = 0.001;
 
         /// <summary>
-        /// Matches the template and trial names that are safe to embed in generated segment prefab filenames.
-        /// Restricts both halves to ASCII letters, digits, and underscores so the ``TemplateName-TrialName`` segment
-        /// naming scheme cannot be corrupted by path separators, whitespace, or punctuation introduced in a template.
+        /// Matches the template, cue, and trial names embedded in generated asset filenames. Restricts each name to
+        /// ASCII letters, digits, and underscores, so the ``TemplateName-TrialName`` segment scheme, the
+        /// ``Cue_{name}_{length}cm`` cue assets, and the space-joined cue sequence signature all stay unambiguous.
         /// </summary>
         /// <remarks>
         /// Excluding the hyphen from both halves is what makes the joined filename unambiguous, because a segment
@@ -33,10 +33,11 @@ namespace SL.Config
         /// <exception cref="FileNotFoundException">
         /// The template file at <paramref name="filePath"/> does not exist.
         /// </exception>
-        /// <exception cref="FormatException">
-        /// The YAML file cannot be deserialized into a <see cref="TaskTemplate"/>.
+        /// <exception cref="FormatException">The YAML document body deserializes to null.</exception>
+        /// <exception cref="InvalidDataException">
+        /// The template filename stem falls outside the allowed character set, or the parsed template fails validation.
         /// </exception>
-        /// <exception cref="InvalidDataException">The parsed template fails validation.</exception>
+        /// <exception cref="YamlDotNet.Core.YamlException">The deserializer rejects a malformed YAML file.</exception>
         public static TaskTemplate LoadTemplate(string filePath)
         {
             if (!File.Exists(filePath))
@@ -328,8 +329,10 @@ namespace SL.Config
 
         /// <summary>Validates the VR environment's corridor geometry scalars.</summary>
         /// <remarks>
-        /// Every field here divides or sizes downstream geometry, so a non-positive or non-finite value produces an
-        /// infinite segment length, a zero-depth corridor, or a maze generation loop that never terminates.
+        /// The segments_per_corridor, cm_per_unity_unit, and corridor_spacing_cm scalars divide or size downstream
+        /// geometry, so a non-positive or non-finite value produces an infinite segment length, a zero-depth corridor,
+        /// or a maze generation loop that never terminates. cue_offset_cm only has to be finite, because it shifts the
+        /// segment origin in either direction.
         /// </remarks>
         /// <param name="environment">The VR environment block to validate.</param>
         /// <exception cref="InvalidDataException">A corridor geometry scalar is out of range.</exception>
