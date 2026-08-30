@@ -975,9 +975,19 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Verifies that delete_task rejects a template whose scene is a protected asset.</summary>
+        /// <remarks>
+        /// The per-scene companion is generated rather than committed, so a clean checkout carries none while a
+        /// working project may hold one an Editor session produced. Staging it only when it is absent gives the
+        /// survival assertion something to observe on every machine, and it keeps the teardown from removing a
+        /// companion the fixture did not create.
+        /// </remarks>
         [Test]
         public void DeleteTask_ProtectedTemplateScene_RefusesWithoutDeletingAnything()
         {
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(TemplateCompanionPath) == null)
+            {
+                CreateCompanionAsset("ExperimentTemplate");
+            }
             Dictionary<string, object> arguments = BuildArguments("template_name", "ExperimentTemplate");
 
             Dictionary<string, object> response = CallTool("delete_task", arguments);
