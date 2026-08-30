@@ -328,7 +328,6 @@ namespace SL.Tests.EditMode
         /// <param name="width">The width in pixels.</param>
         /// <param name="height">The height in pixels.</param>
         /// <param name="pixelsPerPoint">The DPI scale assigned to the record after construction.</param>
-        /// <returns>The constructed monitor record.</returns>
         private static Monitor CreateMonitor(int left, int top, int width, int height, float pixelsPerPoint)
         {
             Monitor monitor = (Monitor)

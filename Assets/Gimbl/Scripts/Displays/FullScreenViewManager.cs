@@ -146,7 +146,7 @@ namespace Gimbl
         /// <summary>Saves camera assignments to the scene's asset file.</summary>
         /// <remarks>
         /// No-ops when <see cref="_savedFullScreenViews"/> is null, which happens only when <see cref="LoadCameras"/>
-        /// skips the asset create on an untitled active scene, leaving no destination path to write to. Also no-ops
+        /// skips the asset create on an untitled active scene, leaving no destination path for the write. Also no-ops
         /// when no monitors are detected, because a list rebuilt from zero monitors would overwrite the persisted
         /// camera assignments with an empty list.
         /// </remarks>
@@ -337,7 +337,6 @@ namespace Gimbl
 
         /// <summary>Returns the full hierarchy path name for a GameObject.</summary>
         /// <param name="gameObject">The object whose root-to-leaf hierarchy path is resolved.</param>
-        /// <returns>The full hierarchy path from root to the GameObject.</returns>
         private static string PathName(GameObject gameObject)
         {
             GameObject walker = gameObject;

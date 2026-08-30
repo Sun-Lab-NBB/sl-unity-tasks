@@ -19,11 +19,11 @@ namespace Gimbl
         /// <summary>The GameObject representing the physical projection screen.</summary>
         public GameObject projectionScreen;
 
-        /// <summary>The display object this projection belongs to.</summary>
+        /// <summary>The display object that owns this projection.</summary>
         [FormerlySerializedAs("dispObj")]
         public Gimbl.DisplayObject displayObject;
 
-        /// <summary>Determines whether to estimate view frustum for culling.</summary>
+        /// <summary>Determines whether to estimate the view frustum for culling.</summary>
         public bool estimateViewFrustum = true;
 
         /// <summary>Determines whether to automatically set the near clip plane.</summary>
@@ -40,10 +40,10 @@ namespace Gimbl
         /// </summary>
         private string _meshType;
 
-        /// <summary>The mesh filter of the projection screen the mesh type was last read from.</summary>
+        /// <summary>The mesh filter that supplied the last mesh type read from the projection screen.</summary>
         private MeshFilter _screenMeshFilter;
 
-        /// <summary>The screen mesh the cached mesh type was read from.</summary>
+        /// <summary>The screen mesh that supplied the cached mesh type.</summary>
         private Mesh _resolvedMesh;
 
         /// <summary>The camera component for this projection.</summary>
@@ -69,7 +69,7 @@ namespace Gimbl
         }
 
         /// <summary>Calculates and applies the off-axis projection matrix.</summary>
-        public void UpdateView()
+        private void UpdateView()
         {
             if (projectionScreen == null)
             {
@@ -202,6 +202,7 @@ namespace Gimbl
         /// <param name="nearClipDistance">The distance to the near clip plane in Unity units.</param>
         /// <param name="farClipDistance">The distance to the far clip plane in Unity units.</param>
         /// <param name="eyeToScreenDistance">The perpendicular distance from the camera to the screen plane.</param>
+        /// <returns>The off-axis perspective projection matrix in glFrustum layout.</returns>
         private static Matrix4x4 BuildProjectionMatrix(
             Vector3 screenRightAxis,
             Vector3 screenUpAxis,
@@ -252,6 +253,7 @@ namespace Gimbl
         /// <param name="screenUpAxis">The unit vector along the screen's vertical edge in world space.</param>
         /// <param name="screenNormal">The vector pointing out of the screen surface in world space.</param>
         /// <param name="eyePosition">The world-space position of the camera.</param>
+        /// <returns>The composed world-to-camera matrix.</returns>
         private static Matrix4x4 BuildViewMatrix(
             Vector3 screenRightAxis,
             Vector3 screenUpAxis,

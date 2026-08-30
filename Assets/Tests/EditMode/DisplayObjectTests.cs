@@ -11,10 +11,6 @@ using UnityEngine.TestTools;
 namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the DisplayObject class.</summary>
-    /// <remarks>
-    /// Everything reachable without touching project assets is covered: the default brightness, the actor attachment,
-    /// the eye height offset, the actor layer culling, the detach path, and the absent model prefab failure.
-    /// </remarks>
     [TestFixture]
     public class DisplayObjectTests
     {

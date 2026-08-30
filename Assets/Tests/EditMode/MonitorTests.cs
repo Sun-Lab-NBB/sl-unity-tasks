@@ -380,14 +380,14 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(0, result.Count);
         }
 
-        /// <summary>Returns the pre-compiled xrandr pattern the Linux enumeration path parses with.</summary>
+        /// <summary>Returns the pre-compiled xrandr pattern that the Linux enumeration path uses.</summary>
         /// <returns>The Linux monitor pattern.</returns>
         private static Regex LinuxPattern()
         {
             return PrivateAccess.GetStaticField<Regex>(typeof(Monitor), "LinuxMonitorRegex");
         }
 
-        /// <summary>Returns the pre-compiled displayplacer pattern the macOS enumeration path parses with.</summary>
+        /// <summary>Returns the pre-compiled displayplacer pattern that the macOS enumeration path uses.</summary>
         /// <returns>The macOS monitor pattern.</returns>
         private static Regex MacOsPattern()
         {
@@ -427,7 +427,7 @@ namespace SL.Tests.EditMode
             Assert.AreEqual(top.ToString(CultureInfo.InvariantCulture), match.Groups[4].Value);
         }
 
-        /// <summary>Joins the supplied lines with the Unix line separator, without indenting any of them.</summary>
+        /// <summary>Joins the supplied lines with the Unix line separator.</summary>
         /// <param name="lines">The output lines to join.</param>
         /// <returns>The joined command output.</returns>
         private static string JoinLines(params string[] lines)

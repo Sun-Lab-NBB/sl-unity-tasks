@@ -153,7 +153,7 @@ namespace Gimbl
 
         /// <summary>
         /// Spawns a subprocess, reads its stdout to completion, and appends every parsed monitor match to
-        /// <paramref name="result"/>. Used by the Linux and macOS branches of <see cref="EnumerateMonitors"/>.
+        /// <paramref name="result"/>.
         /// </summary>
         /// <param name="command">The executable to invoke (full path or PATH-resolved name).</param>
         /// <param name="arguments">The command-line arguments passed to <paramref name="command"/>.</param>
