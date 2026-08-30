@@ -434,8 +434,6 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a tracked GameObject that teardown destroys.</summary>
-        /// <param name="objectName">The name assigned to the created object.</param>
-        /// <returns>The created object.</returns>
         private GameObject NewObject(string objectName)
         {
             GameObject created = new GameObject(objectName);
@@ -445,24 +443,19 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a tracked actor GameObject carrying an ActorObject component.</summary>
         /// <param name="actorName">The name assigned to the actor object, which selects its render layer.</param>
-        /// <returns>The created actor component.</returns>
         private ActorObject NewActor(string actorName)
         {
             return NewObject(actorName).AddComponent<ActorObject>();
         }
 
         /// <summary>Creates a tracked display GameObject carrying a DisplayObject component.</summary>
-        /// <param name="displayName">The name assigned to the display object.</param>
-        /// <returns>The created display component.</returns>
         private DisplayObject NewDisplay(string displayName)
         {
             return NewObject(displayName).AddComponent<DisplayObject>();
         }
 
         /// <summary>Creates a tracked controller output, optionally backed by a treadmill master.</summary>
-        /// <param name="outputName">The name assigned to the controller object.</param>
         /// <param name="withMaster">Determines whether a LinearTreadmill master is attached and linked.</param>
-        /// <returns>The created controller output.</returns>
         private ControllerOutput NewControllerOutput(string outputName, bool withMaster)
         {
             GameObject host = NewObject(outputName);
@@ -476,14 +469,12 @@ namespace SL.Tests.EditMode
 
         /// <summary>Creates a child object under an actor, tracked so teardown reaches it either way.</summary>
         /// <param name="actor">The actor receiving the child.</param>
-        /// <param name="childName">The name assigned to the child object.</param>
         private void NewChild(ActorObject actor, string childName)
         {
             NewObject(childName).transform.SetParent(actor.transform);
         }
 
         /// <summary>Returns the scene's Actors root, creating a tracked one when the open scene lacks it.</summary>
-        /// <returns>The Actors root object.</returns>
         private GameObject EnsureActorsRoot()
         {
             GameObject existing = GameObject.Find("Actors");
@@ -514,7 +505,9 @@ namespace SL.Tests.EditMode
             return usedDisplays;
         }
 
-        /// <summary>Returns the lowest display index not present in the claimed set, or seven when none is.</summary>
+        /// <summary>
+        /// Returns the lowest display index absent from the claimed set, or seven when the set claims every index.
+        /// </summary>
         /// <param name="usedDisplays">The claimed display indices.</param>
         /// <returns>The expected display index for the next tracking camera.</returns>
         private static int LowestUnusedDisplay(List<int> usedDisplays)

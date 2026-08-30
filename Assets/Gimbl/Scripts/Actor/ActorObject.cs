@@ -84,7 +84,7 @@ namespace Gimbl
 #if UNITY_EDITOR
         /// <summary>Initializes a new actor with the specified model and optional tracking camera.</summary>
         /// <param name="modelName">The name of the model prefab to load, or "None" for no model.</param>
-        /// <param name="trackCamera">If true, creates a tracking camera for this actor.</param>
+        /// <param name="trackCamera">Determines whether to create a tracking camera for this actor.</param>
         public void InitiateActor(string modelName, bool trackCamera)
         {
             gameObject.transform.SetParent(GameObject.Find("Actors").transform);
@@ -143,15 +143,13 @@ namespace Gimbl
         }
 
         /// <summary>Swaps the actor's model prefab in place.</summary>
+        /// <remarks>
+        /// Assigns the actor's render layer to the new model so the actor's own view does not include its own mesh.
+        /// </remarks>
         /// <param name="modelName">
         /// The name of the model prefab under <c>Resources/Actors/Prefabs/</c>, or "None" to leave the actor
         /// without a visible model.
         /// </param>
-        /// <remarks>
-        /// Destroys any existing <c>Model *</c> children before instantiating the new prefab so swap operations
-        /// leave a single model child. Assigns the actor's render layer to the new model so the actor's own
-        /// view does not include its own mesh.
-        /// </remarks>
         public void SetModel(string modelName)
         {
             for (int i = transform.childCount - 1; i >= 0; i--)
