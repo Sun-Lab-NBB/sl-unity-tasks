@@ -18,10 +18,10 @@ namespace SL.Tests.PlayMode
 {
     /// <summary>Verifies the behavior of the Task class under the real Unity player loop.</summary>
     /// <remarks>
-    /// Unity itself drives Awake, Start, and Update here, and every corridor advance happens across real frames. That
-    /// is what separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through
-    /// reflection. Reflection cannot observe the ordering the engine imposes, a component that stops receiving Update
-    /// once it is disabled, or a teleport that lands between two consecutive frames.
+    /// Unity itself drives Start and Update here, and every corridor advance happens across real frames. That is what
+    /// separates this fixture from the Edit Mode TaskTests, which invokes the same callbacks through reflection.
+    /// Reflection cannot observe the ordering the engine imposes, a component that stops receiving Update once it is
+    /// disabled, or a teleport that lands between two consecutive frames.
     /// </remarks>
     [TestFixture]
     public class TaskPlayModeTests

@@ -98,7 +98,7 @@ namespace SL.Tests.EditMode
         /// <summary>The name of the second trial the multi-trial test templates declare.</summary>
         private const string SecondTrialName = "T2";
 
-        /// <summary>The centimeters represented by one Unity unit in every generated test template.</summary>
+        /// <summary>The centimeters represented by one Unity unit in the shared test template baseline.</summary>
         private const float CmPerUnityUnit = 10f;
 
         /// <summary>The horizontal corridor spacing in centimeters in every generated test template.</summary>
@@ -134,7 +134,10 @@ namespace SL.Tests.EditMode
         /// <summary>The occupancy duration in milliseconds the occupancy test templates declare.</summary>
         private const float OccupancyDurationMs = 750f;
 
-        /// <summary>The absolute tolerance applied to every generated geometry comparison.</summary>
+        /// <summary>
+        /// The absolute tolerance for generated vector component comparisons, with AssertRotation carrying its own
+        /// rotation tolerance.
+        /// </summary>
         private const float GeometryTolerance = 0.0001f;
 
         /// <summary>Removes any leftover test assets so a previously aborted run cannot bias this test.</summary>
@@ -1527,7 +1530,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>Creates a cue document block carrying the supplied identity and texture.</summary>
-        /// <param name="cueName">The identity the cue prefab and material are keyed by.</param>
+        /// <param name="cueName">The cue name, which together with the length keys the cue prefab and material.</param>
         /// <param name="cueCode">The cue byte code.</param>
         /// <param name="lengthCm">The cue length in centimeters.</param>
         /// <param name="textureName">The cue texture filename.</param>
@@ -1760,7 +1763,7 @@ namespace SL.Tests.EditMode
         }
 
         /// <summary>
-        /// Deletes every asset carrying one of the test filename prefixes from the folders generation writes to.
+        /// Deletes every asset carrying a test filename prefix from the fixture and generation output folders.
         /// </summary>
         /// <remarks>
         /// Sweeping by filename prefix rather than by a recorded list keeps a test that fails midway from stranding

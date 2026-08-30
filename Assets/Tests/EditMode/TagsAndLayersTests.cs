@@ -9,9 +9,10 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the TagsAndLayers class.</summary>
     /// <remarks>
-    /// Every test writes into the project's TagManager asset, so each name a test introduces carries the ZZTest prefix
-    /// and teardown removes every prefixed tag and layer. The assertions read the asset back through a separate
-    /// SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a failure.
+    /// Tests that add a tag or layer write into the project's TagManager asset, so each name a test introduces carries
+    /// the ZZTest prefix and teardown removes every prefixed tag and layer. The assertions read the asset back through
+    /// a separate SerializedObject rather than through the class under test, so a broken PropertyExists cannot mask a
+    /// failure.
     /// </remarks>
     [TestFixture]
     public class TagsAndLayersTests

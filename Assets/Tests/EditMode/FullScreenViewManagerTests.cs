@@ -13,8 +13,8 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the FullScreenViewManager class.</summary>
     /// <remarks>
-    /// The IMGUI entry points and the borderless window creation path need a real editor layout and a graphics device,
-    /// so they stay out of scope.
+    /// The IMGUI entry points and window creation need a real editor layout and a graphics device, so they stay out of
+    /// scope. ShowFullScreenViews is covered only where no monitor carries a camera assignment, so it opens no window.
     /// </remarks>
     [TestFixture]
     public class FullScreenViewManagerTests

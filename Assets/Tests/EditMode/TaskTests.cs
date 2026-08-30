@@ -17,9 +17,9 @@ namespace SL.Tests.EditMode
 {
     /// <summary>Verifies the behavior of the Task class.</summary>
     /// <remarks>
-    /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath), so every template a test
-    /// loads is staged inside the project's own Configurations directory under a "ZZTest_" name and deleted again in
-    /// TearDown.
+    /// Task.Start resolves its template as Path.Combine(Application.dataPath, configPath stripped of leading
+    /// separators), so every template a test loads is staged inside the project's own Configurations directory under a
+    /// "ZZTest_" name and deleted again in TearDown.
     /// </remarks>
     [TestFixture]
     public class TaskTests

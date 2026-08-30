@@ -12,8 +12,9 @@ namespace SL.Tests
     /// Assembles a Task and trigger zone hierarchy and exposes the transitions a test drives against it.
     /// </summary>
     /// <remarks>
-    /// The hierarchy mirrors the hand-authored StimulusTriggerZone and OccupancyTriggerZone prefabs, because every zone
-    /// resolves its collaborators through GetComponentInChildren or GetComponentInParent at Start. The drive methods
+    /// The hierarchy mirrors the hand-authored StimulusTriggerZone and OccupancyTriggerZone prefabs, because the child
+    /// and parent zone collaborators resolve through GetComponentInChildren and GetComponentInParent at Start. The Task
+    /// resolves scene-wide through FindAnyObjectByType, so the rig parks it anywhere in the scene. The drive methods
     /// invoke the private lifecycle and trigger callbacks directly, so an Edit Mode test advances the state machine one
     /// deterministic step at a time without a player loop or a physics tick. Every zone callback ignores its Collider
     /// argument, so the rig passes null.
@@ -107,7 +108,8 @@ namespace SL.Tests
         /// <summary>Runs each zone's Start in an order Unity is able to produce.</summary>
         /// <remarks>
         /// The occupancy zone starts first because its Start clears the per-lap state the occupancy guidance zone
-        /// reads, and the stimulus zone starts last because its Start resolves both child zones.
+        /// reads, and the stimulus zone starts last because its Start resolves its guidance, occupancy, and occupancy
+        /// guidance children.
         /// </remarks>
         public void StartComponents()
         {

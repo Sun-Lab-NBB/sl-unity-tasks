@@ -1346,7 +1346,7 @@ namespace SL.Tests.EditMode
             return companionPath;
         }
 
-        /// <summary>Stages an empty scene asset without disturbing the active scene.</summary>
+        /// <summary>Stages an empty scene asset and leaves a throwaway scene active in its place.</summary>
         /// <param name="scenePath">The project-relative path the scene is saved to.</param>
         /// <returns>The staged scene path.</returns>
         private string CreateSceneAsset(string scenePath)

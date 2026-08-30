@@ -21,10 +21,11 @@ namespace SL.Tests.EditMode
     /// <summary>Verifies the task parameter, scene snapshot, play state, and monitor handlers of McpBridge.</summary>
     /// <remarks>
     /// Every test drives the bridge through its Dispatch entry point or through the private handler that backs a tool,
-    /// against a scene the fixture builds from scratch, so no assertion depends on whichever scene happened to be open.
-    /// The FullScreenViewManager the bridge resolves is installed by the fixture with a synthetic monitor list. That
-    /// manager is either an open Parameters window's manager or one built without running the enumerating constructor,
-    /// so the camera mapping surface is deterministic and real monitor enumeration runs in the refresh test alone.
+    /// against a scene the fixture builds from scratch, or a named project scene the test opens itself. No assertion
+    /// depends on whichever scene happened to be open. The FullScreenViewManager the bridge resolves is installed by
+    /// the fixture with a synthetic monitor list. That manager is either an open Parameters window's manager or one
+    /// built without running the enumerating constructor, so the camera mapping surface is deterministic and real
+    /// monitor enumeration runs in the refresh tests alone.
     /// </remarks>
     [TestFixture]
     public class McpBridgeTaskParametersTests
@@ -266,7 +267,7 @@ namespace SL.Tests.EditMode
             Assert.IsNull(state["task"]);
         }
 
-        /// <summary>Verifies that an empty scene reports options carrying the None entry alone.</summary>
+        /// <summary>Verifies that the controller and camera options of an empty scene carry None alone.</summary>
         [Test]
         public void ReadTaskParameters_EmptyScene_ReportsOptionsCarryingNoneAlone()
         {

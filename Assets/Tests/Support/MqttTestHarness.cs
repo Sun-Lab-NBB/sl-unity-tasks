@@ -54,7 +54,7 @@ namespace SL.Tests
         }
 
         /// <summary>Returns every topic literal declared by <see cref="MQTTTopics"/>.</summary>
-        /// <returns>The topic literals, in declaration order.</returns>
+        /// <returns>The topic literals, in the order reflection reports them.</returns>
         public static IEnumerable<string> KnownTopics()
         {
             List<string> topics = new List<string>();

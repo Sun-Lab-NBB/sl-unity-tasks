@@ -19,8 +19,8 @@ namespace SL.Tests.PlayMode
     /// The Edit Mode zone suites invoke OnTriggerEnter, OnTriggerExit, Start, and Update through reflection, which
     /// makes the state machines deterministic but leaves three things unobservable. The first two are the trigger
     /// callbacks Unity's own physics raises when a Rigidbody-carrying actor sweeps through a trigger collider, and the
-    /// Stopwatch readings an occupancy requirement accumulates over wall-clock time. The third is the Awake and Start
-    /// ordering the engine imposes on a freshly created hierarchy. This fixture covers exactly those three.
+    /// Stopwatch readings an occupancy requirement accumulates over wall-clock time. The third is the Start ordering
+    /// the engine imposes on a freshly created hierarchy. This fixture covers exactly those three.
     /// </remarks>
     [TestFixture]
     public class ZonePlayModeTests

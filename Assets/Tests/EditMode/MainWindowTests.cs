@@ -893,15 +893,15 @@ namespace SL.Tests.EditMode
                 PrivateAccess.GetStaticField<object>(typeof(MainWindow), "CachedControllerSpecs");
         }
 
-        /// <summary>Returns every controller component present in the active scene.</summary>
-        /// <returns>The controllers found in the active scene.</returns>
+        /// <summary>Returns every active controller component in the loaded scenes.</summary>
+        /// <returns>The active controllers found in the loaded scenes.</returns>
         private static ControllerObject[] SceneControllers()
         {
             return UnityEngine.Object.FindObjectsByType<ControllerObject>(FindObjectsSortMode.None);
         }
 
-        /// <summary>Returns every controller output component present in the active scene.</summary>
-        /// <returns>The controller outputs found in the active scene.</returns>
+        /// <summary>Returns every active controller output component in the loaded scenes.</summary>
+        /// <returns>The active controller outputs found in the loaded scenes.</returns>
         private static ControllerOutput[] SceneControllerOutputs()
         {
             return UnityEngine.Object.FindObjectsByType<ControllerOutput>(FindObjectsSortMode.None);
